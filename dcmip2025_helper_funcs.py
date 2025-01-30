@@ -22,6 +22,9 @@ import torch
 
 sfno_levels = [50,100,150,200,250,300,400,500,600,700,850,925,1000]
 sfno_3dvars = ["U", "V", "Z", "T", "R"]
+sfno_2dvars = ["VAR_10U", "VAR_10V", "VAR_100U", "VAR_100V", "VAR_2T", "SP", "MSL", "TCW"]
+nlat = 721
+nlon = 1440
 
 def pack_sfno_state(
         ds : xr.Dataset,
@@ -190,7 +193,7 @@ def read_sfno_vars_from_era5_rda(
 
 def rda_era5_to_sfno_state(
         time : datetime.datetime,
-        device : str = "cuda:0",
+        device : str = "cpu",
         e5_base : str = "/glade/campaign/collections/rda/data/ds633.0/",
         ) -> np.ndarray:
     """ Fetches the ERA5 data for a specific time and packs it into a tensor for the SFNO model.
@@ -222,3 +225,190 @@ def rda_era5_to_sfno_state(
     x = pack_sfno_state(combined_xr, device=device)
 
     return x
+
+def initialize_sfno_xarray_ds(time, n_ensemble : int) -> xr.Dataset:
+    """ Initializes an xarray dataset for output from the SFNO model. 
+    
+    input:
+    -----
+
+    time : 
+        the time(s) to assign to the data
+
+    n_ensemble : int
+        the number of ensemble members
+    
+    output:
+    -------
+    ds : xr.Dataset
+        the initialized dataset
+    """
+
+    # create the dataset
+    ds = xr.Dataset()
+
+    # check if we need to put time into an array/list
+    try:
+        len(time)
+    except TypeError:
+        time = [time]
+
+    # create the coordinates
+    ds['time'] = xr.DataArray(time, dims='time')
+    ds['level'] = xr.DataArray(sfno_levels, dims='level')
+    ds['latitude'] = xr.DataArray(np.linspace(-90,90,nlat), dims='latitude')
+    ds['longitude'] = xr.DataArray(np.linspace(0,360,nlon), dims='longitude')
+    ds['ensemble'] = xr.DataArray(np.arange(n_ensemble), dims='ensemble')
+
+    # add metadata to the coordinates
+    ds['time'].attrs['long_name'] = 'time'
+    ds['level'].attrs['long_name'] = 'pressure level'
+    ds['latitude'].attrs['long_name'] = 'latitude'
+    ds['longitude'].attrs['long_name'] = 'longitude'
+    ds['ensemble'].attrs['long_name'] = 'ensemble member'
+    ds['level'].attrs['units'] = 'hPa'
+    ds['latitude'].attrs['units'] = 'degrees_north'
+    ds['longitude'].attrs['units'] = 'degrees_east'
+
+    return ds
+
+def set_sfno_xarray_metadata(ds : xr.Dataset, copy : bool = False) -> xr.Dataset:
+    """Sets the metadata for the SFNO model xarray dataset.
+    
+    input:
+    ------
+    ds : xr.Dataset
+        the dataset to set the metadata for
+
+    copy : bool
+        if True, the dataset is copied before setting the metadata
+
+    output:
+    -------
+    ds : xr.Dataset
+        the dataset with the metadata set
+    """
+    if copy:
+        # copy the dataset
+        ds = ds.copy()
+
+    # set metadata
+    all_vars = sfno_2dvars + sfno_3dvars
+    md = { v : {} for v in all_vars }
+    md['U']['long_name'] = 'zonal wind'
+    md['U']['units'] = 'm/s'
+    md['V']['long_name'] = 'meridional wind'
+    md['V']['units'] = 'm/s'
+    md['Z']['long_name'] = 'geopotential height'
+    md['Z']['units'] = 'm**2 s**-2'
+    md['T']['long_name'] = 'temperature'
+    md['T']['units'] = 'K'
+    md['R']['long_name'] = 'relative humidity'
+    md['R']['units'] = '%'
+    md['VAR_10U']['long_name'] = '10m zonal wind'
+    md['VAR_10U']['units'] = 'm/s'
+    md['VAR_10V']['long_name'] = '10m meridional wind'
+    md['VAR_10V']['units'] = 'm/s'
+    md['VAR_100U']['long_name'] = '100m zonal wind'
+    md['VAR_100U']['units'] = 'm/s'
+    md['VAR_100V']['long_name'] = '100m meridional wind'
+    md['VAR_100V']['units'] = 'm/s'
+    md['VAR_2T']['long_name'] = '2m temperature'
+    md['VAR_2T']['units'] = 'K'
+    md['SP']['long_name'] = 'surface pressure'
+    md['SP']['units'] = 'Pa'
+    md['MSL']['long_name'] = 'mean sea level pressure'
+    md['MSL']['units'] = 'Pa'
+    md['TCW']['long_name'] = 'total column water'
+    md['TCW']['units'] = 'kg/m^2'
+
+    # loop over the variables and set the metadata
+    for var in all_vars:
+        for attr, val in md[var].items():
+            ds[var].attrs[attr] = val
+
+    return ds
+
+def unpack_sfno_state(
+        x : torch.tensor,
+        time,
+        ) -> xr.Dataset:
+    """ Unpacks the SFNO model state tensor into an xarray dataset.
+
+    input:
+    ------
+
+    x : torch.Tensor
+
+    time :
+        the time(s) to assign to the data
+
+    
+    output:
+    -------
+
+    ds : xr.Dataset
+
+    """
+
+    # get the number of ensemble members
+    n_ensemble = x.shape[1]
+
+    # initialize the dataset
+    ds = initialize_sfno_xarray_ds(time, n_ensemble)
+
+    # loop over the 2D variables and insert them into the dataset
+    for i, var in enumerate(sfno_2dvars):
+        ds[var] = xr.DataArray(x[:,:,i,:,:].cpu().numpy(), dims=('time', 'ensemble', 'latitude', 'longitude'))
+
+    n2d = len(sfno_2dvars)
+    nlev = len(sfno_levels)
+    # loop over the 3D variables and insert them into the dataset
+    for j, var in enumerate(sfno_3dvars):
+        # get the indices for the current 3D variable
+        i1 = n2d + j*nlev
+        i2 = n2d + (j+1)*nlev
+
+        # load the 3D variables
+        ds[var] = xr.DataArray(x[:,:,i1:i2,:,:].cpu().numpy(), dims=('time', 'ensemble', 'level', 'latitude', 'longitude'))
+
+    return ds
+
+def create_empty_sfno_ds(
+        n_ensemble : int = 1,
+        time : datetime.datetime = datetime.datetime(1850,1,1),
+        ) -> xr.Dataset:
+    """ Initializes an empty xarray dataset for the SFNO model.
+
+    input:
+    ------
+
+    n_ensemble : int
+        the number of ensemble members
+
+    time : datetime.datetime
+        the time to assign to the data
+
+    output:
+    -------
+
+    ds : xr.Dataset
+        the initialized dataset
+    
+    """
+
+    # initialize the dataset
+    ds = initialize_sfno_xarray_ds(time, n_ensemble)
+
+    # loop over the 2D variables and insert empty arrays
+    for var in sfno_2dvars:
+        ds[var] = xr.DataArray(np.empty((1, n_ensemble, nlat, nlon)), dims=('time', 'ensemble', 'latitude', 'longitude'))
+
+    # loop over the 3D variables and insert empty arrays
+    for var in sfno_3dvars:
+        ds[var] = xr.DataArray(np.empty((1, n_ensemble, len(sfno_levels), nlat, nlon)), dims=('time', 'ensemble', 'level', 'latitude', 'longitude'))
+
+    # set the metadata
+    ds = set_sfno_xarray_metadata(ds)
+
+    return ds
