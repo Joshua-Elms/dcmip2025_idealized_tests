@@ -62,7 +62,7 @@ def pack_sfno_state(
     -------
 
     x : torch.Tensor
-        a tensor with dimensions (1, 1, 73, 721, 1440) containing the packed data (time = 1, ensemble = 1, channels = 73, lat = 721, lon = 1440)
+        a tensor with dimensions (1, 1, 73, 721, 1440) containing the packed data (ensemble = 1, time = 1, channels = 73, lat = 721, lon = 1440)
 
     The data are packed as follows:
 
@@ -90,22 +90,26 @@ def pack_sfno_state(
                     x3d = xr.concat((x3d, ds[var].sel(level=lev).drop_vars('level').squeeze()), dim = "n")
 
         # concatenate the 2d variables
-        x2d = ds["VAR_10U"]
-        x2d = xr.concat((x2d, ds["VAR_10V"]), dim = "n")
-        x2d = xr.concat((x2d, ds["VAR_100U"]), dim = "n")
-        x2d = xr.concat((x2d, ds["VAR_100V"]), dim = "n")
-        x2d = xr.concat((x2d, ds["VAR_2T"]), dim = "n")
-        x2d = xr.concat((x2d, ds["SP"]), dim = "n")
-        x2d = xr.concat((x2d, ds["MSL"]), dim = "n")
-        x2d = xr.concat((x2d, ds["TCW"]), dim = "n")
+        x2d = ds["VAR_10U"].squeeze()
+        x2d = xr.concat((x2d, ds["VAR_10V"].squeeze()), dim = "n")
+        x2d = xr.concat((x2d, ds["VAR_100U"].squeeze()), dim = "n")
+        x2d = xr.concat((x2d, ds["VAR_100V"].squeeze()), dim = "n")
+        x2d = xr.concat((x2d, ds["VAR_2T"].squeeze()), dim = "n")
+        x2d = xr.concat((x2d, ds["SP"].squeeze()), dim = "n")
+        x2d = xr.concat((x2d, ds["MSL"].squeeze()), dim = "n")
+        x2d = xr.concat((x2d, ds["TCW"].squeeze()), dim = "n")
 
         # concatenate the 2d and 3d variables
         x = xr.concat((x2d, x3d), dim = "n")
 
-    x = torch.from_numpy(x.values).to(device=device)
+    # convert to a torch array of type float32
+    x = torch.from_numpy(x.values).to(device=device).float()
 
     # add ensemble and time dimension
-    x = x[None, None, ...]
+    if len(x.shape) == 4:
+        x = x[None, ...]
+    elif len(x.shape) == 3:
+        x = x[None, None, ...]
 
     return x
 
@@ -331,7 +335,7 @@ def set_sfno_xarray_metadata(ds : xr.Dataset, copy : bool = False) -> xr.Dataset
 
 def unpack_sfno_state(
         x : torch.tensor,
-        time,
+        time = None,
         ) -> xr.Dataset:
     """ Unpacks the SFNO model state tensor into an xarray dataset.
 
@@ -354,12 +358,17 @@ def unpack_sfno_state(
     # get the number of ensemble members
     n_ensemble = x.shape[1]
 
+    # deal with default time
+    if time is None:
+        n_time = x.shape[0]
+        time = [datetime.datetime(1850,1,1) + datetime.timedelta(hours=i*6) for i in range(n_time)]
+
     # initialize the dataset
     ds = initialize_sfno_xarray_ds(time, n_ensemble)
 
     # loop over the 2D variables and insert them into the dataset
     for i, var in enumerate(sfno_2dvars):
-        ds[var] = xr.DataArray(x[:,:,i,:,:].cpu().numpy(), dims=('time', 'ensemble', 'latitude', 'longitude'))
+        ds[var] = xr.DataArray(x[:,:,i,:,:].flip(-2).cpu().numpy(), dims=('time', 'ensemble', 'latitude', 'longitude'))
 
     n2d = len(sfno_2dvars)
     nlev = len(sfno_levels)
@@ -370,7 +379,7 @@ def unpack_sfno_state(
         i2 = n2d + (j+1)*nlev
 
         # load the 3D variables
-        ds[var] = xr.DataArray(x[:,:,i1:i2,:,:].cpu().numpy(), dims=('time', 'ensemble', 'level', 'latitude', 'longitude'))
+        ds[var] = xr.DataArray(x[:,:,i1:i2,:,:].flip(-2).cpu().numpy(), dims=('time', 'ensemble', 'level', 'latitude', 'longitude'))
 
     return ds
 
