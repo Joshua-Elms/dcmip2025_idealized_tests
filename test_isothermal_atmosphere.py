@@ -1,3 +1,4 @@
+import xarray as xr
 import datetime as dt
 import torch
 import numpy as np
@@ -11,8 +12,19 @@ dotenv.load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 
-def generate_isothermal_atmosphere_at_rest():
+def generate_isothermal_atmosphere_at_rest(
+        account_for_topography = True,
+):
     """" Generates an SFNO-compatible xarray for an isothermal atmosphere at rest. """
+
+    # set some constants
+    g = 9.81 # m/s^2
+    R_d = 287.0 # J/kg/K
+
+    # set parameters
+    T = 300.0 # atmospheric temperature [K]
+    p0 = 100000.0 # surface pressure at sea level [Pa]
+    H = R_d*T/g # scale height [m]
  
     # initialize an sfno xarray
     isothermal_ds = dcmip.create_empty_sfno_ds()
@@ -27,32 +39,38 @@ def generate_isothermal_atmosphere_at_rest():
     isothermal_ds["VAR_100V"][:] = 0.0
     isothermal_ds["TCW"][:] = 0.0
 
-    temp = 300.0
-    isothermal_ds["T"][:] = temp
+    isothermal_ds["T"][:] = T
     isothermal_ds["VAR_2T"][:] = 0.0
 
-    # surface pressure
-    p0 = 100000.0
-    isothermal_ds["SP"][:] = p0
+    if account_for_topography:
+        # get the topography
+        topo_file = "/glade/campaign/collections/rda/data/ds633.0/e5.oper.invariant/197901/e5.oper.invariant.128_129_z.ll025sc.1979010100_1979010100.nc"
+        topo_xr = xr.open_dataset(topo_file, chunks = -1).squeeze()
+        zs = topo_xr["Z"].values/g
+
+        # replace the latitude/longitude coordinate of zs with that from the initialized xarray
+        #zs = zs.assign_coords(latitude=isothermal_ds["latitude"], longitude=isothermal_ds["longitude"]).drop_vars("time")
+    else:
+        zs = np.zeros_like(isothermal_ds["SP"].values)
+
+    # set surface pressure based on topography
+    ps = p0*np.exp(-zs/H)
+    isothermal_ds["SP"][:] = ps
+    # set mean sea level pressure
     isothermal_ds["MSL"][:] = p0
 
     # infer the geopotential height
     p_lev = np.array(dcmip.sfno_levels)*100.0
-    g = 9.81 # m/s^2
-    R_d = 287.0 # J/kg/K
-    T = temp
-    H = R_d*T/g
-    z = H*np.log(p0/p_lev)
-    isothermal_ds["Z"][:] = z[np.newaxis, np.newaxis, :, np.newaxis, np.newaxis]
+    z = H*np.log(ps[np.newaxis,:,:]/p_lev[:,np.newaxis,np.newaxis])
+    isothermal_ds["Z"][:] = z[np.newaxis, np.newaxis, ...]
 
     return isothermal_ds
 
 # load the model
 device = "cuda:0"
 #device = "cpu"
-model_name = "fcnv2_sm"
 print("Loading model.")
-model = networks.get_model(model_name).to(device)
+model = networks.get_model("fcnv2_sm").to(device)
 print("Model loaded.")
 
 print("Initializing model.")
@@ -60,21 +78,21 @@ print("Initializing model.")
 ds = generate_isothermal_atmosphere_at_rest()
 # put the initial condition into a format compatible with the SFNO
 x = dcmip.pack_sfno_state(ds, device=device)
+print("Model initialized.")
 
 # run the model
 data_list = []
-print("Model initialized.")
 iterator = model(dt.datetime(1850,1,1), x)
 for k, (time, data, _) in enumerate(iterator):
     print(f"Step {k+1} completed.")
     data_list.append(data)
-    if k == 1:
+    if k == 5:
         break
 
-# stack the data
+# stack the output data by time
 data = torch.stack(data_list)
 
-# unpack the data
+# unpack the data into an xarray object
 ds = dcmip.unpack_sfno_state(data)
 
 # save the data
