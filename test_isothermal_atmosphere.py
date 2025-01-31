@@ -48,8 +48,6 @@ def generate_isothermal_atmosphere_at_rest(
         topo_xr = xr.open_dataset(topo_file, chunks = -1).squeeze()
         zs = topo_xr["Z"].values/g
 
-        # replace the latitude/longitude coordinate of zs with that from the initialized xarray
-        #zs = zs.assign_coords(latitude=isothermal_ds["latitude"], longitude=isothermal_ds["longitude"]).drop_vars("time")
     else:
         zs = np.zeros_like(isothermal_ds["SP"].values)
 
