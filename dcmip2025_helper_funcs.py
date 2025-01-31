@@ -199,7 +199,7 @@ def rda_era5_to_sfno_state(
         time : datetime.datetime,
         device : str = "cpu",
         e5_base : str = "/glade/campaign/collections/rda/data/ds633.0/",
-        ) -> np.ndarray:
+        ) -> torch.tensor:
     """ Fetches the ERA5 data for a specific time and packs it into a tensor for the SFNO model.
 
     input:
