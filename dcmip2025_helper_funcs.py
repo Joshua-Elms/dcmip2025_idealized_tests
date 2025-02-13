@@ -50,7 +50,7 @@ def pack_sfno_state(
         - SP : (time, latitude, longitude) float32
         - MSL : (time, latitude, longitude) float32
         - TCW : (time, latitude, longitude) float32
-        - T2M : (time, latitude, longitude) float32
+        - T2M : (time, latitude, longitude) float32 >MOD< betting copilot snuck this one in
 
         Note that the following specific levels are expected to be available: 
         [50,100,150,200,250,300,400,500,600,700,850,925,1000] 
