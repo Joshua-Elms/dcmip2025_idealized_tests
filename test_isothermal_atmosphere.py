@@ -60,7 +60,7 @@ def generate_isothermal_atmosphere_at_rest(
     # infer the geopotential height
     p_lev = np.array(dcmip.sfno_levels)*100.0
     z = H*np.log(ps[np.newaxis,:,:]/p_lev[:,np.newaxis,np.newaxis])
-    isothermal_ds["Z"][:] = z[np.newaxis, np.newaxis, ...]
+    isothermal_ds["Z"][:] = z
 
     return isothermal_ds
 
@@ -73,7 +73,7 @@ print("Model loaded.")
 
 print("Initializing model.")
 # generate the initial condidtion
-ds = generate_isothermal_atmosphere_at_rest()
+ds = generate_isothermal_atmosphere_at_rest(account_for_topography=False)
 # put the initial condition into a format compatible with the SFNO
 x = dcmip.pack_sfno_state(ds, device=device)
 print("Model initialized.")

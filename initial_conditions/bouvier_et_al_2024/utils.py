@@ -1,0 +1,274 @@
+import numpy as np
+import pandas as pd
+import xarray as xr
+from pathlib import Path
+import scipy
+import subprocess
+
+
+def run_fortran_executable(executable_path, nlat, nlev, zn, zb, zrh0, zt0, zu0, zgamma, moisture, filename):
+    """
+    WARNING!!!
+    THIS FUNCTION CAN CAUSE THE SHELL TO HANG.
+    PREPARE TO MANUALLY CLOSE IT AFTER RUNNING. 
+    
+    Runs a Fortran executable with the specified arguments.
+
+    Parameters:
+        executable_path (str): Path to the Fortran executable.
+        nlat (int): Number of latitude ticks.
+        nlev (int): Number of levels.
+        zn (float): Jet width.
+        zb (float): Jet height.
+        zrh0 (float): Surface level relative humidity (%).
+        zt0 (float): Average surface virtual temperature (K).
+        zu0 (float): Affects amplitude of zonal mean wind speed (m/s).
+        zgamma (float): Lapse rate (K/m).
+        moisture (int): 41 for dry run, 42 for moist.
+        filename (str): Output CSV file path.
+    
+    Returns:
+        stdout (str): Standard output from the executable.
+        stderr (str): Standard error from the executable.
+    """
+    args = [
+        str(nlat), str(nlev), str(zn), str(zb), str(zrh0), 
+        str(zt0), str(zu0), str(zgamma), str(moisture), filename
+    ]
+    
+    try:
+        result = subprocess.run(
+            [executable_path] + args, 
+            text=True, capture_output=True, check=True
+        )
+        return result.stdout, result.stderr
+    except subprocess.CalledProcessError as e:
+        print(f"Error running executable: {e}")
+        print(f"Standard Error: {e.stderr}")
+        return None, e.stderr
+
+
+def read_to_df(fort_path: Path, nlat: int) -> tuple[pd.DataFrame, int]:
+
+    # load the data
+    mylist = []
+
+    for i, chunk in enumerate(pd.read_csv(fort_path, header=0, index_col=None, chunksize=2000)):
+        mylist.append(chunk)
+
+    f_in = pd.concat(mylist, axis= 0)
+    del mylist
+   
+
+    # make sure given nlat is consistent with the input data
+    assert f_in.shape[
+        0] % nlat == 0, f"invalid dimensions: nlat x nlat != {f_in.shape[0]} (len(f_in))"
+    nlev = f_in.shape[0] // nlat
+
+    # remove leading/trailing whitespace from column names
+    f_in.columns = [c.strip() for c in f_in.columns]
+
+    return f_in, nlev
+
+
+def read_metadata(metadata_dir: Path, lat_fname: str, lon_fname: str, lev_fname: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    # load latitude and vertical level data
+    lat = np.load(metadata_dir / lat_fname)
+    lon = np.load(metadata_dir / lon_fname)
+    lev = pd.read_csv(metadata_dir / lev_fname,
+                      header=0, index_col=None).values
+
+    return lat, lon, lev.T
+
+
+def compute_tcwv(q: np.ndarray, lev: np.ndarray) -> np.ndarray:
+    # compute total column water vapor, see https://resources.eumetrain.org/data/3/359/print_2.htm for similar formula
+    g = 9.80665  # m/s^2
+
+    pa = 100 * lev  # convert hPa to Pa
+
+    tcwv = -(1 / g) * scipy.integrate.trapezoid(q, pa, axis=1)
+
+    return tcwv
+
+
+def process_individual_fort_file(
+        fort_path: Path,
+        metadata_dir: Path,
+        lat_fname: str,
+        lon_fname: str,
+        lev_fname: str,
+        output_to_dir: Path,
+        f_out_name: str,
+        nlat: int,
+        keep_plevs: list[int],
+        write_data: bool = False,
+        standardize: bool = False, 
+        include_dewpt: bool = False,
+        means_fname: str | None = None,
+        stds_fname: str | None = None,
+):
+
+    df, nlev = read_to_df(fort_path, nlat)
+
+    # extract vertical RH profile, convert to percentage
+    rh_raw = df["ZRH"].values[:nlev] * 100
+
+    # remove RH from dataframe
+    df = df.drop(columns=["ZRH"])
+
+    # read latitude and vertical levels data
+    lat, lon, (plev, etalev) = read_metadata(
+        metadata_dir, lat_fname, lon_fname, lev_fname)
+    plev, etalev = plev.T, etalev.T
+
+    # compute total column water vapor
+    q = df["ZQ"].values.reshape(nlat, nlev)
+    tcwv = compute_tcwv(q, plev)
+
+    # keep only the desired vertical levels
+    keep_plevs_arr = np.array(keep_plevs)
+    keep_idxs = np.where(np.isin(plev, keep_plevs_arr))[0]
+
+    # similar to above, tile across lat to match the shape of the other variables
+    rh = np.tile(rh_raw[keep_idxs], (nlat, 1))
+
+    # create pressure vars, both constant due to initiation at sea level
+    sp = np.full_like(tcwv, 1013.25) * 100  # convert hPa to Pa
+    msl = np.full_like(tcwv, 1013.25) * 100  # convert hPa to Pa
+
+    # create xarray dataset
+    ds_73 = xr.Dataset(
+        {
+            "tcwv": (["lat"], tcwv),
+            "sp": (["lat"], sp),
+            "msl": (["lat"], msl),
+        },
+        coords={
+            "lat": lat, 
+            "level": keep_plevs_arr
+        }
+    )
+
+    # iteratively add pressure-coordinate necessary variables and levels to the dataset
+    # if this were a run of the newer (HENS) SFNO, you'd replace "(("r", "RH"), rh)" with ("q", "ZQ")
+    for lname, uname in [("u", "ZU"), ("v", "ZV"), ("t", "ZT"), ("z", "ZPHI_F"), (("r", "RH"), rh)]:
+
+        # rh case, processing done already
+        if isinstance(lname, tuple):
+            sub = uname  # uname contains rh data
+            (lname, uname) = lname  # lname contains both names
+
+        # other vars
+        else:
+            # reshape to (nlat, nlev) and keep only the vertical levels needed for SFNO
+            sub = df[uname].values.reshape(nlat, nlev)[:, keep_idxs]
+
+        ds_73[lname] = xr.DataArray(sub, dims=("lat", "level"))
+
+    # add height level variables to dataset, all at lowest model level [0] or 1013.25 hPa
+    u = df["ZU"].values.reshape(nlat, nlev)
+    v = df["ZV"].values.reshape(nlat, nlev)
+    t = df["ZT"].values.reshape(nlat, nlev)
+    # lowest model level instead of 10 meter winds
+    ds_73["u10m"] = (["lat"], u[:, 0])
+    ds_73["v10m"] = (["lat"], v[:, 0])
+    # lowest model level instead of 100 meter winds
+    ds_73["u100m"] = (["lat"], u[:, 0])
+    ds_73["v100m"] = (["lat"], v[:, 0])
+    # lowest model level instead of 2 meter temperature
+    ds_73["t2m"] = (["lat"], t[:, 0])
+
+    # add dewpoint temperature if requested
+    if include_dewpt:
+        t2mC = df["ZT"].values.reshape(nlat, nlev)[:, 0] - 273.15
+        # calculate dewpoint temperature, formula from https://en.wikipedia.org/wiki/Dew_point
+        b = 17.625
+        c = 243.04
+        gamma = np.log(rh_raw[0] / 100) + (b * t2mC) / (c + t2mC)
+        dewpt = (c * gamma) / (b - gamma) + 273.15
+
+        ds_73["2d"] = (["lat"], dewpt)
+        
+
+    # rename to dcmip2025_helper_code standards
+    ds_73 = ds_73.rename_vars({
+        "t2m": "VAR_2T",
+        "u100m": "VAR_100U",
+        "v100m": "VAR_100V",
+        "u10m": "VAR_10U",
+        "v10m": "VAR_10V",
+        "tcwv": "TCW",
+        "sp": "SP",
+        "msl": "MSL",
+        "u": "U",
+        "v": "V",
+        "t": "T",
+        "r": "R",
+        "z": "Z"
+    })
+
+    if standardize:
+        raise NotImplementedError("Standardization needs to be fixed for 3D structure (lev, lat, lon), currently implemented only for flattened vertical levels")
+        # now standardize the dataset
+        # means and stds are global and time invariant, unlike other versions of FCN
+        means = np.load(metadata_dir / means_fname).reshape(-1, 1)
+        stds = np.load(metadata_dir / stds_fname).reshape(-1, 1)
+
+        ds_73 = (ds_73 - means) / stds
+        # print out means and stds for each channel for sanity check
+        # for i, (ch, m, s) in enumerate(zip(channels, means, stds)):
+        #     print(f"{ch}: {m} {s}")
+
+    # expand all variables along longitude dimension
+    # while Bouvier et al. only outputs one meridional slice, we need the whole domain for SFNO
+    ds_73 = ds_73.expand_dims({"lon": lon}, axis=1)
+
+    # add time dimension because it's required for the inference function
+    ds_73 = ds_73.expand_dims({"time": [0]}, axis=0)
+
+    # save to disk
+    if write_data:
+        output_to_dir.mkdir(parents=True, exist_ok=True)
+        ds_73.to_netcdf(output_to_dir / f_out_name)
+
+    # look at data
+    print(ds_73)
+
+    # inform user
+    print(f"Preprocessing complete, saved to {output_to_dir}")
+    
+    return ds_73
+
+
+if __name__ == "__main__":
+
+    data_dir = Path(
+        "/N/slate/jmelms/projects/FCN_dynamical_testing/data/initial_conditions/")
+
+    metadata_dir = Path(
+        "/N/u/jmelms/BigRed200/projects/dynamical-tests-FCN/metadata/")
+
+    # process_individual_fort_file(
+    #     fort_path=data_dir / "raw_fort_output" / "default.csv",
+    #     metadata_dir=metadata_dir,
+    #     lat_fname="latitude.npy",
+    #     lon_fname="longitude.npy",
+    #     lev_fname="p_eta_levels_full.txt",
+    #     means_fname="global_means.npy",
+    #     stds_fname="global_stds.npy",
+    #     standardize=False, 
+
+    #     output_to_dir=data_dir / "processed_ic_sets" / "dcmip2025",
+    #     f_out_name="steady_state.h5",
+
+    #     nlat=721,
+    #     keep_plevs=[1000, 925, 850, 700, 600, 500,
+    #                 400, 300, 250, 200, 150, 100, 50],  # 13 levels used for 73 ch SFNO
+
+    #     include_dewpt=False, # must use 74 ch hens_channel_order.txt for dewpt and q instead of r
+        
+    #     write_data = False
+
+    # )
+   
