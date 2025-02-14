@@ -70,6 +70,6 @@ ds_out.to_netcdf(output_path)
 
 print("Output: ")
 
-print(ds)
+print(ds_out)
 
 print(f"Saved ds to {output_path}")
