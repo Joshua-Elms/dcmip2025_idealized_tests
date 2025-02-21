@@ -1,4 +1,16 @@
-### Work Log 02/12
+### 02/21
+
+Goal for the day: get energy conservation experiment running on casper. 
+
+Steps: 
+  1. [X] Package all changes up on BR200, push, pull down to casper
+  2. [ ] Parametrize python script for job submission and ICs 
+  3. [ ] Test-run small, short job submission and reading data
+  4. [ ] Clean up and document these scripts
+  5. [ ] Set long simulation running
+
+
+### 02/12
 
 Goal for the day: calculate and plot mean time-to-convergence of initial states
 

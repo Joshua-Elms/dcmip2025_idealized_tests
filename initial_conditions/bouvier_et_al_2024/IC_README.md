@@ -15,8 +15,7 @@ Populate with instructions
 
 Populate with instructions
 
-
-Details on the CLI for gen_IC_FCN.out
+### CLI details for gen_IC_FCN.out
 
 Compile with `ifort gen_IC_FCN.F90 -o gen_IC_FCN.out`
 
