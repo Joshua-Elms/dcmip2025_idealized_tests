@@ -5,6 +5,7 @@
 #PBS -l walltime=00:05:00
 #PBS -q casper
 #PBS -j oe
+#PBS -A UMIC0107
 
 # load the earth2mip environment
 # (note that this automatically unloads cuda to avoid library errors; a warning will show up when this is run)
@@ -15,4 +16,4 @@ export WORLD_SIZE=1
 export MODEL_REGISTRY=/glade/work/tobrien/DCMIP2025/.cache
 
 # run the model (-u triggers the print buffer to clear immediately so one can follow the log file live)
-python3 -u test_isothermal_atmosphere.py
+python3 -u inference/python_scripts/test_isothermal_atmosphere.py

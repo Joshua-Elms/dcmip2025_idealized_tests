@@ -2,7 +2,7 @@ from utils import *
 import numpy as np
 
 fort_kwargs = dict(
-    executable_path="/N/u/jmelms/BigRed200/projects/dcmip2025_idealized_tests/initial_conditions/bouvier_et_al_2024/gen_IC_FCN.out", 
+    executable_path="/glade/u/home/jmelms/projects/dcmip2025_idealized_tests/initial_conditions/bouvier_et_al_2024/gen_IC_FCN.out", 
     nlat=721, 
     nlev=102, 
     zn=3, 
@@ -13,18 +13,16 @@ fort_kwargs = dict(
     moisture=42,
 )
 
-data_dir = Path("/N/slate/jmelms/projects/FCN_dynamical_testing/data/initial_conditions/")
-metadata_dir = Path("/N/u/jmelms/BigRed200/projects/dynamical-tests-FCN/metadata/")
+data_dir = Path("/glade/work/jmelms/data/dcmip2025_idealized_tests/initial_conditions")
+metadata_dir = Path("/glade/work/jmelms/data/dcmip2025_idealized_tests/initial_conditions/metadata")
 
 processor_kwargs = dict(
     metadata_dir = metadata_dir,
     lat_fname="latitude.npy",
     lon_fname="longitude.npy",
     lev_fname="p_eta_levels_full.txt",
-    means_fname="global_means.npy",
-    stds_fname="global_stds.npy",
     write_data = True,
-    output_to_dir=data_dir / "processed_ic_sets" / "dcmip2025" / "steady-state",
+    output_to_dir=data_dir / "steady-state",
     nlat=721,
     keep_plevs=[1000, 925, 850, 700, 600, 500,
                 400, 300, 250, 200, 150, 100, 50],  # 13 levels used for 73 ch SFNO
@@ -37,7 +35,7 @@ half_range = 30 # K
 step = 2 # K
 zt0_range = np.arange(mid-half_range, mid+half_range+step, step)
 for zt0 in zt0_range:
-    fort_data_path = Path(f"/N/slate/jmelms/projects/FCN_dynamical_testing/data/initial_conditions/raw_fort_output/output_{zt0}.csv")
+    fort_data_path = Path(f"/glade/work/jmelms/data/dcmip2025_idealized_tests/initial_conditions/steady-state/raw_fort_output/output_{zt0}.csv")
     if not fort_data_path.exists(): # fortran refuses to write over extant file ... fine.
         out, err = run_fortran_executable(zt0=zt0, filename=fort_data_path, **fort_kwargs)
     

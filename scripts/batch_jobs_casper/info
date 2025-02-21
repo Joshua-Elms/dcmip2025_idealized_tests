@@ -1,0 +1,4 @@
+To run a 6 hour (default) interactive job on casper w/ 1 GPU and 40 GB of memory:
+
+qinteractive @casper -A UMIC0107 -l select=1:ncpus=1:ngpus=1:mem=40GB
+

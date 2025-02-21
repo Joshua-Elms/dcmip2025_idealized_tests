@@ -91,6 +91,7 @@ if __name__ == "__main__":
     write_levels(output_path, p_levels=p_levels_full)
     
     ### step 2: output latitudes for gen_IC_FCN.F90
+    gen_and_write_lats("/glade/work/jmelms/data/dcmip2025_idealized_tests/initial_conditions/metadata/lat")
     
     ### step 3: format outputs from steps 1 and 2 as Fortran lists to paste into gen_IC_FCN.F90
    
