@@ -20,7 +20,7 @@ processor_kwargs = dict(
     metadata_dir = metadata_dir,
     lat_fname="latitude.npy",
     lon_fname="longitude.npy",
-    lev_fname="p_eta_levels_full.txt",
+    lev_fname="levels_full.txt",
     write_data = True,
     output_to_dir=data_dir / "steady-state",
     nlat=721,
@@ -31,11 +31,11 @@ processor_kwargs = dict(
 )
 
 mid = 288 # K
-half_range = 30 # K
-step = 2 # K
+half_range = 20 # K
+step = 5 # K
 zt0_range = np.arange(mid-half_range, mid+half_range+step, step)
 for zt0 in zt0_range:
-    fort_data_path = Path(f"/glade/work/jmelms/data/dcmip2025_idealized_tests/initial_conditions/steady-state/raw_fort_output/output_{zt0}.csv")
+    fort_data_path = Path(f"/glade/work/jmelms/data/dcmip2025_idealized_tests/initial_conditions/steady-state/raw_fort_output/output_zt={zt0}.csv")
     if not fort_data_path.exists(): # fortran refuses to write over extant file ... fine.
         out, err = run_fortran_executable(zt0=zt0, filename=fort_data_path, **fort_kwargs)
     

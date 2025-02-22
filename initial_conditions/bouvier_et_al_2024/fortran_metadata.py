@@ -87,11 +87,11 @@ if __name__ == "__main__":
         400, 390, 380, 370, 360, 350, 340, 330, 320, 310, 300, 290, 280, 270, 260, 250, 240, 230, 220, 210, 200,
         190, 180, 170, 160, 150, 140, 130, 120, 110, 100, 90, 80, 70, 60, 50, 40, 30, 20, 10
     ])
-    output_path = "levels_full.txt"
+    output_path = "/glade/work/jmelms/data/dcmip2025_idealized_tests/initial_conditions/metadata/levels_full.txt"
     write_levels(output_path, p_levels=p_levels_full)
     
     ### step 2: output latitudes for gen_IC_FCN.F90
-    gen_and_write_lats("/glade/work/jmelms/data/dcmip2025_idealized_tests/initial_conditions/metadata/lat")
+    # gen_and_write_lats("/glade/work/jmelms/data/dcmip2025_idealized_tests/initial_conditions/metadata/lat")
     
     ### step 3: format outputs from steps 1 and 2 as Fortran lists to paste into gen_IC_FCN.F90
    

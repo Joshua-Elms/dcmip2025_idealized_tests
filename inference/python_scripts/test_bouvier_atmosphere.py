@@ -16,12 +16,13 @@ dotenv.load_dotenv()
 logging.basicConfig(level=logging.INFO)
 
 save_output = True
-n_steps = 4 * 30
+n_steps = 10
 mid = 288 # K
-half_range = 30 # K
-step = 10 # K
+half_range = 20 # K
+step = 5 # K
 zt0_range = np.arange(mid-half_range, mid+half_range+step, step)
-output_path = f"/N/slate/jmelms/projects/FCN_dynamical_testing/data/output/dcmip2025/steady-state_nt={n_steps}_ne={len(zt0_range)}.nc"
+var = "zt0"
+output_path = f"/glade/work/jmelms/data/dcmip2025_idealized_tests/initial_conditions/steady-state/output/nt={n_steps}_ne={len(zt0_range)}_var={var}.nc"
 
 
 # load the model
@@ -32,7 +33,7 @@ model = networks.get_model("fcnv2_sm").to(device)
 print("Model loaded.")
 
 # load existing initial condition
-ic_dir = Path("/N/slate/jmelms/projects/FCN_dynamical_testing/data/initial_conditions/processed_ic_sets/dcmip2025/steady-state")
+ic_dir = Path("/glade/work/jmelms/data/dcmip2025_idealized_tests/initial_conditions/steady-state/ics")
 assert ic_dir.exists(), "Initial condition dir given does not exist"
 ic_paths = [path for path in sorted(ic_dir.glob("*")) if int(path.stem.split("_")[-1]) in zt0_range]
 

@@ -4,7 +4,7 @@ Goal for the day: get energy conservation experiment running on casper.
 
 Steps: 
   1. [X] Package all changes up on BR200, push, pull down to casper
-  2. [ ] Parametrize python script for job submission and ICs 
+  2. [X] Parametrize python script for job submission and ICs 
     - Still working on this
     - Current status: getting gen_range_data.py up to snuff
     - Tasks within that:
@@ -13,7 +13,7 @@ Steps:
       3. make sure I/O locs correct
       4. Individual trial of gen_IC_FCN.out
       5. Run script standalone to produce data
-  3. [ ] Test-run small, short job submission and reading data
+  3. [X] Test-run small, short job submission and reading data
   4. [ ] Clean up and document these scripts
   5. [ ] Set long simulation running
 
