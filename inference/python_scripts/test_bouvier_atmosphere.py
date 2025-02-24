@@ -23,6 +23,8 @@ step = 5 # K
 zt0_range = np.arange(mid-half_range, mid+half_range+step, step)
 var = "zt0"
 output_path = f"/glade/work/jmelms/data/dcmip2025_idealized_tests/initial_conditions/steady-state/output/nt={n_steps}_ne={len(zt0_range)}_var={var}.nc"
+print(f"{var} range: {zt0_range}")
+print(f"Output path: {output_path}")
 
 
 # load the model
@@ -66,8 +68,10 @@ for i, ic_path in enumerate(ic_paths):
     else:
         ds_out = xr.concat([ds_out, ds], dim="ensemble")
 
-ds_out.assign_coords({"ensemble": zt0_range})       
+ds_out = ds_out.assign_coords({"ensemble": zt0_range})       
 ds_out.to_netcdf(output_path)
+
+breakpoint()
 
 print("Output: ")
 

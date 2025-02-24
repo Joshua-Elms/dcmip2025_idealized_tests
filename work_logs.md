@@ -1,4 +1,4 @@
-### 02/21
+### 02/21 cont'd 02/23
 
 Goal for the day: get energy conservation experiment running on casper. 
 
@@ -15,7 +15,10 @@ Steps:
       5. Run script standalone to produce data
   3. [X] Test-run small, short job submission and reading data
   4. [ ] Clean up and document these scripts
-  5. [ ] Set long simulation running
+  5. [X] Set long simulation running
+  6. [ ] Calculate Total Energy
+  7. [ ] Convert Total Energy of heating into spherical butter mass
+  8. [ ] Move personal conda env to $WORK
 
 
 ### 02/12
