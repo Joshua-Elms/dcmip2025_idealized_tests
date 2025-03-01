@@ -4,9 +4,10 @@ import xarray as xr
 from pathlib import Path
 import scipy
 import subprocess
+import logging
 
 
-def run_fortran_executable(executable_path, nlat, nlev, zn, zb, zrh0, zt0, zu0, zgamma, moisture, filename):
+def run_fortran_executable(executable_path, nlat, nlev, zn, zb, zrh0, zt0, zu0, zgamma, moisture, filename: Path, logf: Path = None):
     """
     WARNING!!!
     THIS FUNCTION CAN CAUSE THE SHELL TO HANG.
@@ -25,16 +26,22 @@ def run_fortran_executable(executable_path, nlat, nlev, zn, zb, zrh0, zt0, zu0, 
         zu0 (float): Affects amplitude of zonal mean wind speed (m/s).
         zgamma (float): Lapse rate (K/m).
         moisture (int): 41 for dry run, 42 for moist.
-        filename (str): Output CSV file path.
+        filename (Path): Output CSV file path.
     
     Returns:
         stdout (str): Standard output from the executable.
         stderr (str): Standard error from the executable.
     """
+    if logf:
+        logger = logging.getLogger(__name__)
     args = [
         str(nlat), str(nlev), str(zn), str(zb), str(zrh0), 
         str(zt0), str(zu0), str(zgamma), str(moisture), filename
     ]
+     # fortran refuses to write over extant file ... fine.
+    if filename.exists(): 
+        return None, "CSV already exists, skipping execution."
+        
     
     try:
         result = subprocess.run(
@@ -43,8 +50,13 @@ def run_fortran_executable(executable_path, nlat, nlev, zn, zb, zrh0, zt0, zu0, 
         )
         return result.stdout, result.stderr
     except subprocess.CalledProcessError as e:
-        print(f"Error running executable: {e}")
-        print(f"Standard Error: {e.stderr}")
+        if logf:
+            logger.error(f"Error running executable: {e}")
+            logger.error(f"Standard Error: {e.stderr}")
+            
+        else:
+            print(f"Error running executable: {e}")
+            print(f"Standard Error: {e.stderr}")
         return None, e.stderr
 
 
@@ -71,14 +83,15 @@ def read_to_df(fort_path: Path, nlat: int) -> tuple[pd.DataFrame, int]:
     return f_in, nlev
 
 
-def read_metadata(metadata_dir: Path, lat_fname: str, lon_fname: str, lev_fname: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def read_metadata(metadata_dir: Path, lat_fname: str, lon_fname: str, all_lev_fname: str, model_lev_fname: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     # load latitude and vertical level data
     lat = np.load(metadata_dir / lat_fname)
     lon = np.load(metadata_dir / lon_fname)
-    lev = pd.read_csv(metadata_dir / lev_fname,
+    all_lev = pd.read_csv(metadata_dir / all_lev_fname,
                       header=0, index_col=None).values
+    keep_plevs = pd.read_csv(metadata_dir / model_lev_fname, header=None).values.flatten()
 
-    return lat, lon, lev.T
+    return lat, lon, all_lev.T, keep_plevs
 
 
 def compute_tcwv(q: np.ndarray, lev: np.ndarray) -> np.ndarray:
@@ -93,23 +106,23 @@ def compute_tcwv(q: np.ndarray, lev: np.ndarray) -> np.ndarray:
 
 
 def process_individual_fort_file(
-        fort_path: Path,
+        csv_path: Path,
+        nc_path: Path,
         metadata_dir: Path,
-        lat_fname: str,
-        lon_fname: str,
-        lev_fname: str,
-        output_to_dir: Path,
-        f_out_name: str,
+        latitudes_fname: str,
+        longitudes_fname: str,
+        all_plevels_fname: str,
+        model_plevels_fname: str,
         nlat: int,
-        keep_plevs: list[int],
         write_data: bool = False,
         standardize: bool = False, 
         include_dewpt: bool = False,
         means_fname: str | None = None,
         stds_fname: str | None = None,
+        logf: Path = None,
 ):
 
-    df, nlev = read_to_df(fort_path, nlat)
+    df, nlev = read_to_df(csv_path, nlat)
 
     # extract vertical RH profile, convert to percentage
     rh_raw = df["ZRH"].values[:nlev] * 100
@@ -118,17 +131,16 @@ def process_individual_fort_file(
     df = df.drop(columns=["ZRH"])
 
     # read latitude and vertical levels data
-    lat, lon, (plev, etalev) = read_metadata(
-        metadata_dir, lat_fname, lon_fname, lev_fname)
+    lat, lon, (plev, etalev), keep_plev = read_metadata(
+        metadata_dir, latitudes_fname, longitudes_fname, all_plevels_fname, model_plevels_fname)
     plev, etalev = plev.T, etalev.T
-
+    
     # compute total column water vapor
     q = df["ZQ"].values.reshape(nlat, nlev)
     tcwv = compute_tcwv(q, plev)
 
     # keep only the desired vertical levels
-    keep_plevs_arr = np.array(keep_plevs)
-    keep_idxs = np.where(np.isin(plev, keep_plevs_arr))[0]
+    keep_idxs = np.where(np.isin(plev, keep_plev))[0]
 
     # similar to above, tile across lat to match the shape of the other variables
     rh = np.tile(rh_raw[keep_idxs], (nlat, 1))
@@ -146,7 +158,7 @@ def process_individual_fort_file(
         },
         coords={
             "lat": lat, 
-            "level": keep_plevs_arr
+            "level": keep_plev
         }
     )
 
@@ -229,14 +241,7 @@ def process_individual_fort_file(
 
     # save to disk
     if write_data:
-        output_to_dir.mkdir(parents=True, exist_ok=True)
-        ds_73.to_netcdf(output_to_dir / f_out_name)
-
-    # look at data
-    print(ds_73)
-
-    # inform user
-    print(f"Preprocessing complete, saved to {output_to_dir}")
+        ds_73.to_netcdf(nc_path)
     
     return ds_73
 

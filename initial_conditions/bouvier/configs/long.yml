@@ -1,0 +1,26 @@
+experiment_name       : long_sim_0
+experiment_dir        : /glade/work/jmelms/data/dcmip2025_idealized_tests/experiments/
+fort_executable_path  : /glade/u/home/jmelms/projects/dcmip2025_idealized_tests/initial_conditions/bouvier/gen_IC_FCN.out
+initial_condition_parameters: 
+  nlat                : [721, "nondim"]
+  nlev                : [102, "nondim"]
+  zn                  : [3, "nondim"]
+  zb                  : [2., "nondim"]
+  zrh0                : [0.8, "%"]
+  zt0                 : [[283, 288, 293], "K"]
+  zu0                 : [35, "m s^-1"]
+  zgamma              : [0.005, "K m^-1"]
+  moisture            : [42, "nondim"]
+inference_parameters:
+  n_steps             : 200
+  device              : cuda:0 # or cpu
+processor_parameters:
+  metadata_dir        : /glade/work/jmelms/data/dcmip2025_idealized_tests/initial_conditions/metadata
+  latitudes_fname     : latitude.npy
+  longitudes_fname    : longitude.npy
+  all_plevels_fname   : levels_full.txt
+  model_plevels_fname : levels_model.txt
+  write_data          : True
+  standardize         : False # must be false for now
+  include_dewpt       : False # must use 74 ch hens_channel_order.txt for dewpt and q instead of r
+
