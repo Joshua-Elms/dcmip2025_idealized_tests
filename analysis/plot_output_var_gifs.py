@@ -82,7 +82,7 @@ ds.update({"time": time_hours})
 ds = ds.assign_attrs({"time units": "hours since start"})
 
 # set parameters which will remain constant for each iteration of plotting
-exp_val_idx = 0
+top_level_plot_dir = exp_dir / "plots",
 const_params = dict(
     iter_var = "time",
     iter_vals = np.arange(nt),
@@ -96,12 +96,12 @@ const_params = dict(
     },
     dpi = 100,
     fps = 4,
-    plot_dir = exp_dir / "plots",
     keep_images = True,
     cmap = cmap_str,
 )
 
 for exp_val_idx in range(n_expvar):
+    plot_dir = top_level_plot_dir / f"{exp_param}_{exp_vals[exp_val_idx]}"
     title_str = f"{{var_name}} [{{units}}] at {{time}} hours ({exp_param} = {exp_vals[exp_val_idx]} {exp_param_units})"
     for var in list(ds.keys()):
         if "level" in ds[var].dims: # 3D variable

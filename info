@@ -17,5 +17,5 @@ qvscode
 Or circumvent with direct request: 
 ```
 qsub -A UMIC0107 -q casper -N qvscode_jmelms -l select=1:ncpus=1:mem=300GB:ngpus=1 -l walltime=6:00:00 -j oe -o /glade/derecho/scratch/jmelms/.qvscode_logs/qvscode.log -v walltime_seconds=21600 /glade/u/apps/opt/qvscode/bin/launch.pbs
-code --remote ssh-remote+jmelms@casper06.hpc.ucar.edu # to actually reconnect from vscode on login node
+code --remote ssh-remote+jmelms@casper07.hpc.ucar.edu # to actually reconnect from vscode on login node
 ```
