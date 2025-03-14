@@ -1,0 +1,19 @@
+#!/bin/bash -l
+#PBS -N graphcast_era5_test
+#PBS -l select=1:ncpus=1:ngpus=1:mem=100GB
+#PBS -l gpu_type=h100
+#PBS -l walltime=00:30:00
+#PBS -q casper
+#PBS -j oe
+#PBS -A UMIC0107
+
+# load the earth2mip environment
+# (note that this automatically unloads cuda to avoid library errors; a warning will show up when this is run)
+conda activate /glade/work/jmelms/software/miniconda3/envs/earth2mip_graphcast
+
+# set environment variables needed for SFNO
+export WORLD_SIZE=1
+export MODEL_REGISTRY=/glade/work/tobrien/DCMIP2025/.cache
+
+# run the model (-u triggers the print buffer to clear immediately so one can follow the log file live)
+python3 -u inference/python_scripts/test_graphcast_era5.py

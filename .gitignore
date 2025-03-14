@@ -2,3 +2,4 @@
 *.nc
 *.o*
 .DS_Store
+.cache.pkl
