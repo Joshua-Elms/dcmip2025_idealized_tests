@@ -1,3 +1,9 @@
+### 03/27
+
+1. Found source of mysterious inference failure (shape mismatch) bug Garrett ran into. Turns out graphcast caches the weights in a `.cache.pkl` file in the working dir, but names the file the same thing regardless of which version of graphcast ("graphcast" or "graphcast_small") is running. The logic within graphcast is to try loading from any `.cache.pkl` it can find immediately, so if you first run "graphcast" and it caches those weights, your next run of "graphcast_small" will fail, and vice-versa. Two possible fixes: a) require distinct working dirs (and therefore cached graphs) between graphcast runs or b) modify earth2mip.networks.graphcast to cache graphs with a model-specific filename. The former is clanky imo, the latter is hacky unless I make a PR to earth2mip... maybe it's time to learn how to do so. 
+2. 
+
+
 ### 02/21 cont'd 02/23
 
 Goal for the day: get energy conservation experiment running on casper. 

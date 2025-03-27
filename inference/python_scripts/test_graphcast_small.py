@@ -15,7 +15,6 @@ print(f"output_path: {output_path}")
 data_source = cds.DataSource(time_loop.in_channel_names)
 print('data_source type',type(data_source))
     
-
 ds = run_basic_inference(time_loop, n=2, data_source=data_source, time=datetime.datetime(2018, 1, 2))
 ds.to_netcdf(output_path)
 print(f"output: {ds}")
