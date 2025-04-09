@@ -4,7 +4,7 @@ import torch
 import numpy as np
 import logging
 from earth2mip import networks
-import inference.dcmip2025_helper_funcs as dcmip
+import utils.data as dcmip
 import dotenv
 
 # load the earth2mip environment variables

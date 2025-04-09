@@ -4,7 +4,7 @@ import torch
 import numpy as np
 import logging
 from earth2mip import networks # type: ignore
-import inference.dcmip2025_helper_funcs as dcmip
+import utils.data as dcmip
 from initial_conditions.bouvier.utils import *
 import dotenv
 from pathlib import Path
