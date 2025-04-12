@@ -1,7 +1,19 @@
+### 04/09
+
+1. Reorganizing repository. `experiments` is one of only two top level directories, with each experiment getting a folder inside it. Anything that is (or could easily be) shared by multiple experiments can be lifted to `utils`, but then it has to stay functionally the same or risk breaking other working experiments. Within an experiment directory, there will be a few files:
+  - `config.yaml` contains user-specified parameters for the experiment. Make sure to re-run the experiment (all numbered files in order) after modifying this. 
+  - `gen_ic.py` will create the initial condition used in the experiment
+  - `run_<model>.py` is the python script to run that particular model
+  - `postprocess.py` is an optional script to modify the inference output if something complex or computationally intensive needs to happen before analysis
+  - `analysis.ipynb` is the notebook where analysis can be developed, but 
+  - `analysis.py` will be the eventual source of any figures produced by this experiment
+  - `data/` contains soft links to the initial conditions, metadata, raw output, and postprocessed output. Performed w/ `ln -s <real_dir> <link_dir>`
+  - `plots` contains the visualizations produced from the experiment output
+  - `README.md` describes the experiment and how to run it
+
 ### 03/27
 
 1. Found source of mysterious inference failure (shape mismatch) bug Garrett ran into. Turns out graphcast caches the weights in a `.cache.pkl` file in the working dir, but names the file the same thing regardless of which version of graphcast ("graphcast" or "graphcast_small") is running. The logic within graphcast is to try loading from any `.cache.pkl` it can find immediately, so if you first run "graphcast" and it caches those weights, your next run of "graphcast_small" will fail, and vice-versa. Two possible fixes: a) require distinct working dirs (and therefore cached graphs) between graphcast runs or b) modify earth2mip.networks.graphcast to cache graphs with a model-specific filename. The former is clanky imo, the latter is hacky unless I make a PR to earth2mip... maybe it's time to learn how to do so. 
-2. 
 
 
 ### 02/21 cont'd 02/23
