@@ -1,5 +1,4 @@
-
-import datetime
+import datetime as dt
 import calendar
 #import logging
 import dask
@@ -114,7 +113,7 @@ def pack_sfno_state(
     return x
 
 def read_sfno_vars_from_era5_rda(
-        time : datetime.datetime,
+        time : dt.datetime,
         e5_base : str = "/glade/campaign/collections/rda/data/ds633.0/",
         ) -> xr.Dataset:
     """ Fetches the ERA5 data for a specific time necessary for running the SFNO model. 
@@ -122,7 +121,7 @@ def read_sfno_vars_from_era5_rda(
     input:
     ------
 
-    time : datetime.datetime
+    time : dt.datetime
         the time to fetch the data for
 
     e5_base : str
@@ -196,7 +195,7 @@ def read_sfno_vars_from_era5_rda(
     return combined_xr
 
 def rda_era5_to_sfno_state(
-        time : datetime.datetime,
+        time : dt.datetime,
         device : str = "cpu",
         e5_base : str = "/glade/campaign/collections/rda/data/ds633.0/",
         ) -> torch.tensor:
@@ -205,7 +204,7 @@ def rda_era5_to_sfno_state(
     input:
     ------
 
-    time : datetime.datetime
+    time : dt.datetime
         the time to fetch the data for
 
     device : str
@@ -361,7 +360,7 @@ def unpack_sfno_state(
     # deal with default time
     if time is None:
         n_time = x.shape[0]
-        time = [datetime.datetime(1850,1,1) + datetime.timedelta(hours=i*6) for i in range(n_time)]
+        time = [dt.datetime(1850,1,1) + dt.timedelta(hours=i*6) for i in range(n_time)]
 
     # initialize the dataset
     ds = initialize_sfno_xarray_ds(time, n_ensemble)
@@ -385,7 +384,7 @@ def unpack_sfno_state(
 
 def create_empty_sfno_ds(
         n_ensemble : int = 1,
-        time : datetime.datetime = datetime.datetime(1850,1,1),
+        time : dt.datetime = dt.datetime(1850,1,1),
         ) -> xr.Dataset:
     """ Initializes an empty xarray dataset for the SFNO model.
 
@@ -395,7 +394,7 @@ def create_empty_sfno_ds(
     n_ensemble : int
         the number of ensemble members
 
-    time : datetime.datetime
+    time : dt.datetime
         the time to assign to the data
 
     output:
@@ -422,8 +421,9 @@ def create_empty_sfno_ds(
 
     return ds
 
-def latitude_weighted_mean(da, latitudes):
+def slow_latitude_weighted_mean(da, latitudes):
     """
+    [Deprecated] - Use `latitude_weighted_mean` instead.
     Calculate the latitude weighted mean of a variable in a dataset
     """
     lat_radians = np.deg2rad(latitudes)
@@ -431,3 +431,112 @@ def latitude_weighted_mean(da, latitudes):
     weights.name = "weights"
     var_weighted = da.weighted(weights)
     return var_weighted.mean(dim=["latitude", "longitude"])
+
+def latitude_weighted_mean(da, latitudes):
+    """
+    Calculate the latitude weighted mean of a variable using torch operations on GPU.
+    Needs tests to ensure it works correctly.
+    
+    Parameters:
+    -----------
+    da : xarray.DataArray or torch.Tensor
+        The data to average
+    latitudes : xarray.DataArray or numpy.ndarray
+        The latitude values
+        
+    Returns:
+    --------
+    torch.Tensor
+        The latitude-weighted mean
+    """
+    # Convert inputs to torch tensors if needed
+    if isinstance(da, xr.DataArray):
+        da = torch.from_numpy(da.values)
+    if isinstance(latitudes, xr.DataArray):
+        latitudes = latitudes.values
+    
+    # Move to GPU if available
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    da = da.to(device)
+    
+    # Calculate weights
+    lat_radians = torch.from_numpy(np.deg2rad(latitudes)).to(device)
+    weights = torch.cos(lat_radians) / (torch.sum(torch.cos(lat_radians)) * da.shape[-1])
+    
+    # Expand weights to match data dimensions
+    weights = weights.view(1, -1, 1)  # Add dims for broadcasting
+    
+    # Calculate weighted mean
+    weighted_data = da * weights
+    averaged = weighted_data.sum(dim=(-2, -1))  # Average over lat, lon dimensions
+    return xr.DataArray(averaged.cpu().numpy())
+
+def single_IC_inference(
+        model,
+        n_timesteps : int,
+        init_time : dt.datetime = dt.datetime(1850,1,1),
+        initial_condition : xr.Dataset = None,
+        device : str = "cpu",
+        vocal: bool = False,
+        ) -> xr.Dataset:
+    """ Runs the SFNO model for a single initial condition.
+
+    input:
+    ------
+
+    model : torch.nn.Module
+        the SFNO model to run
+
+    init_time : dt.datetime
+        the time to initialize the model at. if providing initial_condition, this doesn't need to be set
+
+    n_timesteps : int
+        the number of timesteps to run the model for
+
+    device : str
+        the device to run the model on
+        
+    vocal : bool
+        if True, print progress messages
+        
+    initial_condition (optional) : xr.Dataset
+        the initial condition to use for the model. If not provided, the model will be initialized using the rda_era5_to_sfno_state function at init_time.
+
+    output:
+    -------
+
+    ds_out : xr.Dataset
+        the output dataset from the model
+    
+    """
+    timedeltas = np.arange(0, 6*(n_timesteps+1), 6) * np.timedelta64(1, 'h')
+    end_time = init_time + dt.timedelta(hours=6*n_timesteps)
+    
+    if initial_condition is not None:
+        # pack the initial condition into a tensor
+        x = pack_sfno_state(initial_condition, device=device)
+        
+    else:
+        # just use rda_era5_to_sfno_state to get the initial condition
+        x = rda_era5_to_sfno_state(device=device, time = init_time)
+
+    # run the model
+    data_list = []
+    iterator = model(init_time, x)
+    for k, (time, data, _) in enumerate(iterator):
+        if vocal:
+            print(f"Step {k}: {time} completed.")
+
+        # append the data to the list
+        # (move the data to the cpu (memory))
+        data_list.append(data.cpu())
+
+        # check if we're at the end time
+        if time >= end_time:
+            break
+
+    # stack the output data by time
+    data = torch.stack(data_list)
+    
+    
+    return unpack_sfno_state(data, time = timedeltas)

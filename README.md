@@ -32,3 +32,5 @@ code --remote ssh-remote+jmelms@casper07.hpc.ucar.edu # to actually reconnect fr
 ```
 
 To check how much storage you are using, run `gladequota`
+
+To check full job info, run `qstat -f -u jmelms`

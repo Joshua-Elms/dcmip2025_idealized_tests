@@ -1,3 +1,16 @@
+### 04/15
+
+#### Conservation of Mass
+
+Finished this test yesterday, now I'm rerunning a longer simulation (224 tsteps / 8 weeks) at Travis' suggestion to see whether the model stabilizes somewhere around 985 hPa or keeps moving. 
+
+
+#### Conservation of Energy
+
+Finally time to start this guy. Let's write out steps as we go:
+
+1. Build "ERA5 OLR value" downloader. 
+
 ### 04/09
 
 1. Reorganizing repository. `experiments` is one of only two top level directories, with each experiment getting a folder inside it. Anything that is (or could easily be) shared by multiple experiments can be lifted to `utils`, but then it has to stay functionally the same or risk breaking other working experiments. Within an experiment directory, there will be a few files:

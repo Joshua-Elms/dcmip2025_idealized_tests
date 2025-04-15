@@ -4,7 +4,7 @@ import torch
 import numpy as np
 import logging
 from earth2mip import networks # type: ignore
-from utils import inference
+import utils.data as dcmip
 import dotenv
 from pathlib import Path
 import numpy as np
@@ -38,7 +38,7 @@ times = np.arange(0, 6*config["n_timesteps"]+1, 6)
 dotenv.load_dotenv()
 
 # start loop
-da_stack = []
+ds_stack = []
 for d, date in enumerate(ic_dates):
     # set the initial time
     init_time = date
@@ -46,7 +46,7 @@ for d, date in enumerate(ic_dates):
 
     # generate the initial condidtion
     print(f"Initializing model {d}: {init_time}.")
-    x = inference.rda_era5_to_sfno_state(device=device, time = init_time)
+    x = dcmip.rda_era5_to_sfno_state(device=device, time = init_time)
 
     # run the model
     data_list = []
@@ -66,25 +66,17 @@ for d, date in enumerate(ic_dates):
     data = torch.stack(data_list)
 
     # unpack the data into an xarray object
-    ds = inference.unpack_sfno_state(data, time = times)
-    da_stack.append(ds["SP"])
+    ds = dcmip.unpack_sfno_state(data, time = times)
+    ds_stack.append(ds)
 
         
 # stack the output data by init time
-da_out = xr.concat(da_stack, dim="init_time")
-ds_out = da_out.to_dataset(name="SP")
+ds_out = xr.concat(ds_stack, dim="init_time")
 
 # add initialization coords
 ds_out = ds_out.assign_coords({"init_time": ic_dates})
 
-# postprocess data
-ds_out["SP"] = ds_out["SP"] / 100 # convert from Pa to hPa
-ds_out["MEAN_SP"] = inference.latitude_weighted_mean(ds_out["SP"], ds.latitude)
-ds_out["IC_MEAN_SP"] = ds_out["MEAN_SP"].mean(dim="init_time")
-
 # save to data dir in same directory as this file
-save_path = Path(__file__).parent / "data" / "output.nc"
-if save_path.exists():
-    print(f"File {save_path} already exists. Deleting.")
-    save_path.unlink() # delete the file if it exists
+save_path = Path(__file__).parent / "data" / "raw_output.nc"
+save_path.unlink() # delete the file if it exists
 ds_out.to_netcdf(save_path)
