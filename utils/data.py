@@ -421,3 +421,13 @@ def create_empty_sfno_ds(
     ds = set_sfno_xarray_metadata(ds)
 
     return ds
+
+def latitude_weighted_mean(da, latitudes):
+    """
+    Calculate the latitude weighted mean of a variable in a dataset
+    """
+    lat_radians = np.deg2rad(latitudes)
+    weights = np.cos(lat_radians)
+    weights.name = "weights"
+    var_weighted = da.weighted(weights)
+    return var_weighted.mean(dim=["latitude", "longitude"])
