@@ -34,3 +34,10 @@ code --remote ssh-remote+jmelms@casper07.hpc.ucar.edu # to actually reconnect fr
 To check how much storage you are using, run `gladequota`
 
 To check full job info, run `qstat -f -u jmelms`
+
+
+### Ideas for Future Work
+It might be useful for the DCMIP participants to have some ideas on what they could implement above-and-beyond these experiments. These ideas will encompass new experiments and modifications to existing ones. 
+1. Something about moist atmospheric mass in the mass cons. experiment
+2. Comparing the baseline OLR experiment ($\Delta T = 0$) to the actual forecast provided, accessible either (perhaps) through ECMWF or definitely on Glade @ `e5.oper.fc.sfc.accumu.128_179_ttr.ll025sc.2020010106_2020011606.nc` (`e5.oper.fc.sfc.accumu.128_179_ttr.ll025sc.{yyyy}{mm}{dd}{hh}_{yyyy}{mm}{dd}{hh}.nc`)
+3. 

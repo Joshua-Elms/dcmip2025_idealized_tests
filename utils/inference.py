@@ -450,6 +450,7 @@ def latitude_weighted_mean(da, latitudes):
         The latitude-weighted mean
     """
     # Convert inputs to torch tensors if needed
+    coords = {dim: da[dim] for dim in da.dims if dim not in ['latitude', 'longitude']}
     if isinstance(da, xr.DataArray):
         da = torch.from_numpy(da.values)
     if isinstance(latitudes, xr.DataArray):
@@ -469,29 +470,36 @@ def latitude_weighted_mean(da, latitudes):
     # Calculate weighted mean
     weighted_data = da * weights
     averaged = weighted_data.sum(dim=(-2, -1))  # Average over lat, lon dimensions
-    return xr.DataArray(averaged.cpu().numpy())
+    return xr.DataArray(averaged.cpu().numpy(), coords=coords)
 
 def single_IC_inference(
         model,
         n_timesteps : int,
         init_time : dt.datetime = dt.datetime(1850,1,1),
         initial_condition : xr.Dataset = None,
+        perturbation : xr.Dataset = None,
         device : str = "cpu",
         vocal: bool = False,
         ) -> xr.Dataset:
     """ Runs the SFNO model for a single initial condition.
-
     input:
     ------
-
     model : torch.nn.Module
         the SFNO model to run
+        
+    n_timesteps : int
+        the number of timesteps to run the model for
 
     init_time : dt.datetime
         the time to initialize the model at. if providing initial_condition, this doesn't need to be set
 
-    n_timesteps : int
-        the number of timesteps to run the model for
+    initial_condition (optional) : xr.Dataset
+        the initial condition to use for the model. If not provided, the model will be initialized using the rda_era5_to_sfno_state function at init_time.
+
+    perturbation (optional) : xr.Dataset
+        the perturbation to apply to the initial condition. This is added to the initial condition before running the model.
+        If not provided, the model will be run with the initial condition only.
+        Must be of the same shape as the initial condition.
 
     device : str
         the device to run the model on
@@ -499,9 +507,6 @@ def single_IC_inference(
     vocal : bool
         if True, print progress messages
         
-    initial_condition (optional) : xr.Dataset
-        the initial condition to use for the model. If not provided, the model will be initialized using the rda_era5_to_sfno_state function at init_time.
-
     output:
     -------
 
@@ -519,6 +524,14 @@ def single_IC_inference(
     else:
         # just use rda_era5_to_sfno_state to get the initial condition
         x = rda_era5_to_sfno_state(device=device, time = init_time)
+        
+    # check if we need to apply a perturbation
+    if perturbation is not None:
+        # pack the perturbation into a tensor
+        xpert = pack_sfno_state(perturbation, device=device)
+        
+        # add the perturbation to the initial condition
+        x = x + xpert
 
     # run the model
     data_list = []
@@ -537,6 +550,5 @@ def single_IC_inference(
 
     # stack the output data by time
     data = torch.stack(data_list)
-    
     
     return unpack_sfno_state(data, time = timedeltas)

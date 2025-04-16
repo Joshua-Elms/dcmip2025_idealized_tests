@@ -9,7 +9,13 @@ Finished this test yesterday, now I'm rerunning a longer simulation (224 tsteps 
 
 Finally time to start this guy. Let's write out steps as we go:
 
-1. Build "ERA5 OLR value" downloader. 
+1. Build "ERA5 OLR value" downloader. It was tricky even finding OLR in ERA5, but I think I've got it: . It's an accumulation field, which is an integral over some period of time, so the first step was to figure out that interval. It's almost certainly an hour; both this [site](https://confluence.ecmwf.int/pages/viewpage.action?pageId=82870405#heading-Meanratesfluxesandaccumulations) and my testing (download global OLR at some time, compute mean, divide by 240 W/m^2 to get seconds, divide by 60 to get minutes and the result is about 56 minutes).
+2. Now I need to set up the inference script for this experiment... shouldn't be hard, but I'd like to test the utils for this purpose instead of just rewriting the same loop. Not that much has changed here, after all. Well maybe that's bunk, it's a delta exp... we'll see. 
+3. Finally, need to wrap it all together with an analysis script that takes in all the data produced and outputs a simple plot. 
+
+TODO: 
+- Item 3
+- Improve config file; I think most of them should have a `keep_vars` field so that you can add vars if you decide you want to do more analysis, even though the default script will remove everything unnecessary. This all needs to be well-documented, too, if it's going to be shared and used by others. 
 
 ### 04/09
 

@@ -81,8 +81,7 @@ ds = ds.assign_attrs({"time units": "hours since start"})
 
 
 ### benchmarking ###
-ds["MEAN_SP"] = inference.latitude_weighted_mean(ds["SP"], ds.latitude)
-n_iters = 10
+n_iters = 2
 dummy_storage = []
 start = perf_counter()
 for _ in range(n_iters):
@@ -112,6 +111,7 @@ qual_colors = cmap(np.linspace(0, 1, n_ics))
 
 fig, ax = plt.subplots(figsize=(12.5, 6.5))
 sp_mems = ds[plot_var]
+breakpoint()
 for i, ic in enumerate(ic_dates):
     linedat = sp_mems.isel(init_time=i)
     color = qual_colors[i]

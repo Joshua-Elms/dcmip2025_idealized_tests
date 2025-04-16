@@ -9,7 +9,6 @@ import dotenv
 from pathlib import Path
 import numpy as np
 import yaml
-from time import perf_counter
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -79,6 +78,8 @@ ds_out = ds_out.assign_coords({"init_time": ic_dates})
 
 # postprocess data
 ds_out["SP"] = ds_out["SP"] / 100 # convert from Pa to hPa
+
+ds_out.to_netcdf(data_dir / "raw_output.nc")
 ds_out["MEAN_SP"] = inference.latitude_weighted_mean(ds_out["SP"], ds.latitude)
 ds_out["IC_MEAN_SP"] = ds_out["MEAN_SP"].mean(dim="init_time")
 

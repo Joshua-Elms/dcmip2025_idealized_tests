@@ -5,7 +5,9 @@ import yaml
 import matplotlib.pyplot as plt
 import datetime as dt
 import calendar
+from utils import inference
 import math
+from time import perf_counter
 from matplotlib import colormaps
 
 
@@ -13,7 +15,7 @@ from matplotlib import colormaps
 
 # set up paths
 this_dir = Path(__file__).parent
-model_output_path = this_dir / "data" / "raw_output.nc"
+model_output_path = this_dir / "data" / "output.nc"
 plot_dir = this_dir / "plots"
 plot_dir.mkdir(parents=True, exist_ok=True)
 
@@ -35,16 +37,6 @@ cmap_str = "Set2" # options here: matplotlib.org/stable/tutorials/colors/colorma
 cp = 1005.0  # J/kg/K
 g = 9.81  # m/s^2j
 Lv = 2.26e6  # J/kg
-
-def latitude_weighted_mean(da, latitudes):
-    """
-    Calculate the latitude weighted mean of a variable in a dataset
-    """
-    lat_radians = np.deg2rad(latitudes)
-    weights = np.cos(lat_radians)
-    weights.name = "weights"
-    var_weighted = da.weighted(weights)
-    return var_weighted.mean(dim=["latitude", "longitude"])
 ##############################################
 
 ### Loading the ERA5 data for comparison ###
@@ -53,49 +45,64 @@ def latitude_weighted_mean(da, latitudes):
 e5_base = "/glade/campaign/collections/rda/data/ds633.0/"
 sp_template = f"{e5_base}/e5.oper.an.sfc/{{year:04}}{{month:02}}/e5.oper.an.sfc.128_134_sp.ll025sc.{{year:04}}{{month:02}}0100_{{year:04}}{{month:02}}{{dayend:02}}23.nc"
 sp_dict = {}
-for time in ic_dates:
-    keep_times = time + dt.timedelta(hours=6) * np.arange(n_timesteps+1)
+for ic_date in ic_dates:
+    keep_times = ic_date + dt.timedelta(hours=6) * np.arange(n_timesteps+1)
     sp_files = []
     # necessary in case the user requests inference that spans multiple months
-    for time in keep_times:
-        dayend = calendar.monthrange(time.year, time.month)[1]
-        sp_file = sp_template.format(year=time.year, month=time.month, dayend=dayend)
+    year_months = set((t.year, t.month) for t in keep_times)
+    for year, month in year_months:
+        dayend = calendar.monthrange(year, month)[1]
+        sp_file = sp_template.format(year=year, month=month, dayend=dayend)
         sp_files.append(sp_file)
 
-    sp_ds = xr.open_mfdataset([sp_files], combine="by_coords", parallel=True)
+    sp_ds = xr.open_mfdataset(sp_files, parallel=True)
     sp_ds = sp_ds.sel(time=keep_times).squeeze()
-    sp_dict[time] = latitude_weighted_mean(sp_ds["SP"], sp_ds["latitude"]) / 100 # convert to hPa
-    print(f"Loaded {sp_file} for {time} with shape {sp_ds['SP'].shape}")
+    sp_dict[ic_date] = inference.latitude_weighted_mean(sp_ds["SP"], sp_ds["latitude"]) / 100 # convert to hPa
+    print(f"Loaded {sp_file} for {ic_date} with shape {sp_ds['SP'].shape}")
     
 print(f"Example time:")
-print(sp_dict[time])
+print(sp_dict[ic_date])
 ############################################
 
 
 ### Load model output data ###
 print(f"Loading data from {model_output_path}")
 # load dataset -- this might be very large, so make sure to request a large enough job
-ds = xr.open_dataset(model_output_path).squeeze()  # data only has one member
-
-# convert SP and MSL from Pa to hPa
-ds["SP"] = ds["SP"] / 100
+ds = xr.open_dataset(model_output_path)
 
 # reset time coordinate
-time_hours = (ds.time - ds.time[0]) / np.timedelta64(
-    1, "h"
-)  # set time coord relative to start time
-ds.update({"time": time_hours})
+# time_hours = ds.time * np.timedelta64(
+#     1, "h"
+# )  # set time coord relative to start time
+# ds.update({"time": time_hours})
+time_hours = ds.time
 ds = ds.assign_attrs({"time units": "hours since start"})
-
-ds["mean_SP"] = latitude_weighted_mean(ds["SP"], ds.latitude)
-ds["ens_mean_SP"] = ds["mean_SP"].mean(dim="init_time")
 ##############################################
 
 
+### benchmarking ###
+n_iters = 2
+dummy_storage = []
+start = perf_counter()
+for _ in range(n_iters):
+    dummy_storage.append(inference.slow_latitude_weighted_mean(ds["SP"], ds.latitude))
+end = perf_counter()
+elapsed_0 = (end - start) / n_iters
+print(f"Elapsed time for {n_iters} iterations of latitude_weighted_mean: {elapsed_0:.4f} seconds")
+
+start = perf_counter()
+for _ in range(n_iters):
+    dummy_storage.append(inference.latitude_weighted_mean(ds["SP"], ds.latitude))
+end = perf_counter()
+elapsed_1 = (end - start) / n_iters
+print(f"Elapsed time for {n_iters} iterations of alt_latitude_weighted_mean: {elapsed_1:.4f} seconds")
+print(f"Speedup: {elapsed_0/elapsed_1:.2f}x")
+####################
 
 ### Plot the results ######################
-plot_var = "mean_SP"
+plot_var = "MEAN_SP"
 title = "Global Mean Surface Pressure Trends\nSFNO-Simulated vs. ERA5"
+save_title = "sp_trends_sfno_era5.png"
 linewidth = 2
 fontsize = 24
 smallsize = 20
@@ -104,18 +111,19 @@ qual_colors = cmap(np.linspace(0, 1, n_ics))
 
 fig, ax = plt.subplots(figsize=(12.5, 6.5))
 sp_mems = ds[plot_var]
+breakpoint()
 for i, ic in enumerate(ic_dates):
     linedat = sp_mems.isel(init_time=i)
     color = qual_colors[i]
     ax.plot(time_hours, linedat, color=color, linewidth=linewidth, label=f"ENS Member {i} (simulated value)")
     ax.plot(time_hours, sp_dict[ic], color=color, linewidth=linewidth, label=f"ENS Member {i} (ERA5 value)", linestyle="--")
     
-sp_ens = ds["ens_mean_SP"]
+sp_ens = ds["IC_MEAN_SP"]
 ax.plot(time_hours, sp_ens, color="red", linewidth=2*linewidth, label="Ensemble Mean", linestyle="-")
 sp_dict["mean"] = np.array([sp_dict[ic] for ic in ic_dates]).mean(axis=0)
 ax.plot(time_hours, sp_dict["mean"], color="red", linewidth=2*linewidth, label="Ensemble Mean (ERA5 value)", linestyle="--")
    
-ax.set_xticks(time_hours[::12], (time_hours[::12]/24).values.astype("int"), fontsize=smallsize)
+ax.set_xticks(time_hours, (time_hours/24).values.astype("int"), fontsize=smallsize)
 yticks = np.arange(math.floor(sp_mems.min()), math.ceil(sp_mems.max())+0.5, 0.5)
 ax.set_yticks(yticks, yticks, fontsize=smallsize)
 ax.set_xlabel("Simulation Time (days)", fontsize=fontsize)
@@ -126,5 +134,5 @@ ax.grid()
 ax.set_facecolor("#ffffff")
 fig.tight_layout()
 plt.legend(fontsize=12, loc="lower left", ncols=3)
-plt.savefig(plot_dir / f"{title}.png", dpi=300, bbox_inches="tight")
+plt.savefig(plot_dir / save_title, dpi=300, bbox_inches="tight")
 ###########################################
