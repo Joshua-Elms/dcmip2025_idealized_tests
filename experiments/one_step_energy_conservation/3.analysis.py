@@ -5,7 +5,7 @@ import yaml
 import matplotlib.pyplot as plt
 import datetime as dt
 import calendar
-from utils import inference
+from utils import inference, vis
 import math
 from time import perf_counter
 from matplotlib import colormaps
@@ -16,6 +16,7 @@ from matplotlib import colormaps
 # set up paths
 this_dir = Path(__file__).parent
 model_output_path = this_dir / "data" / "output.nc"
+olr_save_path = this_dir / "data" / "OLR.nc"
 plot_dir = this_dir / "plots"
 plot_dir.mkdir(parents=True, exist_ok=True)
 
@@ -28,6 +29,7 @@ with open(config_path, 'r') as file:
 ic_dates = [dt.datetime.strptime(str_date, "%Y/%m/%d %H:%M") for str_date in config["ic_dates"]]
 n_ics = len(ic_dates)
 n_timesteps = config["n_timesteps"]
+lead_times_h = np.arange(n_timesteps+1)
 
 
 # set these variables
@@ -39,100 +41,86 @@ g = 9.81  # m/s^2j
 Lv = 2.26e6  # J/kg
 ##############################################
 
-### Loading the ERA5 data for comparison ###
 
-# path to the ERA5 pressure data
-e5_base = "/glade/campaign/collections/rda/data/ds633.0/"
-sp_template = f"{e5_base}/e5.oper.an.sfc/{{year:04}}{{month:02}}/e5.oper.an.sfc.128_134_sp.ll025sc.{{year:04}}{{month:02}}0100_{{year:04}}{{month:02}}{{dayend:02}}23.nc"
-sp_dict = {}
-for ic_date in ic_dates:
-    keep_times = ic_date + dt.timedelta(hours=6) * np.arange(n_timesteps+1)
-    sp_files = []
-    # necessary in case the user requests inference that spans multiple months
-    year_months = set((t.year, t.month) for t in keep_times)
-    for year, month in year_months:
-        dayend = calendar.monthrange(year, month)[1]
-        sp_file = sp_template.format(year=year, month=month, dayend=dayend)
-        sp_files.append(sp_file)
+### Load model output & OLR data ###
+print(f"Loading model data from {model_output_path}")
+ds = xr.open_dataset(model_output_path).squeeze("ensemble", drop=True)
 
-    sp_ds = xr.open_mfdataset(sp_files, parallel=True)
-    sp_ds = sp_ds.sel(time=keep_times).squeeze()
-    sp_dict[ic_date] = inference.latitude_weighted_mean(sp_ds["SP"], sp_ds["latitude"]) / 100 # convert to hPa
-    print(f"Loaded {sp_file} for {ic_date} with shape {sp_ds['SP'].shape}")
-    
-print(f"Example time:")
-print(sp_dict[ic_date])
-############################################
-
-
-### Load model output data ###
-print(f"Loading data from {model_output_path}")
-# load dataset -- this might be very large, so make sure to request a large enough job
-ds = xr.open_dataset(model_output_path)
-
-# reset time coordinate
-# time_hours = ds.time * np.timedelta64(
-#     1, "h"
-# )  # set time coord relative to start time
-# ds.update({"time": time_hours})
-time_hours = ds.time
-ds = ds.assign_attrs({"time units": "hours since start"})
+print(f"Loading OLR data from {olr_save_path}")
+olr_ds = xr.open_dataset(olr_save_path)
 ##############################################
 
+### Sanity Test Plots ###
 
-### benchmarking ###
-n_iters = 2
-dummy_storage = []
-start = perf_counter()
-for _ in range(n_iters):
-    dummy_storage.append(inference.slow_latitude_weighted_mean(ds["SP"], ds.latitude))
-end = perf_counter()
-elapsed_0 = (end - start) / n_iters
-print(f"Elapsed time for {n_iters} iterations of latitude_weighted_mean: {elapsed_0:.4f} seconds")
+# VAR_2T over range of delta_Ts
+title_str = "2m Temperature for $\Delta T={delta_T}$ K"
+titles = [title_str.format(delta_T=delta_T) for delta_T in ds["delta_T"].values]
 
-start = perf_counter()
-for _ in range(n_iters):
-    dummy_storage.append(inference.latitude_weighted_mean(ds["SP"], ds.latitude))
-end = perf_counter()
-elapsed_1 = (end - start) / n_iters
-print(f"Elapsed time for {n_iters} iterations of alt_latitude_weighted_mean: {elapsed_1:.4f} seconds")
-print(f"Speedup: {elapsed_0/elapsed_1:.2f}x")
-####################
+vis.create_and_plot_variable_gif(
+    data=ds["VAR_2T"].isel(init_time=0, lead_time=0),
+    plot_var="VAR_2T",
+    iter_var="delta_T",
+    iter_vals=[0, 1, 2],
+    plot_dir=plot_dir,
+    units="degrees K",
+    cmap="magma",
+    titles=titles,
+    keep_images=True,
+    dpi=300,
+    fps=1,
+)
 
-### Plot the results ######################
-plot_var = "MEAN_SP"
-title = "Global Mean Surface Pressure Trends\nSFNO-Simulated vs. ERA5"
-save_title = "sp_trends_sfno_era5.png"
-linewidth = 2
-fontsize = 24
-smallsize = 20
-cmap = colormaps.get_cmap(cmap_str)
-qual_colors = cmap(np.linspace(0, 1, n_ics))
+# VAR_OLR over range of times
+titles = [f"OLR at {np.datetime_as_string(time, unit='h')} UTC" for time in olr_ds["init_time"].values]
+vis.create_and_plot_variable_gif(
+    data=olr_ds["VAR_OLR"],
+    plot_var="VAR_OLR",
+    iter_var="init_time",
+    iter_vals=[0, 1],
+    plot_dir=plot_dir,
+    units="W/m^2",
+    cmap="magma",
+    titles=titles,
+    keep_images=True,
+    dpi=300,
+    fps=1,
+)
+######################################
 
-fig, ax = plt.subplots(figsize=(12.5, 6.5))
-sp_mems = ds[plot_var]
-breakpoint()
-for i, ic in enumerate(ic_dates):
-    linedat = sp_mems.isel(init_time=i)
-    color = qual_colors[i]
-    ax.plot(time_hours, linedat, color=color, linewidth=linewidth, label=f"ENS Member {i} (simulated value)")
-    ax.plot(time_hours, sp_dict[ic], color=color, linewidth=linewidth, label=f"ENS Member {i} (ERA5 value)", linestyle="--")
+# ### Plot the results ######################
+# plot_var = "MEAN_SP"
+# title = "Global Mean Surface Pressure Trends\nSFNO-Simulated vs. ERA5"
+# save_title = "sp_trends_sfno_era5.png"
+# linewidth = 2
+# fontsize = 24
+# smallsize = 20
+# cmap = colormaps.get_cmap(cmap_str)
+# qual_colors = cmap(np.linspace(0, 1, n_ics))
+
+# fig, ax = plt.subplots(figsize=(12.5, 6.5))
+# sp_mems = ds[plot_var]
+# breakpoint()
+# for i, ic in enumerate(ic_dates):
+#     linedat = sp_mems.isel(init_time=i)
+#     color = qual_colors[i]
+#     ax.plot(ds.time, linedat, color=color, linewidth=linewidth, label=f"ENS Member {i} (simulated value)")
+#     ax.plot(ds.time, sp_dict[ic], color=color, linewidth=linewidth, label=f"ENS Member {i} (ERA5 value)", linestyle="--")
     
-sp_ens = ds["IC_MEAN_SP"]
-ax.plot(time_hours, sp_ens, color="red", linewidth=2*linewidth, label="Ensemble Mean", linestyle="-")
-sp_dict["mean"] = np.array([sp_dict[ic] for ic in ic_dates]).mean(axis=0)
-ax.plot(time_hours, sp_dict["mean"], color="red", linewidth=2*linewidth, label="Ensemble Mean (ERA5 value)", linestyle="--")
+# sp_ens = ds["IC_MEAN_SP"]
+# ax.plot(ds.time, sp_ens, color="red", linewidth=2*linewidth, label="Ensemble Mean", linestyle="-")
+# sp_dict["mean"] = np.array([sp_dict[ic] for ic in ic_dates]).mean(axis=0)
+# ax.plot(ds.time, sp_dict["mean"], color="red", linewidth=2*linewidth, label="Ensemble Mean (ERA5 value)", linestyle="--")
    
-ax.set_xticks(time_hours, (time_hours/24).values.astype("int"), fontsize=smallsize)
-yticks = np.arange(math.floor(sp_mems.min()), math.ceil(sp_mems.max())+0.5, 0.5)
-ax.set_yticks(yticks, yticks, fontsize=smallsize)
-ax.set_xlabel("Simulation Time (days)", fontsize=fontsize)
-ax.set_ylabel("Pressure (hPa)", fontsize=fontsize)
-ax.set_xlim(xmin=0, xmax=time_hours[-1])
-fig.suptitle(title, fontsize=30)
-ax.grid()
-ax.set_facecolor("#ffffff")
-fig.tight_layout()
-plt.legend(fontsize=12, loc="lower left", ncols=3)
-plt.savefig(plot_dir / save_title, dpi=300, bbox_inches="tight")
-###########################################
+# ax.set_xticks(ds.time, (ds.time/24).values.astype("int"), fontsize=smallsize)
+# yticks = np.arange(math.floor(sp_mems.min()), math.ceil(sp_mems.max())+0.5, 0.5)
+# ax.set_yticks(yticks, yticks, fontsize=smallsize)
+# ax.set_xlabel("Simulation Time (days)", fontsize=fontsize)
+# ax.set_ylabel("Pressure (hPa)", fontsize=fontsize)
+# ax.set_xlim(xmin=0, xmax=ds.time[-1])
+# fig.suptitle(title, fontsize=30)
+# ax.grid()
+# ax.set_facecolor("#ffffff")
+# fig.tight_layout()
+# plt.legend(fontsize=12, loc="lower left", ncols=3)
+# plt.savefig(plot_dir / save_title, dpi=300, bbox_inches="tight")
+# ###########################################

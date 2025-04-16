@@ -13,7 +13,8 @@ import cdsapi
 # set up paths
 this_dir = Path(__file__).parent
 olr_save_path = this_dir / "data" / "OLR.nc"
-
+data_dir = this_dir / "data" # where to save output from inference
+data_dir.mkdir(parents=True, exist_ok=True) # make dir if it doesn't exist
 
 # read configuration
 config_path = this_dir / "0.config.yaml"

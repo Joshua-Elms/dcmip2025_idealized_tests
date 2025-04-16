@@ -36,7 +36,7 @@ def plotting_loop(
     update_func,
     output_dir,
     fname_prefix,
-    title_str,
+    titles,
     keep_images=False,
     fps=1,
     dpi=100,
@@ -51,6 +51,7 @@ def plotting_loop(
         update_func (function that updates the plot)
         output_dir (directory to save images)
         fname_prefix (prefix for image filenames)
+        titles (list of titles for each image, must match length of iterable)
         keep_images (if True, images will not be deleted after the loop)
         fps (frames per second for gif)
 
@@ -64,7 +65,7 @@ def plotting_loop(
     save_dir.mkdir(exist_ok=True, parents=True)
     for i, idx in enumerate(iterable):
         data_slice = data.isel({dim_name: idx}).values
-        update_func(fig, obj, data_slice, i, title=title_str)
+        update_func(fig, obj, data_slice, title=titles[i])
         fig.savefig(save_dir / f"{fname_prefix}_{i:03}.png", dpi=dpi)
 
     dir2gif(save_dir, output_dir / f"{fname_prefix}.gif", fps=fps)
@@ -83,8 +84,8 @@ def create_and_plot_variable_gif(
     plot_dir: Path,
     units: str,
     cmap: str,
-    title_str: str,
-    adjust: dict,
+    titles: list[str],
+    adjust: dict = None,
     dpi: int = 100,
     fps: int = 2,
     dt: int = 6,
@@ -115,7 +116,7 @@ def create_and_plot_variable_gif(
         valid placeholders {var_name}, {units}, and {time}
     cmap : str
         Colormap to use for plotting, e.g. 'viridis'
-    adjust : dict
+    adjust : dict, optional
         Dictionary of subplot adjustment parameters for matplotlib
     fig_size : tuple, optional
         Size of the figure in inches (width, height). Default is (5, 2.8).
@@ -158,7 +159,7 @@ def create_and_plot_variable_gif(
     fig, ax = plt.subplots(figsize=fig_size)
 
     # set up first frame to be updated in later loop
-    im = ax.imshow(data.isel(time=0), vmin=vmin, vmax=vmax, cmap=cmap, origin="lower")
+    im = ax.imshow(data.isel({iter_var:iter_vals[0]}), vmin=vmin, vmax=vmax, cmap=cmap, origin="lower")
 
     ### Set axis information
     # labels
@@ -182,10 +183,19 @@ def create_and_plot_variable_gif(
     fig.patch.set_facecolor("xkcd:white")
 
     # proper positioning
+    if adjust is None:
+        adjust = {
+        "top": 1,
+        "bottom": 0.03,
+        "left": 0.13,
+        "right": 0.82,
+        "hspace": 0.0,
+        "wspace": 0.0,
+    }
     fig.subplots_adjust(**adjust)
 
     # title
-    fig.suptitle(title_str, x=(ax.get_position().x0 + ax.get_position().x1) / 2)
+    fig.suptitle(titles[0], x=(ax.get_position().x0 + ax.get_position().x1) / 2)
     
     ### colorbar
     # manually add colorbar axis to get the correct positioning
@@ -212,9 +222,9 @@ def create_and_plot_variable_gif(
     )
 
     ### define function to update plot at each timestep
-    def plot_updater(fig, plot_obj, data, i, title):
+    def plot_updater(fig, plot_obj, data, title):
         plot_obj.set_data(data)
-        fig.suptitle(title.format(var_name=plot_var, units=units, time=i * dt))
+        fig.suptitle(title)
 
     ### run plotting loop
     plotting_loop(
@@ -226,7 +236,7 @@ def create_and_plot_variable_gif(
         plot_updater,
         plot_dir,
         f"{plot_var}",
-        title_str,
+        titles,
         keep_images=keep_images,
         fps=fps,
         dpi=dpi,

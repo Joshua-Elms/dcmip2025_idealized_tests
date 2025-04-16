@@ -251,16 +251,17 @@ def initialize_sfno_xarray_ds(time, n_ensemble : int) -> xr.Dataset:
     ds = xr.Dataset()
 
     # check if we need to put time into an array/list
-    try:
-        len(time)
-    except TypeError:
+    if not isinstance(time, (list, tuple, np.ndarray)):
         time = [time]
 
+    # explicitly cast to datetime64[ns] to avoid warning
+    time = np.array(time, dtype='datetime64[ns]')
+    
     # create the coordinates
     ds['time'] = xr.DataArray(time, dims='time')
     ds['level'] = xr.DataArray(sfno_levels, dims='level')
     ds['latitude'] = xr.DataArray(np.linspace(-90,90,nlat), dims='latitude')
-    ds['longitude'] = xr.DataArray(np.linspace(0,360,nlon), dims='longitude')
+    ds['longitude'] = xr.DataArray(np.linspace(0,359.75,nlon), dims='longitude')
     ds['ensemble'] = xr.DataArray(np.arange(n_ensemble), dims='ensemble')
 
     # add metadata to the coordinates
@@ -515,7 +516,7 @@ def single_IC_inference(
     
     """
     timedeltas = np.arange(0, 6*(n_timesteps+1), 6) * np.timedelta64(1, 'h')
-    end_time = init_time + dt.timedelta(hours=6*n_timesteps)
+    end_time = init_time + dt.timedelta(hours=6*(n_timesteps))
     
     if initial_condition is not None:
         # pack the initial condition into a tensor
@@ -534,7 +535,7 @@ def single_IC_inference(
         x = x + xpert
 
     # run the model
-    data_list = []
+    data_list = [] ## keep initial condition, [0] gets first (only) time
     iterator = model(init_time, x)
     for k, (time, data, _) in enumerate(iterator):
         if vocal:
