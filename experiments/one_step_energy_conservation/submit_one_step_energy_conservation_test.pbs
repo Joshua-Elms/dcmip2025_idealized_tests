@@ -1,7 +1,7 @@
 #!/bin/bash -l
 #PBS -N dcmip_one_step_energy_conservation
 #PBS -l select=1:ncpus=1:ngpus=1:mem=256GB
-#PBS -l gpu_type=h100
+#PBS -l gpu_type=a100
 #PBS -l walltime=02:00:00
 #PBS -q casper
 #PBS -j oe
@@ -13,17 +13,24 @@ echo "---------- Job starting at $(date) ------------"
 # make sure the logs dir exists
 mkdir -p logs
 
-# load the earth2mip environment
-# (note that this automatically unloads cuda to avoid library errors; a warning will show up when this is run)
+# set this directory as an executable
 export PYTHONPATH=/glade/u/home/jmelms/projects/dcmip2025_idealized_tests
-conda activate /glade/work/tobrien/miniforge3/envs/earth2mip
+
+# model setup parameters
 export WORLD_SIZE=1
 export MODEL_REGISTRY=/glade/work/tobrien/DCMIP2025/.cache
 
-# step 1: run the model (-u triggers the print buffer to clear immediately so one can follow the log file live)
-python -u 1.run_sfno.py
+# step 1
+conda activate earth2mip2_nb
+python -u 1.download_OLR.py
 
-# step 2: perform analysis & make plots
-python -u 2.analysis.py
+# step 2: run model with range of perturbed and control initial conditions
+# use Travis O'Brien's model environment
+conda activate /glade/work/tobrien/miniforge3/envs/earth2mip
+python -u 2.run_sfno.py
+
+# step 3: analyze model output and compare to OLR data
+conda activate earth2mip2_nb
+python -u 3.analysis.py
 
 echo "--------- Job finished at $(date) ------------"
