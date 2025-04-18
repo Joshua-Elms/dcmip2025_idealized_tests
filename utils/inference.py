@@ -470,7 +470,7 @@ def latitude_weighted_mean(da, latitudes):
     
     # Calculate weighted mean
     weighted_data = da * weights
-    averaged = weighted_data.sum(dim=(-2, -1))  # Average over lat, lon dimensions
+    averaged = weighted_data.nansum(dim=(-2, -1))  # Average over lat, lon dimensions
     return xr.DataArray(averaged.cpu().numpy(), coords=coords)
 
 def single_IC_inference(

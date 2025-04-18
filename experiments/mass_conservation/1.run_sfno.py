@@ -31,7 +31,7 @@ print("Model loaded.")
 
 # load the initial condition times
 ic_dates = [dt.datetime.strptime(str_date, "%Y/%m/%d %H:%M") for str_date in config["ic_dates"]]
-times = np.arange(0, 6*config["n_timesteps"]+1, 6)
+time = [dt.datetime(1850,1,1) + dt.timedelta(hours=i*6) for i in range(config["n_timesteps"]+1)]
 
 # load the earth2mip environment variables
 dotenv.load_dotenv()
@@ -65,7 +65,7 @@ for d, date in enumerate(ic_dates):
     data = torch.stack(data_list)
 
     # unpack the data into an xarray object
-    ds = inference.unpack_sfno_state(data, time = times)
+    ds = inference.unpack_sfno_state(data, time = time)
     da_stack.append(ds["SP"])
 
         

@@ -96,20 +96,28 @@ olr_ds["MEAN_OLR"] = inference.latitude_weighted_mean(olr_ds["VAR_OLR"], olr_ds[
 # Step 2: Calculate the effective radiative temperature of the Earth from the OLR
 olr_ds["ERT"] = (olr_ds["MEAN_OLR"] / sb_const) ** (1/4)
 
-# Step 3: Calculate the total energy of the atmosphere
+# Step 3: Calculate the OLR of the atmosphere from the effective radiative temperature + delta_T
+# ds["OLR_THEORY"] = 
+delta_Ts = np.array(config["temp_deltas_degrees_kelvin"])
+# broadcast add delta Ts olr_ds["ERT"] to get starting ERT values
+ert = olr_ds["ERT"].expand_dims(dim={"delta_T": ds.sizes["delta_T"]}, axis=-1)
+ert = ert + delta_Ts
+ert = ert.assign_coords({"delta_T": ds["delta_T"]})
+olr_ds["OLR_THEORY"] = sb_const * ert ** 4
 
-### Step 3a: Compute a mask of the p-levels above the surface for integration
-sp = ds["SP"]
+# Step 4: Calculate the total energy of the atmosphere
+
+### Step 4a: Compute a mask of the p-levels above the surface for integration
+sp = ds["SP"] / 100
 sp_expanded = sp.expand_dims(dim={"level": ds.sizes["level"]}, axis=-1)
 expand_dict = {dim: ds.sizes[dim] for dim in ds.dims if dim != "level"}
 levs_expanded = ds["level"].expand_dims(dim=expand_dict)
 mask = levs_expanded <= sp_expanded
 
-### Step 3b: Get pressure for integration
+### Step 4b: Get pressure for integration
 pa = 100 * ds.level.values # convert to Pa from hPa, used for integration
 
-
-### Step 3c: Calculate total energy components
+### Step 4c: Calculate total energy components
 # sensible heat
 sensible_heat = cp * ds["T"]
 # latent heat - this is already column-integrated
@@ -119,7 +127,7 @@ geopotential_energy = g * ds["Z"]
 # kinetic energy
 kinetic_energy = 0.5 * ds["U"] ** 2 + 0.5 * ds["V"] ** 2
 
-### Step 3d: Calculate total energy by adding all components
+### Step 4d: Calculate total energy by adding all components
 # total energy minus latent heat
 dry_total_energy = sensible_heat + geopotential_energy + kinetic_energy
 dry_total_energy = dry_total_energy.where(mask, np.nan)
@@ -134,23 +142,81 @@ ds["VAR_TE"] = ds["VAR_TE"].assign_attrs(
     {"units": "J/m^2", "long_name": "Total Energy"}
 )
 
-### Step 3e: Weight by latitude
+### Step 4e: Weight by latitude
 # get latitude weighted total energy (time, ensemble)
 ds["LW_TE"] = inference.latitude_weighted_mean(ds["VAR_TE"], ds.latitude)
 ds["LW_TE"].assign_attrs(
     {"units": "J/m^2", "long_name": "Latitude-Weighted Total Energy"}
 )
 
-### Step 3f: Calculate the time derivative of the total energy
-# use second order central difference to calculate the time derivative
-# this computes time derivative w/r/t hours, so divide by 3600 to get W/m^2
-ds["dLW_TE_dt"] = ds["LW_TE"].differentiate("lead_time") / 3600
-ds["dLW_TE_dt"].assign_attrs(
-    {"units": "W/m^2", "long_name": "Time Derivative of Latitude-Weighted Total Energy"}
+### Step 4f: Calculate the time derivative of the total energy (OLR proxy)
+# energy in J/m^2, so take difference and then div by 21600 to get W/m^2
+lw_te = ds["LW_TE"].values
+six_hours = 6 * 60 * 60 # seconds
+olr_model =  - (lw_te[..., 1] - lw_te[..., 0]) / six_hours # OLR is signed opposite of change in atmospheric energy
+# ds["OLR_MODEL"]
+# ds["OLR_MODEL"].assign_attrs(
+#     {"units": "W/m^2", "long_name": "Time Derivative of Latitude-Weighted Total Energy"}
+# )
+
+# Step 5: Test it!
+
+ic_date = ic_dates[0]
+ds_list = []
+for i in range(10):
+    t = ic_date + dt.timedelta(hours=6*i)
+    test_ds_slice = inference.read_sfno_vars_from_era5_rda(t)
+    ds_list.append(test_ds_slice)
+ds = xr.concat(ds_list, dim="time")
+
+### Step 4a: Compute a mask of the p-levels above the surface for integration
+sp = ds["SP"] / 100
+sp_expanded = sp.expand_dims(dim={"level": ds.sizes["level"]}, axis=-1)
+expand_dict = {dim: ds.sizes[dim] for dim in ds.dims if dim != "level"}
+levs_expanded = ds["level"].expand_dims(dim=expand_dict)
+mask = levs_expanded <= sp_expanded
+
+### Step 4b: Get pressure for integration
+pa = 100 * ds.level.values # convert to Pa from hPa, used for integration
+
+### Step 4c: Calculate total energy components
+# sensible heat
+sensible_heat = cp * ds["T"]
+# latent heat - this is already column-integrated
+latent_heat = Lv * ds["TCW"]
+# geopotential energy
+geopotential_energy = g * ds["Z"]
+# kinetic energy
+kinetic_energy = 0.5 * ds["U"] ** 2 + 0.5 * ds["V"] ** 2
+
+### Step 4d: Calculate total energy by adding all components
+# total energy minus latent heat
+dry_total_energy = sensible_heat + geopotential_energy + kinetic_energy
+dry_total_energy = dry_total_energy.where(mask, np.nan)
+# column integration
+dry_total_energy_column = (1 / g) * scipy.integrate.trapezoid(
+    dry_total_energy, pa, axis=1
 )
 
-breakpoint()
+# sum
+ds["VAR_TE"] = (expand_dict, dry_total_energy_column + latent_heat.values)
+ds["VAR_TE"] = ds["VAR_TE"].assign_attrs(
+    {"units": "J/m^2", "long_name": "Total Energy"}
+)
 
+### Step 4e: Weight by latitude
+# get latitude weighted total energy (time, ensemble)
+ds["LW_TE"] = inference.latitude_weighted_mean(ds["VAR_TE"], ds.latitude)
+ds["LW_TE"].assign_attrs(
+    {"units": "J/m^2", "long_name": "Latitude-Weighted Total Energy"}
+)
+
+### Step 4f: Calculate the time derivative of the total energy (OLR proxy)
+# energy in J/m^2, so take difference and then div by 21600 to get W/m^2
+lw_te = ds["LW_TE"].values
+six_hours = 6 * 60 * 60 # seconds
+olr_model =  - (lw_te[..., 1:] - lw_te[..., :-1]) / six_hours # OLR is signed opposite of change in atmospheric energy
+breakpoint()
 
 # ### Plot the results ######################
 # plot_var = "MEAN_SP"
