@@ -7,6 +7,7 @@ import datetime as dt
 from utils import inference, vis
 import scipy
 from time import perf_counter
+import torch
 from matplotlib import colormaps
 
 
@@ -15,7 +16,7 @@ from matplotlib import colormaps
 # set up paths
 this_dir = Path(__file__).parent
 model_output_path = this_dir / "data" / "output.nc"
-olr_save_path = this_dir / "data" / "OLR.nc"
+rad_save_path = this_dir / "data" / "ISR_OLR.nc" # radiative data
 plot_dir = this_dir / "plots"
 plot_dir.mkdir(parents=True, exist_ok=True)
 
@@ -29,6 +30,7 @@ ic_dates = [dt.datetime.strptime(str_date, "%Y/%m/%d %H:%M") for str_date in con
 n_ics = len(ic_dates)
 n_timesteps = config["n_timesteps"]
 lead_times_h = np.arange(n_timesteps+1)
+device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
 
 # set these variables
@@ -46,8 +48,8 @@ sb_const = 5.670374419e-8  # W/m^2/K^4, from https://physics.nist.gov/cgi-bin/cu
 print(f"Loading model data from {model_output_path}")
 ds = xr.open_dataset(model_output_path).squeeze("ensemble", drop=True)
 
-print(f"Loading OLR data from {olr_save_path}")
-olr_ds = xr.open_dataset(olr_save_path)
+print(f"Loading OLR data from {rad_save_path}")
+rad_ds = xr.open_dataset(rad_save_path)
 ##############################################
 
 # ### Sanity Test Plots ###
@@ -89,20 +91,21 @@ titles = [title_str.format(delta_T=delta_T) for delta_T in ds["delta_T"].values]
 
 ### Analysis ###
 
-# Step 1: Calculate the global mean OLR for each init time
-olr_ds["MEAN_OLR"] = inference.latitude_weighted_mean(olr_ds["VAR_OLR"], olr_ds["latitude"])
+# Step 1: Calculate the global mean ISR/OLR for each init time
+rad_ds["MEAN_ISR"] = inference.latitude_weighted_mean(rad_ds["VAR_ISR"], rad_ds["latitude"], device=device)
+rad_ds["MEAN_OLR"] = inference.latitude_weighted_mean(rad_ds["VAR_OLR"], rad_ds["latitude"], device=device)
 
 # Step 2: Calculate the effective radiative temperature of the Earth from the OLR
-olr_ds["ERT"] = (olr_ds["MEAN_OLR"] / sb_const) ** (1/4)
+rad_ds["ERT"] = (rad_ds["MEAN_OLR"] / sb_const) ** (1/4)
 
-# Step 3: Calculate the OLR of the atmosphere from the effective radiative temperature + delta_T
-# ds["OLR_THEORY"] = 
+# Step 3: Calculate the theoretical radiative imbalance of the atmosphere from the effective radiative temperature + delta_T
 delta_Ts = np.array(config["temp_deltas_degrees_kelvin"])
 # broadcast add delta Ts olr_ds["ERT"] to get starting ERT values
-ert = olr_ds["ERT"].expand_dims(dim={"delta_T": ds.sizes["delta_T"]}, axis=-1)
+ert = rad_ds["ERT"].expand_dims(dim={"delta_T": ds.sizes["delta_T"]}, axis=-1)
 ert = ert + delta_Ts
 ert = ert.assign_coords({"delta_T": ds["delta_T"]})
-olr_ds["OLR_THEORY"] = sb_const * ert ** 4
+rad_ds["OLR_THEORY"] = sb_const * ert ** 4
+rad_ds["IMBALANCE_THEORY"] = rad_ds["MEAN_ISR"] - rad_ds["OLR_THEORY"] # dE/dt = ISR - OLR
 
 # Step 4: Calculate the total energy of the atmosphere
 
@@ -112,6 +115,7 @@ sp_expanded = sp.expand_dims(dim={"level": ds.sizes["level"]}, axis=-1)
 expand_dict = {dim: ds.sizes[dim] for dim in ds.dims if dim != "level"}
 levs_expanded = ds["level"].expand_dims(dim=expand_dict)
 mask = levs_expanded <= sp_expanded
+ds["terrain_mask"] = mask
 
 ### Step 4b: Get pressure for integration
 pa = 100 * ds.level.values # convert to Pa from hPa, used for integration
@@ -129,7 +133,7 @@ kinetic_energy = 0.5 * ds["U"] ** 2 + 0.5 * ds["V"] ** 2
 ### Step 4d: Calculate total energy by adding all components
 # total energy minus latent heat
 dry_total_energy = sensible_heat + geopotential_energy + kinetic_energy
-# dry_total_energy = dry_total_energy.where(mask, np.nan)
+dry_total_energy = dry_total_energy.where(mask, 0.0) # set values below surface to 0
 # column integration
 print(f"Integrating dry total energy with shape {dry_total_energy.shape} and pa with shape {pa.shape}")
 dry_total_energy_column = (1 / g) * scipy.integrate.trapezoid( # add nan-safe version
@@ -144,7 +148,7 @@ ds["VAR_TE"] = ds["VAR_TE"].assign_attrs(
 
 ### Step 4e: Weight by latitude
 # get latitude weighted total energy (time, ensemble)
-ds["LW_TE"] = inference.latitude_weighted_mean(ds["VAR_TE"], ds.latitude)
+ds["LW_TE"] = inference.latitude_weighted_mean(ds["VAR_TE"], ds.latitude, device=device)
 ds["LW_TE"].assign_attrs(
     {"units": "J/m^2", "long_name": "Latitude-Weighted Total Energy"}
 )
@@ -158,14 +162,14 @@ olr_model =  - (lw_te[..., 1] - lw_te[..., 0]) / six_hours # OLR is signed oppos
 # ds["OLR_MODEL"].assign_attrs(
 #     {"units": "W/m^2", "long_name": "Time Derivative of Latitude-Weighted Total Energy"}
 # )
-print(f"Theoretical OLR: {olr_ds['OLR_THEORY'].values}")
+print(f"Theoretical OLR: {rad_ds['OLR_THEORY'].values}")
 print(f"Model OLR: {olr_model}")
 
 fig, ax = plt.subplots(figsize=(10, 8))
 
 # Get the range of values for both axes
-min_val = min(olr_ds["OLR_THEORY"].min().item(), np.min(olr_model))
-max_val = max(olr_ds["OLR_THEORY"].max().item(), np.max(olr_model))
+min_val = min(rad_ds["OLR_THEORY"].min().item(), np.min(olr_model))
+max_val = max(rad_ds["OLR_THEORY"].max().item(), np.max(olr_model))
 y_plot_range = [min_val-20, max_val+20]
 x_plot_range = [220, 270]
 
@@ -175,9 +179,9 @@ ax.plot(y_plot_range, y_plot_range, 'k-', label='y=x', linewidth=1.5)
 
 # Create scatter plot
 scatter = ax.scatter(
-    olr_ds["OLR_THEORY"].values.flatten(), 
+    rad_ds["OLR_THEORY"].values.flatten(), 
     olr_model.flatten(),
-    c=np.repeat(delta_Ts, len(olr_ds.init_time)),
+    c=np.repeat(delta_Ts, len(rad_ds.init_time)),
     cmap='viridis',
     alpha=0.8,
     s=80,
@@ -291,6 +295,24 @@ breakpoint()
 # lw_te = ds["LW_TE"].values
 # six_hours = 6 * 60 * 60 # seconds
 # olr_model =  - (lw_te[..., 1:] - lw_te[..., :-1]) / six_hours # OLR is signed opposite of change in atmospheric energy
+
+# plot terrain mask
+# it, dT, lt = 0, 1, 0
+# start_lev_idx = 7
+# titles = [f"Terrain Mask at {lev}hPa" for lev in ds["level"].values[start_lev_idx:]]
+# vis.create_and_plot_variable_gif(
+#     data=ds["terrain_mask"].isel(init_time=it, delta_T=dT, lead_time=lt),
+#     plot_var="terrain_mask",
+#     iter_var="level",
+#     iter_vals=np.arange(start_lev_idx, ds.level.size),
+#     plot_dir=plot_dir,
+#     units="Binary Mask",
+#     cmap="binary",
+#     titles=titles,
+#     keep_images=True,
+#     dpi=300,
+#     fps=0.2,
+# )
 
 # ### Plot the results ######################
 # plot_var = "MEAN_SP"

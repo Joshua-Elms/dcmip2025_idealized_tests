@@ -80,12 +80,17 @@ ds_out = ds_out.rename({"time": "lead_time"})
 
 # let's keep only the variables needed for analysis
 necessary_vars = ["SP", "MSL", "T", "Z", "U", "V", "TCW", "VAR_2T"]
-# here you could add keep_vars from the config w/ simple list concatenation
-ds_out = ds_out[necessary_vars]
+# if user specifies extra vars, keep those too
+extra_vars = config["keep_extra_vars"]
+if len(extra_vars) > 0:
+    keep_vars = list(set(necessary_vars).union(set(extra_vars)))
+else: 
+    keep_vars = necessary_vars
+ds_out = ds_out[keep_vars]
 
 # save to data dir in same directory as this file
 save_path = Path(__file__).parent / "data" / "output.nc"
 if save_path.exists():
-    print(f"File {save_path} already exists. Deleting.")
+    print(f"File {save_path} already exists. Overwriting.")
     save_path.unlink() # delete the file if it exists
 ds_out.to_netcdf(save_path)

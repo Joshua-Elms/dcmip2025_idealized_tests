@@ -458,7 +458,6 @@ def latitude_weighted_mean(da, latitudes, device="cpu"):
         latitudes = latitudes.values
     
     # Move to GPU if available
-    print(f"Using device: {device}")
     da = da.to(device)
     
     # Calculate weights
