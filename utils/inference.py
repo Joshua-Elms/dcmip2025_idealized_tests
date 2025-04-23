@@ -433,7 +433,7 @@ def slow_latitude_weighted_mean(da, latitudes):
     var_weighted = da.weighted(weights)
     return var_weighted.mean(dim=["latitude", "longitude"])
 
-def latitude_weighted_mean(da, latitudes):
+def latitude_weighted_mean(da, latitudes, device="cpu"):
     """
     Calculate the latitude weighted mean of a variable using torch operations on GPU.
     Needs tests to ensure it works correctly.
@@ -458,7 +458,7 @@ def latitude_weighted_mean(da, latitudes):
         latitudes = latitudes.values
     
     # Move to GPU if available
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"Using device: {device}")
     da = da.to(device)
     
     # Calculate weights

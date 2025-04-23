@@ -90,7 +90,6 @@ titles = [title_str.format(delta_T=delta_T) for delta_T in ds["delta_T"].values]
 ### Analysis ###
 
 # Step 1: Calculate the global mean OLR for each init time
-breakpoint()
 olr_ds["MEAN_OLR"] = inference.latitude_weighted_mean(olr_ds["VAR_OLR"], olr_ds["latitude"])
 
 # Step 2: Calculate the effective radiative temperature of the Earth from the OLR
@@ -206,12 +205,33 @@ ax.set_ylim(y_plot_range)
 plt.tight_layout()
 plt.savefig(plot_dir / "olr_comparison.png", dpi=300, bbox_inches="tight")
 
-fig, ax = plt.subplots(figsize=(10, 8))
+fig, ax = plt.subplots(figsize=(5, 3))
 # plot lw total energy 
-ax.plot(np.arange(360), ds["LW_TE"].mean(dim="init_time"), label="Model", color="blue")
+# ax.plot(np.arange(360), ds["LW_TE"].mean(dim="init_time"), label="Model", color="blue")
 
 fig.savefig(plot_dir / "lw_te.png", dpi=300, bbox_inches="tight")
 
+# Plot vertical T profiles
+ic = 0
+lead_time = 0
+T_subset = ds["T"].isel(init_time=ic, lead_time=lead_time)
+T_levs = inference.latitude_weighted_mean(T_subset, T_subset.latitude, device="cpu")
+fig, ax = plt.subplots(figsize=(5, 3))
+for i, delta_T in enumerate(delta_Ts):
+    x = T_levs.isel(delta_T=i)
+    y = T_levs.level.values  # Reverse the order of levels for plotting p
+    ax.plot(x, y, label=f"ΔT={delta_T} K")
+    
+# ax.set_yscale("log")
+ax.set_yscale("log")
+ax.invert_yaxis()
+ticks = np.concat([y[:6:], y[6::2]])
+ax.set_yticks(ticks=ticks, labels=[f"{int(val)}" for val in ticks])
+ax.set_xlabel("Temperature (K)")
+ax.set_ylabel("Pressure (hPa)")
+ax.set_title(f"Vertical Temperature Profiles, {ic_dates[ic]}z")
+ax.legend(title="Temperature Perturbation (ΔT)", loc="upper right")
+fig.savefig(plot_dir / "T_profiles.png", dpi=300, bbox_inches="tight")
 breakpoint()
 
 # # Step 5: Test it on ERA5 data

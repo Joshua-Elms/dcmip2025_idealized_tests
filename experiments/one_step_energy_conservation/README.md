@@ -13,3 +13,11 @@ $E$ refers to all planetary energy, which is too broad for our ambitions. Climat
 Ocean-atmosphere interactions, volcanism, and asteroid impacts have one thing in common: during the average six hour period on Earth, none of them has a major impact on the total energy of the atmosphere. In fact, adding up all non-solar energy fluxes into the atmosphere accounts for less than 1/2600th of the average amount of energy the atmosphere receives in one second [Table 2, Kren et al. (2017)](https://doi.org/10.1051/swsc/2017007). 
 
 ### Experimental Design
+
+1. Calculate Earth's effective radiative temperature ($T_e$) given Earth's mean outgoing longwave radiation ($\overline{OLR}$): $T_e = (\overline{OLR}/\sigma)^{1/4} $
+$$
+\frac{\partial E_T}{\partial t} = \overline{ISR} - \overline{OLR} \to \boxed{\overline{OLR} = \overline{ISR} - \frac{\partial E_T}{\partial t}}
+$$
+
+$$
+T_e = (\overline{OLR}/\sigma)^{1/4} = 
