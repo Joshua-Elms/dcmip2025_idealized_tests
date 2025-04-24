@@ -9,6 +9,7 @@ import scipy
 from time import perf_counter
 import torch
 from matplotlib import colormaps
+from matplotlib.colors import BoundaryNorm
 
 
 ### Set up and parameter selection ########
@@ -29,12 +30,14 @@ with open(config_path, 'r') as file:
 ic_dates = [dt.datetime.strptime(str_date, "%Y/%m/%d %H:%M") for str_date in config["ic_dates"]]
 n_ics = len(ic_dates)
 n_timesteps = config["n_timesteps"]
-lead_times_h = np.arange(n_timesteps+1)
+lead_times_h = np.arange(n_timesteps+1) * 6
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
 
 # set these variables
 cmap_str = "Set2" # options here: matplotlib.org/stable/tutorials/colors/colormaps.html
+cmap = colormaps.get_cmap(cmap_str)
+qual_colors = cmap(np.linspace(0, 1, n_ics))
 
 # define consts
 cp = 1005.0  # J/kg/K
@@ -48,7 +51,7 @@ sb_const = 5.670374419e-8  # W/m^2/K^4, from https://physics.nist.gov/cgi-bin/cu
 print(f"Loading model data from {model_output_path}")
 ds = xr.open_dataset(model_output_path).squeeze("ensemble", drop=True)
 
-print(f"Loading OLR data from {rad_save_path}")
+print(f"Loading radiative data from {rad_save_path}")
 rad_ds = xr.open_dataset(rad_save_path)
 ##############################################
 
@@ -109,7 +112,7 @@ rad_ds["IMBALANCE_THEORY"] = rad_ds["MEAN_ISR"] - rad_ds["OLR_THEORY"] # dE/dt =
 
 # Step 4: Calculate the total energy of the atmosphere
 
-### Step 4a: Compute a mask of the p-levels above the surface for integration
+### Step 4a: Compute a mask of the p-levels above the surface for integration ###
 sp = ds["SP"] / 100
 sp_expanded = sp.expand_dims(dim={"level": ds.sizes["level"]}, axis=-1)
 expand_dict = {dim: ds.sizes[dim] for dim in ds.dims if dim != "level"}
@@ -117,10 +120,10 @@ levs_expanded = ds["level"].expand_dims(dim=expand_dict)
 mask = levs_expanded <= sp_expanded
 ds["terrain_mask"] = mask
 
-### Step 4b: Get pressure for integration
+### Step 4b: Get pressure for integration ###
 pa = 100 * ds.level.values # convert to Pa from hPa, used for integration
 
-### Step 4c: Calculate total energy components
+### Step 4c: Calculate total energy components ###
 # sensible heat
 sensible_heat = cp * ds["T"]
 # latent heat - this is already column-integrated
@@ -130,7 +133,7 @@ geopotential_energy = ds["Z"] # geopotential energy is already in J/kg, no need 
 # kinetic energy
 kinetic_energy = 0.5 * ds["U"] ** 2 + 0.5 * ds["V"] ** 2
 
-### Step 4d: Calculate total energy by adding all components
+### Step 4d: Calculate total energy by adding all components ###
 # total energy minus latent heat
 dry_total_energy = sensible_heat + geopotential_energy + kinetic_energy
 dry_total_energy = dry_total_energy.where(mask, 0.0) # set values below surface to 0
@@ -146,57 +149,84 @@ ds["VAR_TE"] = ds["VAR_TE"].assign_attrs(
     {"units": "J/m^2", "long_name": "Total Energy"}
 )
 
-### Step 4e: Weight by latitude
+### Step 4e: Weight by latitude ####
 # get latitude weighted total energy (time, ensemble)
 ds["LW_TE"] = inference.latitude_weighted_mean(ds["VAR_TE"], ds.latitude, device=device)
 ds["LW_TE"].assign_attrs(
     {"units": "J/m^2", "long_name": "Latitude-Weighted Total Energy"}
 )
 
-### Step 4f: Calculate the time derivative of the total energy (OLR proxy)
+### Step 4f: Calculate the time derivative of the total energy (OLR proxy) ###
 # energy in J/m^2, so take difference and then div by 21600 to get W/m^2
 lw_te = ds["LW_TE"].values
 six_hours = 6 * 60 * 60 # seconds
-olr_model =  - (lw_te[..., 1] - lw_te[..., 0]) / six_hours # OLR is signed opposite of change in atmospheric energy
-# ds["OLR_MODEL"]
-# ds["OLR_MODEL"].assign_attrs(
-#     {"units": "W/m^2", "long_name": "Time Derivative of Latitude-Weighted Total Energy"}
-# )
-print(f"Theoretical OLR: {rad_ds['OLR_THEORY'].values}")
-print(f"Model OLR: {olr_model}")
+imbalance_model =  (lw_te[..., 1] - lw_te[..., 0]) / six_hours # dE/dt = ISR - OLR
 
-fig, ax = plt.subplots(figsize=(10, 8))
+print(f"Theoretical Imbalance: {rad_ds['IMBALANCE_THEORY'].values}")
+print(f"Model Imbalance: {imbalance_model}")
+
+##############################################################################
+
+
+### Scatter Plot of Theoretical vs. Modeled Imbalance ###
+fig, ax = plt.subplots(figsize=(8, 6))
 
 # Get the range of values for both axes
-min_val = min(rad_ds["OLR_THEORY"].min().item(), np.min(olr_model))
-max_val = max(rad_ds["OLR_THEORY"].max().item(), np.max(olr_model))
-y_plot_range = [min_val-20, max_val+20]
-x_plot_range = [220, 270]
-
+theory_min = rad_ds["IMBALANCE_THEORY"].min().item()
+theory_max = rad_ds["IMBALANCE_THEORY"].max().item()
+model_min = np.min(imbalance_model)
+model_max = np.max(imbalance_model)
+min_val = min(theory_min, model_min)
+max_val = max(theory_max, model_max)
+y_plot_range = [model_min-100, model_max+100]
+x_plot_range = [theory_min-5, theory_max+5]
 
 # Plot y=x line
-ax.plot(y_plot_range, y_plot_range, 'k-', label='y=x', linewidth=1.5)
+ax.plot([min_val, max_val], [min_val, max_val], 'k-', label='y=x', linewidth=1.5)
 
-# Create scatter plot
+# Create discrete color mapping using tab20c colormap
+unique_delta_Ts = np.unique(delta_Ts)
+n_colors = len(unique_delta_Ts)
+cmap = plt.cm.get_cmap('coolwarm', n_colors)
+
+# Map each delta_T value to an integer index
+delta_T_to_idx = {dt: i for i, dt in enumerate(unique_delta_Ts)}
+color_indices = np.array([delta_T_to_idx[dt] for dt in np.tile(delta_Ts, len(rad_ds.init_time))])
+
+# Create discrete norm for the colormap
+bounds = np.arange(-0.5, n_colors + 0.5, 1)
+norm = BoundaryNorm(bounds, cmap.N)
+
+# Create scatter plot with discrete colors
 scatter = ax.scatter(
-    rad_ds["OLR_THEORY"].values.flatten(), 
-    olr_model.flatten(),
-    c=np.repeat(delta_Ts, len(rad_ds.init_time)),
-    cmap='viridis',
+    rad_ds["IMBALANCE_THEORY"].values.flatten(), 
+    imbalance_model.flatten(),
+    c=color_indices,
+    cmap=cmap,
+    norm=norm,
     alpha=0.8,
     s=80,
     edgecolor='k',
-    linewidth=0.5
+    linewidth=1.5,
 )
 
-# Add colorbar
-cbar = fig.colorbar(scatter, ax=ax)
+# Add discrete colorbar
+cbar = fig.colorbar(
+    plt.cm.ScalarMappable(cmap=cmap, norm=norm),
+    ax=ax,
+    ticks=range(n_colors),
+    boundaries=bounds,
+    spacing='proportional'
+)
+
+# Set custom tick labels with the actual delta_T values
+cbar.ax.set_yticklabels([f'{dt:.1f}' for dt in unique_delta_Ts])
 cbar.set_label('Temperature Perturbation (ΔT, K)', fontsize=12)
 
 # Labels and title
-ax.set_xlabel('Theoretical OLR (W/m²)', fontsize=14)
-ax.set_ylabel('Modeled OLR (W/m²)', fontsize=14)
-ax.set_title('Comparison of Theoretical vs. Modeled OLR', fontsize=16)
+ax.set_xlabel('Theory (W/m²)', fontsize=14)
+ax.set_ylabel('Model (W/m²)', fontsize=14)
+ax.set_title('Comparison of Theoretical vs. Modeled Imbalance ISR-OLR', fontsize=18)
 
 # Equal aspect ratio
 # ax.set_aspect('equal')
@@ -206,16 +236,20 @@ ax.grid(True, linestyle='--', alpha=0.7)
 ax.set_xlim(x_plot_range)
 ax.set_ylim(y_plot_range)
 
+ax.legend(markerscale=2, loc='center right', fontsize=12)
+
 plt.tight_layout()
-plt.savefig(plot_dir / "olr_comparison.png", dpi=300, bbox_inches="tight")
+plt.savefig(plot_dir / "imbalance_comparison.png", dpi=300, bbox_inches="tight")
 
 fig, ax = plt.subplots(figsize=(5, 3))
 # plot lw total energy 
 # ax.plot(np.arange(360), ds["LW_TE"].mean(dim="init_time"), label="Model", color="blue")
 
 fig.savefig(plot_dir / "lw_te.png", dpi=300, bbox_inches="tight")
+###########################################################
 
-# Plot vertical T profiles
+
+### Plot vertical T profiles ###
 ic = 0
 lead_time = 0
 T_subset = ds["T"].isel(init_time=ic, lead_time=lead_time)
@@ -236,17 +270,117 @@ ax.set_ylabel("Pressure (hPa)")
 ax.set_title(f"Vertical Temperature Profiles, {ic_dates[ic]}z")
 ax.legend(title="Temperature Perturbation (ΔT)", loc="upper right")
 fig.savefig(plot_dir / "T_profiles.png", dpi=300, bbox_inches="tight")
+#################################
+
+
+
+### Test TE calculation on ERA5 data ###
+
+
+# step 1: load ERA5 data
+ds_outer = []
+for ic_date in ic_dates:
+    ds_inner = []
+    for lead_time in lead_times_h.tolist():
+        t = ic_date + dt.timedelta(hours=lead_time)
+        test_ds_slice = inference.read_sfno_vars_from_era5_rda(t)
+        
+        ds_inner.append(test_ds_slice)
+    ds_sub = xr.concat(ds_inner, dim="lead_time")
+    ds_outer.append(ds_sub)
+era5_ds = xr.concat(ds_outer, dim="init_time")
+long_rad_ds = xr.load_dataset(this_dir / "data" / "ISR_OLR_sequence.nc")
+era5_ds["VAR_ISR"] = long_rad_ds["VAR_ISR"]
+era5_ds["VAR_OLR"] = long_rad_ds["VAR_OLR"]
+long_rad_ds.close()
+
+# step 2: calculate the global mean ISR/OLR for each time
+era5_ds["MEAN_ISR"] = inference.latitude_weighted_mean(era5_ds["VAR_ISR"], era5_ds["latitude"], device=device)
+era5_ds["MEAN_OLR"] = inference.latitude_weighted_mean(era5_ds["VAR_OLR"], era5_ds["latitude"], device=device)
+
+# step 3: calculate the total energy of the atmosphere at each timestep
+
+### Step 3a: Compute a mask of the p-levels above the surface for integration ###
+sp = era5_ds["SP"] / 100
+sp_expanded = sp.expand_dims(dim={"level": era5_ds.sizes["level"]}, axis=-1)
+expand_dict = {dim: era5_ds.sizes[dim] for dim in era5_ds.dims if dim != "level"}
+levs_expanded = era5_ds["level"].expand_dims(dim=expand_dict)
+mask = levs_expanded <= sp_expanded
+era5_ds["terrain_mask"] = mask
+
+### Step 4b: Get pressure for integration ###
+pa = 100 * era5_ds.level.values # convert to Pa from hPa, used for integration
+
+### Step 4c: Calculate total energy components ###
+# sensible heat
+sensible_heat = cp * era5_ds["T"]
+# latent heat - this is already column-integrated
+latent_heat = Lv * era5_ds["TCW"]
+# geopotential energy
+geopotential_energy = era5_ds["Z"] # geopotential energy is already in J/kg, no need to multiply by g
+# kinetic energy
+kinetic_energy = 0.5 * era5_ds["U"] ** 2 + 0.5 * era5_ds["V"] ** 2
+
+### Step 4d: Calculate total energy by adding all components ###
+# total energy minus latent heat
+dry_total_energy = sensible_heat + geopotential_energy + kinetic_energy
+dry_total_energy = dry_total_energy.where(mask, 0.0) # set values below surface to 0
+# column integration
+print(f"Integrating dry total energy with shape {dry_total_energy.shape} and pa with shape {pa.shape}")
+dry_total_energy_column = (1 / g) * scipy.integrate.trapezoid( # add nan-safe version
+    dry_total_energy, pa, axis=2
+)
+
+# sum
+expand_dict_reordered = {
+    key: expand_dict[key] for key in ["init_time", "lead_time", "latitude", "longitude"]
+}
+era5_ds["VAR_TE"] = (expand_dict_reordered, dry_total_energy_column + latent_heat.values)
+era5_ds["VAR_TE"] = era5_ds["VAR_TE"].assign_attrs(
+    {"units": "J/m^2", "long_name": "Total Energy"}
+)
+
+### Step 4e: Weight by latitude ####
+# get latitude weighted total energy (time, ensemble)
+era5_ds["LW_TE"] = inference.latitude_weighted_mean(era5_ds["VAR_TE"], era5_ds.latitude, device=device)
+era5_ds["LW_TE"].assign_attrs(
+    {"units": "J/m^2", "long_name": "Latitude-Weighted Total Energy"}
+)
+
+### Step 4f: Calculate the time derivative of the total energy (OLR proxy) ###
+# energy in J/m^2, so take difference and then div by 21600 to get W/m^2
+lw_te = era5_ds["LW_TE"].values
+six_hours = 6 * 60 * 60 # seconds
+imbalance_era5 =  (lw_te[..., 1:] - lw_te[..., :-1]) / six_hours # dE/dt = ISR - OLR
+
+print(f"ERA5 Imbalance: {imbalance_era5}")
+
+
 breakpoint()
 
-# # Step 5: Test it on ERA5 data
+# Plot the resulting ERA5 imbalance through time
+rad_imbalance = (era5_ds["MEAN_ISR"] - era5_ds["MEAN_OLR"]).values
+rad_imbalance_smoothed = (rad_imbalance[..., 1:] + rad_imbalance[..., :-1]) / 2
 
-# ic_date = ic_dates[0]
-# ds_list = []
-# for i in range(10):
-#     t = ic_date + dt.timedelta(hours=6*i)
-#     test_ds_slice = inference.read_sfno_vars_from_era5_rda(t)
-#     ds_list.append(test_ds_slice)
-# ds = xr.concat(ds_list, dim="time")
+fig, ax = plt.subplots(figsize=(8, 6))
+time_var = era5_ds.lead_time[:-1]
+for i, ic in enumerate(ic_dates):
+    te_line = imbalance_era5[i]
+    rad_line = rad_imbalance_smoothed[i]
+    color = qual_colors[i]
+    ax.plot(time_var, te_line, color=color, linewidth=2, label=f"{ic} (dTE/dt value)")
+    ax.plot(time_var, rad_line, color=color, linewidth=2, label=f"{ic} (ISR-OLR value)", linestyle="--")
+ax.set_xticks(time_var[::2], (time_var[::2]))
+ax.set_xlabel("Simulation Time (hours)", fontsize=14)
+ax.set_ylabel("Energy Imbalance (W/m^2)", fontsize=14)
+ax.set_title("Comparing Energy Imbalance Calculation Methods", fontsize=18)
+ax.legend()
+fig.savefig(plot_dir / "imbalance_comparison_era5.png", dpi=300, bbox_inches="tight")
+
+#     rad_line = era5_ds["MEAN_ISR"].isel(init_time=i) - era5_ds["MEAN_OLR"].isel(init_time=i)
+#     ax.plot(era5_ds.time, linedat, color=color, linewidth=linewidth, label=f"ENS Member {i} (ERA5 value)")
+
+breakpoint()
 
 # ### Step 4a: Compute a mask of the p-levels above the surface for integration
 # sp = ds["SP"] / 100
