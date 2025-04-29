@@ -77,6 +77,8 @@ ds_out = ds_out.assign_coords({"init_time": ic_dates})
 
 # it's a timedelta, so we're going to rename the time coordinate to lead_time
 ds_out = ds_out.rename({"time": "lead_time"})
+ds_out = ds_out.assign_coords({"lead_time": lead_times_h})
+ds_out = ds_out.assign_attrs({"lead_time": "Lead time in hours"})
 
 # let's keep only the variables needed for analysis
 necessary_vars = ["SP", "MSL", "T", "Z", "U", "V", "TCW", "VAR_2T"]

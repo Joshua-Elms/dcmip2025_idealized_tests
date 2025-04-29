@@ -152,7 +152,7 @@ sp_ens = ds["IC_MEAN_SP"]
 ax.plot(time_hours, sp_ens, color="red", linewidth=2*linewidth, label="Ensemble Mean", linestyle="-")
 ax.plot(time_hours, e5_sp_ds["mean"], color="red", linewidth=2*linewidth, label="Ensemble Mean (ERA5 value)", linestyle="--")
    
-ax.set_xticks(time_hours[::14], (time_hours[::14]/(6*28)), fontsize=smallsize)
+ax.set_xticks(time_hours[::14*7], (time_hours[::14*7]/(6*28)), fontsize=smallsize)
 yticks = np.arange(math.floor(sp_mems.min()), math.ceil(sp_mems.max())+0.5, 0.5)
 ax.set_yticks(yticks, yticks, fontsize=smallsize)
 ax.set_xlabel("Simulation Time (weeks)", fontsize=fontsize)
