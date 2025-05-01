@@ -1,0 +1,6 @@
+n_timesteps: 360 # 2 months
+ic_dates: ["2018/01/01 12:00", "2018/07/01 12:00",
+           "2020/01/01 12:00", "2020/07/01 12:00",]
+keep_vars: [] # if empty list, only surface pressure will be kept. use FCN var names from utils files
+DJF_mean_sfno_path: "data/DJF_mean_sfno.nc"
+DJF_mean_sfno_tendency_path: "data/DJF_mean_sfno_tendency.nc"
