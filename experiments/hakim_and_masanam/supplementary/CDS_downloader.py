@@ -15,14 +15,14 @@ from time import perf_counter
 
 this_dir = Path(__file__).parent
 scratch_dir = Path(os.environ.get("SCRATCH")) / "dcmip" / "era5"
-ncpus=4 # number of CPUs to use for parallelization, don't exceed ncpus from job request
+ncpus=1 # number of CPUs to use for parallelization, don't exceed ncpus from job request
 
-pl_variables = [
-    "geopotential",
-    "relative_humidity",
+pl_variables = [ ### REMOVECOMMENT
+    # "geopotential",
+    # "relative_humidity",
     "temperature",
-    "u_component_of_wind",
-    "v_component_of_wind"
+    # "u_component_of_wind",
+    # "v_component_of_wind"
 ]
 sfc_variables = [
     "10m_u_component_of_wind",
@@ -40,7 +40,8 @@ p_levels =  [
     1000
     ]
 years = [str(year) for year in np.arange(1979, 2020)] # str years 1979-2019
-months = ["12", "01", "02", "07", "08", "09"] # str months DJF and JAS
+# months = ["12", "01", "02", "07", "08", "09"] # str months DJF and JAS ### REMOVECOMMENT
+months = ["08"] 
 # days are at 10-day intervals DJF and JAS
 days_by_month = { 
     "12": ["1", "11", "21", "31"],
@@ -103,9 +104,9 @@ for month in months:
         args = (pl_variable, years, month, days, hours_utc, p_levels, pl_dataset, scratch_dir)
         args_list.append(args)
 
-    for variable in sfc_variables:
-        args = (variable, years, month, days, hours_utc, "sfc", sfc_dataset, scratch_dir)
-        args_list.append(args)
+    # for variable in sfc_variables: # ### REMOVECOMMENT
+    #     args = (variable, years, month, days, hours_utc, "sfc", sfc_dataset, scratch_dir)
+    #     args_list.append(args)
         
 ### download the data in parallel
 print(f"mp.Pool using ncpus={ncpus}")
@@ -117,7 +118,7 @@ with mp.Pool(processes=ncpus) as pool:
 ### show results
 failed_downloads = [fname for fname, time in results if time is None]
 failed_downloads_str = '\n\tfname - '.join(failed_downloads) if failed_downloads else 'None'
-successful_downloads = [fname for fname, time in results if time is not None]
+successful_downloads = [(fname, time) for fname, time in results if time is not None]
 avg_times = sum([time for _, time in successful_downloads])/len(successful_downloads)
 
 print(f"Average download time for {len(successful_downloads)} files: {avg_times:.2f} seconds")
