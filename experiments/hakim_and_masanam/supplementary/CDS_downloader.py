@@ -20,8 +20,8 @@ ncpus=1 # number of CPUs to use for parallelization, don't exceed ncpus from job
 pl_variables = [ ### REMOVECOMMENT
     # "geopotential",
     # "relative_humidity",
-    "temperature",
-    # "u_component_of_wind",
+    # "temperature",
+    "u_component_of_wind",
     # "v_component_of_wind"
 ]
 sfc_variables = [
@@ -83,6 +83,7 @@ def download_time_chunk(variable, years, month, days, hours_utc, level, dataset,
         fname= f"v={variable}_m={month}.nc"
         
     # Download the data
+    print(f"DOWNLOADING: {fname} ({years[0]}-{years[-1]})")
     start_time = perf_counter()
     try:
         client.retrieve(dataset, request, scratch_dir / fname)

@@ -477,7 +477,8 @@ def single_IC_inference(
         n_timesteps : int,
         init_time : dt.datetime = dt.datetime(1850,1,1),
         initial_condition : xr.Dataset = None,
-        perturbation : xr.Dataset = None,
+        initial_perturbation : xr.Dataset = None,
+        recurrent_perturbation : xr.Dataset = None,
         device : str = "cpu",
         vocal: bool = False,
         ) -> xr.Dataset:
@@ -526,16 +527,24 @@ def single_IC_inference(
         x = rda_era5_to_sfno_state(device=device, time = init_time)
         
     # check if we need to apply a perturbation
-    if perturbation is not None:
+    if initial_perturbation is not None:
         # pack the perturbation into a tensor
-        xpert = pack_sfno_state(perturbation, device=device)
+        xpert = pack_sfno_state(initial_perturbation, device=device)
         
         # add the perturbation to the initial condition
         x = x + xpert
 
     # run the model
     data_list = [] ## keep initial condition, [0] gets first (only) time
-    iterator = model(init_time, x)
+    # handle perturbation which will be added to the model output at every timestep
+    if recurrent_perturbation is not None:
+        # pack the perturbation into a tensor
+        rpert = pack_sfno_state(recurrent_perturbation, device=device)
+        
+    else:
+        rpert = None
+        
+    iterator = model(init_time, x, rpert)
     for k, (time, data, _) in enumerate(iterator):
         if vocal:
             print(f"Step {k}: {time} completed.")
@@ -552,3 +561,137 @@ def single_IC_inference(
     data = torch.stack(data_list)
     
     return unpack_sfno_state(data, time = timedeltas)
+
+def haversine(lon1, lat1, lon2, lat2):
+    """
+    Calculate the great circle distance between two points
+    on the earth (specified in decimal degrees)
+    
+    Adapted from Hakim and Masanam (2024) repository: https://github.com/modons/DL-weather-dynamics/blob/main/panguweather_utils.py#L145
+    """
+
+    # convert decimal degrees to radians
+    lon1, lat1, lon2, lat2 = list(map(np.radians, [lon1, lat1, lon2, lat2]))
+    # haversine formula
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+    a = np.sin(dlat/2.)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon/2.)**2
+    c = 2 * np.arcsin(np.sqrt(a))
+    km = 6367.0 * c
+    return km
+
+def gen_circular_perturbation(lat_2d,lon_2d,ilat,ilon,amp,locRad=1000.,Z500=False):
+    """
+    Adapted from Hakim and Masanam (2024) repository: https://github.com/modons/DL-weather-dynamics/blob/main/panguweather_utils.py#L162
+    """
+    grav = 9.81
+    nlat = lat_2d.shape[0]
+    nlon = lon_2d.shape[1]
+    site_lat = lat_2d[ilat,0]
+    site_lon = lon_2d[0,ilon]
+    lat_vec = np.reshape(lat_2d,[nlat*nlon])
+    lon_vec = np.reshape(lon_2d,[nlat*nlon])
+    dists = np.zeros(shape=[nlat*nlon])
+    dists = np.array(haversine(site_lon,site_lat,lon_vec,lat_vec),dtype=np.float64)
+
+    hlr = 0.5*locRad # work with half the localization radius
+    r = dists/hlr
+
+    # indexing w.r.t. distances
+    ind_inner = np.where(dists <= hlr)    # closest
+    ind_outer = np.where(dists >  hlr)    # close
+    ind_out   = np.where(dists >  2.*hlr) # out
+
+    # Gaspari-Cohn function
+    covLoc = np.ones(shape=[nlat*nlon],dtype=np.float64)
+
+    # for pts within 1/2 of localization radius
+    covLoc[ind_inner] = (((-0.25*r[ind_inner]+0.5)*r[ind_inner]+0.625)* \
+                         r[ind_inner]-(5.0/3.0))*(r[ind_inner]**2)+1.0
+    # for pts between 1/2 and one localization radius
+    covLoc[ind_outer] = ((((r[ind_outer]/12. - 0.5) * r[ind_outer] + 0.625) * \
+                          r[ind_outer] + 5.0/3.0) * r[ind_outer] - 5.0) * \
+                          r[ind_outer] + 4.0 - 2.0/(3.0*r[ind_outer])
+    # Impose zero for pts outside of localization radius
+    covLoc[ind_out] = 0.0
+    
+    # prevent negative values: calc. above may produce tiny negative
+    covLoc[covLoc < 0.0] = 0.0
+    
+    if Z500:
+        # 500Z:
+        print('500Z perturbation...')
+        perturb = np.reshape(covLoc*grav*amp,[nlat,nlon])
+    else:
+        # heating:
+        print('heating perturbation...')
+        perturb = np.reshape(covLoc*amp,[nlat,nlon])
+
+    return perturb
+
+def gen_elliptical_perturbation(lat,lon,k,ylat,xlon,locRad):
+
+    """
+    center a localized ellipse at (xlat,xlon)
+    
+    Adapted from Hakim and Masanam (2024) repository: https://github.com/modons/DL-weather-dynamics/blob/main/panguweather_utils.py#L208
+    
+    k: meridional wavenumber; disturbance is non-zero up to first zero crossing in cos
+    xlat: latitude, in degrees to center the function
+    xlon: longitude, in degrees to center the function
+    locRad: zonal GC distance, in km
+    """
+    km = 1.e3
+    nlat = len(lat)
+    nlon = len(lon)
+ 
+    ilon = xlon*4. #lon index of center
+    ilat = int((90.-ylat)*4.) #lat index of center
+    yfunc = np.cos(np.deg2rad(k*(lat-ylat)))
+
+    # first zero-crossing
+    crit = np.cos(np.deg2rad(k*(lat[ilat]-ylat)))
+    ll = np.copy(ilat)
+    while crit>0:
+        ll-=1
+        crit = yfunc[ll]
+
+    yfunc[:ll+1] = 0.
+    yfunc[2*ilat-ll:] = 0.
+
+    # gaspari-cohn in logitude only, at the equator
+    dx = 6380.*km*2*np.pi/(360.) #1 degree longitude at the equator
+    dists = np.zeros_like(lon)
+    for k in range(len(lon)):
+        dists[k] = dx*np.min([np.abs(lon[k]-xlon),np.abs(lon[k]-360.-xlon)])
+
+    #locRad = 10000.*km
+    hlr = 0.5*locRad # work with half the localization radius
+    r = dists/hlr
+
+    # indexing w.r.t. distances
+    ind_inner = np.where(dists <= hlr)    # closest
+    ind_outer = np.where(dists >  hlr)    # close
+    ind_out   = np.where(dists >  2.*hlr) # out
+
+    # Gaspari-Cohn function
+    covLoc = np.ones(nlon)
+
+    # for pts within 1/2 of localization radius
+    covLoc[ind_inner] = (((-0.25*r[ind_inner]+0.5)*r[ind_inner]+0.625)* \
+                         r[ind_inner]-(5.0/3.0))*(r[ind_inner]**2)+1.0
+    # for pts between 1/2 and one localization radius
+    covLoc[ind_outer] = ((((r[ind_outer]/12. - 0.5) * r[ind_outer] + 0.625) * \
+                          r[ind_outer] + 5.0/3.0) * r[ind_outer] - 5.0) * \
+                          r[ind_outer] + 4.0 - 2.0/(3.0*r[ind_outer])
+    # Impose zero for pts outside of localization radius
+    covLoc[ind_out] = 0.0
+
+    # prevent negative values: calc. above may produce tiny negative
+    covLoc[covLoc < 0.0] = 0.0
+
+    # make the function
+    [a,b] = np.meshgrid(covLoc,yfunc)
+    perturb = a*b
+
+    return perturb

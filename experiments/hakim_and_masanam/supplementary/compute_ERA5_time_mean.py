@@ -4,12 +4,17 @@ compute the time mean for DJF and JJA 0z 1979-2019 at 10 day intervals.
 
 Will need minor modifications if you used the CDS downloader to download
 ERA5 data split up by level. 
+
+Note: the first run of this script threw HDF5 errors when reading the 
+files for August (08) temperature (t) and 10m u-component of wind (u10).
+If you have the same problem, try re-downloading those files from the CDS.
 """
 import xarray as xr
 from pathlib import Path
 import os
 import numpy as np
 from time import perf_counter
+import datetime as dt
 
 def compute_time_mean_from_files(variables: list, months: list, scratch_dir: Path) -> xr.Dataset:
     """
@@ -39,7 +44,36 @@ def compute_time_mean_from_files(variables: list, months: list, scratch_dir: Pat
         time_mean_var_ds = var_ds.mean(dim="valid_time").compute()
         time_mean_datasets.append(time_mean_var_ds)
 
-    time_mean_ds = xr.merge(time_mean_datasets).sortby("latitude") # flip latitude index
+    # flip latitude index
+    time_mean_ds = xr.merge(time_mean_datasets).sortby("latitude") 
+    
+    # extra coord from ecmwf, unneeded
+    time_mean_ds = time_mean_ds.drop_vars("number") 
+    
+    # add ensemble dimension and coordinate to data
+    time_mean_ds = time_mean_ds.expand_dims({"ensemble": 1}, axis=0)
+    
+    # add time dimension and coordinate to data
+    time_mean_ds = time_mean_ds.expand_dims({"time": 1}, axis=0)
+    # time_mean_ds = time_mean_ds.assign_coords({"time": np.array(dt.datetime(1850,1,1))})
+    
+    # rename to match the variables in the model
+    time_mean_ds = time_mean_ds.rename(dict( 
+        u10="VAR_10U",
+        v10="VAR_10V",
+        u100="VAR_100U",
+        v100="VAR_100V",
+        t2m="VAR_2T",
+        sp="SP",
+        msl="MSL",
+        tcwv="TCW",
+        t="T",
+        z="Z",
+        r="R",
+        u="U",
+        v="V",
+        pressure_level="level",
+    ))
     
     return time_mean_ds
 
@@ -66,9 +100,9 @@ scratch_dir = Path(os.environ.get("SCRATCH")) / "dcmip" / "era5"
 save_dir = this_dir / ".." / "data"
 all_vars = pl_variables + sfc_variables
 DJF = ["12", "01", "02"]
-JJA = ["07", "08", "09"]
+JAS = ["07", "08", "09"]
 
-seasons = ["JJA"]
+seasons = ["DJF", "JAS"]
 
 if "DJF" in seasons:
     print("Computing time mean for DJF 0z 1979-2019 at 10 day intervals...")
@@ -79,11 +113,16 @@ if "DJF" in seasons:
     end = perf_counter()
     print(f"DJF ran for: {(end - start)/60:.1f} minutes")
 
-if "JJA" in seasons:
+if "JAS" in seasons:
     print("Computing time mean for JAS 0z 1979-2019 at 10 day intervals...")
     start = perf_counter()
-    JJA_time_mean_ds = compute_time_mean_from_files(all_vars, JJA, scratch_dir)    
-    print(f"Saving JJA time mean to {save_dir / 'JJA_ERA5_time_mean.nc'}")
-    JJA_time_mean_ds.to_netcdf(save_dir / "JJA_ERA5_time_mean.nc")
+    try:
+        JAS_time_mean_ds = compute_time_mean_from_files(all_vars, JAS, scratch_dir)    
+    except Exception as e:
+        print(f"Error computing JAS time mean: {e}")
+        breakpoint()
+        
+    print(f"Saving JAS time mean to {save_dir / 'JAS_ERA5_time_mean.nc'}")
+    JAS_time_mean_ds.to_netcdf(save_dir / "JAS_ERA5_time_mean.nc")
     end = perf_counter()
     print(f"JAS ran for: {(end - start)/60:.1f} minutes")

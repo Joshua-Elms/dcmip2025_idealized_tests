@@ -1,3 +1,25 @@
+### 05/05
+
+Finished downloading ERA5 mean data. Those scripts are all set up in `experiments/hakim_and_masanam/supplementary/`.
+
+Moving on to replication of H&M24 experiments, starting with tropical heating. See [paper](https://doi.org/10.1175/AIES-D-23-0090.1) and [code](https://github.com/modons/DL-weather-dynamics).
+
+Tropical heating experiment does timestepping by adding a constant perturbation at each timestep and subtracting the steady-state model tendency at the same time, which (to a first order) isolates the contribution of the recurrent heating perturbation to the model state. This requires some messing about in the internals of the timestepper for [E2MIP](https://github.com/NVIDIA/earth2mip), so I've installed my own version of E2MIP at `/glade/u/home/jmelms/software/earth2mip` and model registry at `/glade/work/jmelms/.cache`. I'll be modifying the timestepper in the core E2MIP `Inference` class.
+
+Update: tried to install a new DCMIP-specialized version of E2MIP so that I would leave at least one untouched in event of my failure to modify time stepping, but dependency heck got the best of me this evening. I'll just work in the primary and use git to track any deleterious changes I make.
+
+Final progress: 
+Succeeded in running tropical heating experiment! Output is all in `hakim_and_masanam` directory. Needed to step into E2MIP a bit to get it done, but verification of correctness is static output when using `recurrent_perturbation=-dx`, which should do exactly that. 
+
+I need to do a couple things:
+1. Make sure the magnitude of the heating is the same as in H&M24
+2. Use the H&M24 plotting script to make comparable plots and then ... compare
+3. Fix up some areas of the code with excessive lat-flipping
+4. Properly install E2MIP environment using forked E2MIP so I can keep track of all DCMIP changes and eventually put in a PR or something
+5. Get linreg experiments running, just needs addition of cyclonic perturbations
+6. Bring the rest of the repository in line with any changes made today... I don't think the changes in perturbation parameter names will be much to change, but it could be important for the energy_conservation experiment
+7. Write out README with better description of data, experiments, and usage. This is just the actual stuff I'll have to do before DCMIP though, so it's not necessary to write out literally every item now. 
+
 ### 04/15
 
 #### Conservation of Mass
