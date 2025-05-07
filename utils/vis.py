@@ -167,6 +167,7 @@ def create_and_plot_variable_gif(
         vmin=vmin, vmax=vmax, 
         cmap=cmap, 
         origin="lower",
+        extent=extent,
         transform=ccrs.PlateCarree(central_longitude=180),
     )   
     ax.coastlines()

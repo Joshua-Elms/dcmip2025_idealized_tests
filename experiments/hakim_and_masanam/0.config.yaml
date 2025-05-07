@@ -1,4 +1,4 @@
-n_timesteps: 4 # 20 days
+n_timesteps: 80 # 20 days
 keep_vars: [] # if empty, no vars except those needed for exp are kept
 IC_path: "data/DJF_ERA5_time_mean.nc"
 IC_tendency_path: "data/DJF_ERA5_time_mean_tendency.nc"
