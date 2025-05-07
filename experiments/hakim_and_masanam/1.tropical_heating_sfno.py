@@ -14,8 +14,6 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 # set up paths
 this_dir = Path(__file__).parent
-data_dir = this_dir / "data" # where to save output from inference
-output_path = data_dir / "output.nc"
 
 # read configuration
 config_path = this_dir / "0.config.yaml"
@@ -34,6 +32,7 @@ print("Model loaded.")
 # set data paths
 IC_path = Path(config["IC_path"])
 IC_tendency_path = Path(config["IC_tendency_path"])
+output_path = Path(config["output_path"])
 
 # convenience vars
 n_timesteps = config["n_timesteps"]
@@ -82,6 +81,11 @@ heating_ds["T"].loc[dict(level=levs)] = heating
 zero_vars = ["U", "V", "Z", "R", "VAR_10U", "VAR_10V", "VAR_100U", "VAR_100V", "SP", "MSL", "TCW", "VAR_2T"]
 for var in zero_vars:
     heating_ds[var][:] = 0.
+    
+# save heating_ds to file
+print(f"Saving heating dataset to {config['heating_save_path']}.")
+heating_ds_path = config["heating_save_path"]
+heating_ds.to_netcdf(heating_ds_path)
     
 rpert = - tds + heating_ds
 # test with below line -- model output should be static

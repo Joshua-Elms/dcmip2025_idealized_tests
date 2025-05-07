@@ -5,6 +5,7 @@ import imageio.v2 as imageio
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from matplotlib import colormaps
+import cartopy.crs as ccrs
 import shutil
 import yaml
 
@@ -156,10 +157,20 @@ def create_and_plot_variable_gif(
 
     ### make plot
     # set up figure and axis
-    fig, ax = plt.subplots(figsize=fig_size)
+    fig, ax = plt.subplots(figsize=fig_size, subplot_kw={"projection": ccrs.PlateCarree(central_longitude=180)}) # , subplot_kw={"projection": ccrs.PlateCarree(central_longitude=180)}
 
     # set up first frame to be updated in later loop
-    im = ax.imshow(data.isel({iter_var:iter_vals[0]}), vmin=vmin, vmax=vmax, cmap=cmap, origin="lower")
+    extent = [lon.min(), lon.max(), lat.min(), lat.max()]
+   
+    im = ax.imshow(
+        data.isel({iter_var:iter_vals[0]}), 
+        vmin=vmin, vmax=vmax, 
+        cmap=cmap, 
+        origin="lower",
+        transform=ccrs.PlateCarree(central_longitude=180),
+    )   
+    ax.coastlines()
+    ax.set_global()
 
     ### Set axis information
     # labels
@@ -169,10 +180,10 @@ def create_and_plot_variable_gif(
     ax.set_ylabel(yax_label)
 
     # ticks and ticklabels
-    xticks = np.linspace(0, nlon, nlon_ticks, dtype=int)[1:-1]
-    yticks = np.linspace(0, nlat - 1, nlat_ticks, dtype=int)
-    xticklabs = lon[xticks].astype(int)
-    yticklabs = lat[yticks].astype(int)
+    xticks = [-180, -120, -60, 0, 60, 120, 180]
+    yticks = [-90, -60, -30, 0, 30, 60, 90]
+    xticklabs = [str(x) for x in xticks[3:] + xticks[:3]]
+    yticklabs = [str(y) for y in yticks[3:] + yticks[:3]]
     ax.set_xticks(xticks)
     ax.set_yticks(yticks)
     ax.set_xticklabels(xticklabs)
@@ -215,7 +226,7 @@ def create_and_plot_variable_gif(
     cbar.ax.set_ylabel(
         cbar_label,
         rotation="horizontal",
-        y=-0.05,
+        y=-0.15,
         horizontalalignment="right",
         labelpad=0,
         fontsize=9,

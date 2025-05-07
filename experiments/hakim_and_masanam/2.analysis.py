@@ -10,8 +10,6 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 # set up paths
 this_dir = Path(__file__).parent
-data_dir = this_dir / "data" # where to save output from inference
-data_path = data_dir / "output.nc"
 plot_dir = this_dir / "plots" # save figures here
 plot_dir.mkdir(parents=True, exist_ok=True) # make dir if it doesn't exist
 
@@ -20,6 +18,8 @@ config_path = this_dir / "0.config.yaml"
 with open(config_path, 'r') as file:
     config = yaml.safe_load(file)
     
+data_path = config["output_path"]
+    
 # convenience vars
 n_timesteps = config["n_timesteps"]
 lead_times_h = np.arange(0, 6*n_timesteps+1, 6)
@@ -27,6 +27,7 @@ g = 9.81 # m/s^2
 
 # load dataset
 ds = xr.open_dataset(data_path)
+heating_ds = xr.open_dataset(config["heating_save_path"])
 
 # make pretty plots
 titles = [f"VAR_2T at t={t*6} hours" for t in range(n_timesteps+1)]
@@ -79,6 +80,21 @@ vis.create_and_plot_variable_gif(
     cmap="magma",
     titles=titles,
     keep_images=True,
+    dpi=300,
+    fps=1,
+)
+
+titles = ["Heating Term $f$: $T_{500}$ Perturbation"]
+vis.create_and_plot_variable_gif(
+    data=heating_ds["T"].sel(level=500).isel(time=0),
+    plot_var="T_500_Heating",
+    iter_var="ensemble",
+    iter_vals=[0],
+    plot_dir=plot_dir,
+    units="$\Delta$ degrees K",
+    cmap="Reds",
+    titles=titles,
+    keep_images=False,
     dpi=300,
     fps=1,
 )
