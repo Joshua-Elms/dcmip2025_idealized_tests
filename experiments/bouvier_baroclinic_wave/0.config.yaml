@@ -1,0 +1,44 @@
+experiment_dir: /glade/u/home/jmelms/projects/dcmip2025_idealized_tests/experiments/bouvier_baroclinic_wave/data
+experiment_name: tendency_reversion_bwave
+fort_executable_path: /glade/u/home/jmelms/projects/dcmip2025_idealized_tests/experiments/bouvier_baroclinic_wave/initial_conditions/gen_IC_FCN.out
+inference_parameters:
+  device: cuda:0
+  n_steps: 80
+  tendency_reversion: true
+initial_condition_parameters:
+  moisture:
+  - 42
+  - nondim
+  nlat:
+  - 721
+  - nondim
+  nlev:
+  - 102
+  - nondim
+  zb:
+  - 2.0
+  - nondim
+  zgamma:
+  - 0.005
+  - K m^-1
+  zn:
+  - 3
+  - nondim
+  zrh0:
+  - 0.8
+  - '%'
+  zt0:
+  - 288
+  - K
+  zu0:
+  - 35
+  - m s^-1
+processor_parameters:
+  all_plevels_fname: levels_full.txt
+  include_dewpt: false
+  latitudes_fname: latitude.npy
+  longitudes_fname: longitude.npy
+  metadata_dir: /glade/work/jmelms/data/dcmip/initial_conditions/metadata
+  model_plevels_fname: levels_model.txt
+  standardize: false
+  write_data: true
