@@ -695,3 +695,66 @@ def gen_elliptical_perturbation(lat,lon,k,ylat,xlon,locRad):
     perturb = a*b
 
     return perturb
+
+def gen_baroclinic_wave_perturbation(lat,lon,ylat,xlon,u_pert_base,locRad):
+    """
+    Implementation of baroclinic wave perturbation from Bouvier et al. (2024). 
+    
+    Produces a "localised unbalanced [u-]wind perturbation" to be added to a "baroclinically unstable background state".
+    
+    input:
+    ------
+    lat : numpy.ndarray
+        the latitude values
+    lon : numpy.ndarray
+        the longitude values
+    ylat : float
+        the latitude of the center of the perturbation
+    xlon : float
+        the longitude of the center of the perturbation
+    u_pert_base : float
+        the base amplitude of the u-wind perturbation
+    locRad : float
+        the localization radius (approximate size of perturbation) in km 
+        
+    output:
+    -------
+    perturb : numpy.ndarray
+        the perturbation array with shape (nlat, nlon)
+    """
+    radlat = np.deg2rad(lat)
+    radlon = np.deg2rad(lon)
+    radylat = np.deg2rad(ylat)
+    radxlon = np.deg2rad(xlon)
+    
+    # make the grid
+    nlat = len(lat)
+    nlon = len(lon)
+    lat_2d, lon_2d = np.meshgrid(lat, lon)
+    lat_2d = lat_2d.flatten()
+    lon_2d = lon_2d.flatten()
+
+    # calculate distance from center of perturbation for each grid point
+    great_circle_dist_flat = np.arccos(
+        np.sin(radylat) * np.sin(lat_2d) + 
+        np.cos(radylat) * np.cos(lat_2d) * np.cos(lon_2d - radxlon)
+    )
+    great_circle_dist = np.reshape(great_circle_dist_flat, (nlon, nlat))
+    
+    perturb = u_pert_base * np.exp(-(great_circle_dist / locRad)**2)
+    
+    return perturb
+
+if __name__=="__main__": 
+    # test the functions
+    lat = np.arange(90, -90.001, -0.25)
+    lon = np.arange(0, 360, 0.25)
+    ylat = 40. # deg N
+    xlon = 20. # deg E
+    a = 6.371e6 # radius of earth in m
+    locRad = a/10 # 10% of the radius of the earth
+    u_pert_base = 1.0 # m/s
+    pert = gen_baroclinic_wave_perturbation(
+        lat, lon, ylat, xlon, u_pert_base, locRad
+    )
+    breakpoint()
