@@ -36,7 +36,8 @@ g = 9.81 # m/s^2
 
 # load datasets
 ds = xr.open_dataset(data_path)
-mean_ds = xr.open_dataset(exp_dir/"ic_nc/ic_zt0=288.nc")
+mean_ds = xr.open_dataset(exp_dir/"ic_nc/ic_zt0=288.nc").squeeze().rename({"lat": "latitude", "lon": "longitude"})
+ipert_ds = xr.open_dataset(exp_dir/"ic_nc/initial_perturbation.nc").sortby("latitude", ascending=False)
 
 # make pretty plots
 # titles = [f"VAR_2T at t={t*6} hours" for t in range(n_timesteps+1)]
@@ -72,30 +73,71 @@ mean_ds = xr.open_dataset(exp_dir/"ic_nc/ic_zt0=288.nc")
 # )
 
 # print(f"Made Z500.gif.")
-lim = 10
-titles = [f"$Z_{{500}}$ at t={t*6} hours (TR={tendency_reversion}, P={perturbed})" for t in range(0, lim, 1)]
-data = ds["Z"].isel(ensemble=0, zt0=0).sel(level=500)/(10*g)
+lim = 16
+# titles = [f"$Z_{{500}}$ at t={t*6} hours (TR={tendency_reversion}, P={perturbed})" for t in range(0, lim, 1)]
+# data = ds["Z"].isel(ensemble=0, zt0=0).sel(level=500)/(10*g)
+# z500_mid = data.isel(lead_time=0).mean(dim=["latitude", "longitude"]).values
+# vis.create_and_plot_variable_gif(
+#     data=data.isel(lead_time=slice(0, lim)),
+#     plot_var="Z500",
+#     iter_var="lead_time",
+#     iter_vals=np.arange(0, lim, 1),
+#     plot_dir=plot_dir,
+#     units="dam",
+#     cmap="bwr",
+#     titles=titles,
+#     keep_images=False,
+#     dpi=300,
+#     fps=0.5, 
+#     vlims=(z500_mid-30, z500_mid+30),
+# )
+
+# print(f"Made Z500.gif.")
+
+# mslp_mid = 1013.25
+# titles = [f"MSLP at t={t*6} hours (TR={tendency_reversion}, P={perturbed})" for t in range(0, lim, 1)]
+# data = ds["MSL"].isel(zt0=0, ensemble=0) / 100 # convert to hPa
+# vis.create_and_plot_variable_gif(
+#     data=data.isel(lead_time=slice(0, lim)),
+#     plot_var="MSLP",
+#     iter_var="lead_time",
+#     iter_vals=np.arange(0, lim, 1),
+#     plot_dir=plot_dir,
+#     units="hPa",
+#     cmap="bwr",
+#     titles=titles,
+#     keep_images=False,
+#     dpi=300,
+#     fps=0.5,
+#     vlims=(mslp_mid-8, mslp_mid+8),
+# )
+
+# print(f"Made MSLP.gif.")
+
+titles = [f"$Z_{{500}}$ anomalies at t={t*6} hours (TR={tendency_reversion}, P={perturbed})" for t in range(0, lim, 1)]
+z500_anom = ds["Z"].isel(ensemble=0, zt0=0).sel(level=500)/(g) - mean_ds["Z"].sel(level=500) / (g)
 vis.create_and_plot_variable_gif(
-    data=data.isel(lead_time=slice(0, lim)),
-    plot_var="Z500",
+    data=z500_anom.isel(lead_time=slice(0, lim)),
+    plot_var="Z500_anom",
     iter_var="lead_time",
     iter_vals=np.arange(0, lim, 1),
     plot_dir=plot_dir,
-    units="dam",
+    units="m",
     cmap="bwr",
     titles=titles,
     keep_images=False,
     dpi=300,
-    fps=2, 
+    fps=0.5, 
+    vlims=(-5, 5),
 )
 
-print(f"Made Z500.gif.")
+print(f"Made Z500_anom.gif.")
 
-titles = [f"MSLP at t={t*6} hours (TR={tendency_reversion}, P={perturbed})" for t in range(0, lim, 1)]
-data = ds["MSL"].isel(zt0=0, ensemble=0) / 100 # convert to hPa
+titles = [f"MSLP anomalies at t={t*6} hours (TR={tendency_reversion}, P={perturbed})" for t in range(0, lim, 1)]
+msl_anom = ds["MSL"].isel(zt0=0, ensemble=0) / 100 - mean_ds["MSL"] / 100 # convert to hPa
 vis.create_and_plot_variable_gif(
-    data=data.isel(lead_time=slice(0, lim)),
-    plot_var="MSLP",
+    data=msl_anom.isel(lead_time=slice(0, lim)),
+    plot_var="MSLP_anom",
     iter_var="lead_time",
     iter_vals=np.arange(0, lim, 1),
     plot_dir=plot_dir,
@@ -104,10 +146,31 @@ vis.create_and_plot_variable_gif(
     titles=titles,
     keep_images=False,
     dpi=300,
-    fps=2
+    fps=0.5,
+    vlims=(-2, 2),
 )
 
-print(f"Made MSLP.gif.")
+print(f"Made MSLP_anom.gif.")
+
+# show initial perturbation
+titles = [f"Initial U-Wind Perturbation (all levels)"]
+vis.create_and_plot_variable_gif(
+    data=ipert_ds["U"].isel(ensemble=0).sel(level=500),
+    plot_var="U_perturbation",
+    iter_var="time",
+    iter_vals=[0],
+    plot_dir=plot_dir,  
+    units="m/s",
+    cmap="Greens",
+    titles=titles,
+    keep_images=True,
+    dpi=300,
+    fps=1,
+    vlims=(0, 1),
+)
+    
+print("Made U_perturbation.gif.")
+
 # # debug tds
 # titles = ["DJF VAR_2T Tendency (SFNO)"]
 # tds["VAR_d2T_dt"] = tds["VAR_2T"] / (6)

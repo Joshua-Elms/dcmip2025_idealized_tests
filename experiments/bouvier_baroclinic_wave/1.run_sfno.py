@@ -98,7 +98,8 @@ for i, val in enumerate(iter_vals.tolist()): # whichever parameter is iterable
         "metadata_dir": Path(config["processor_parameters"]["metadata_dir"]),
         "logf": log_path,
     }
-    ic = bouvier_utils.process_individual_fort_file(**nc_kwargs)
+    ic = bouvier_utils.process_individual_fort_file(**nc_kwargs).sortby("lat", ascending=False)
+    # ic = xr.open_dataset("/glade/u/home/jmelms/projects/dcmip2025_idealized_tests/experiments/hakim_and_masanam/data/DJF_ERA5_time_mean.nc").sortby("latitude", ascending=False)
     
     # check whether H&M24 tendency reversion is required
     tendency_reversion = config["inference_parameters"]["tendency_reversion"]
@@ -112,7 +113,7 @@ for i, val in enumerate(iter_vals.tolist()): # whichever parameter is iterable
             device=device,
             vocal=True
         )
-        tds = tendency_ds.isel(time=1) - tendency_ds.isel(time=0)
+        tds = (tendency_ds.isel(time=1) - tendency_ds.isel(time=0)).sortby("latitude", ascending=False)
         rpert = -tds  # recurrent perturbation is the negative of the tendency
         
         # Run a test to verify the recurrent perturbation mechanism
@@ -125,8 +126,8 @@ for i, val in enumerate(iter_vals.tolist()): # whichever parameter is iterable
             vocal=True
         )
         # We should find that: verification_ds.isel(time=1) ≈ verification_ds.isel(time=0)
-        mse = ((verification_ds.isel(time=1) - verification_ds.isel(time=0))**2).mean()**0.5
-        print(f"RMSE between t=1 and t=0 with perturbation: {mse}")
+        max_e = (verification_ds.isel(time=1) - verification_ds.isel(time=0)).max()
+        print(f"RMSE between t=1 and t=0 with perturbation: {max_e}")
     # else, set the recurrent perturbation to None
     else:
         rpert = None
@@ -155,10 +156,14 @@ for i, val in enumerate(iter_vals.tolist()): # whichever parameter is iterable
         for var in zero_vars:
             initial_perturbation[var][:] = 0.
             
+        initial_perturbation.to_netcdf(
+            ic_nc_dir / f"initial_perturbation.nc"
+        )
+        print(f"Perturbation saved to {ic_nc_dir / 'initial_perturbation.nc'}")
+            
     else: 
         initial_perturbation = None
         
-    breakpoint()
     single_ds = inference.single_IC_inference(
         model=model,
         n_timesteps=config["inference_parameters"]["n_steps"],

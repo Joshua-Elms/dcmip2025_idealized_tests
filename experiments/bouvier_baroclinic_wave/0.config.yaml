@@ -3,7 +3,7 @@ experiment_name: tendency_reversion_bwave_ctrl
 fort_executable_path: /glade/u/home/jmelms/projects/dcmip2025_idealized_tests/experiments/bouvier_baroclinic_wave/initial_conditions/gen_IC_FCN.out
 inference_parameters:
   device: cuda:0
-  n_steps: 10
+  n_steps: 60
   tendency_reversion: true
 initial_condition_parameters:
   moisture:

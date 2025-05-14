@@ -181,14 +181,14 @@ def create_and_plot_variable_gif(
     ax.set_ylabel(yax_label)
 
     # ticks and ticklabels
-    xticks = [-180, -120, -60, 0, 60, 120, 180]
-    yticks = [-90, -60, -30, 0, 30, 60, 90]
-    xticklabs = [str(x) for x in xticks[3:] + xticks[:3]]
-    yticklabs = [str(y) for y in yticks[3:] + yticks[:3]]
-    ax.set_xticks(xticks)
-    ax.set_yticks(yticks)
-    ax.set_xticklabels(xticklabs)
-    ax.set_yticklabels(yticklabs)
+    # xticks = [-180, -120, -60, 0, 60, 120, 180]
+    # yticks = [-90, -60, -30, 0, 30, 60, 90]
+    # xticklabs = [str(x) for x in xticks[3:] + xticks[:3]]
+    # yticklabs = [str(y) for y in yticks[3:] + yticks[:3]]
+    # ax.set_xticks(xticks)
+    # ax.set_yticks(yticks)
+    # ax.set_xticklabels(xticklabs)
+    # ax.set_yticklabels(yticklabs)
 
     ### Set other plot aesthetics
     # background color
