@@ -238,6 +238,9 @@ def process_individual_fort_file(
 
     # add time dimension because it's required for the inference function
     ds_73 = ds_73.expand_dims({"time": [0]}, axis=0)
+    
+    # flip levels to match SFNO
+    ds_73 = ds_73.sortby("level", ascending=True)
 
     # save to disk
     if write_data:

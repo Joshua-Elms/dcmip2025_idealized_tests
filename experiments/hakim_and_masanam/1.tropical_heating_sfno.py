@@ -67,7 +67,6 @@ ylat = 0.
 xlon = 120.
 locRad = 10000.*km
 heating = amp*inference.gen_elliptical_perturbation(IC_ds.latitude,IC_ds.longitude,k,ylat,xlon,locRad)
-breakpoint()
 heating_ds = inference.create_empty_sfno_ds()
 
 # find levels between 1000 and 200 hPa (inclusive)
@@ -87,9 +86,9 @@ print(f"Saving heating dataset to {config['heating_save_path']}.")
 heating_ds_path = config["heating_save_path"]
 heating_ds.to_netcdf(heating_ds_path)
     
-rpert = - tds + heating_ds
+# rpert = - tds + heating_ds
 # test with below line -- model output should be static
-# rpert = -tds
+rpert = -tds
 
 ds = inference.single_IC_inference(
         model=model,

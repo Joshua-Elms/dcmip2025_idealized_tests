@@ -534,16 +534,15 @@ def single_IC_inference(
         # add the perturbation to the initial condition
         x = x + xpert
 
-    # run the model
-    data_list = [] ## keep initial condition, [0] gets first (only) time
     # handle perturbation which will be added to the model output at every timestep
     if recurrent_perturbation is not None:
-        # pack the perturbation into a tensor
         rpert = pack_sfno_state(recurrent_perturbation, device=device)
         
     else:
         rpert = None
         
+    # run the model
+    data_list = [] # output accumulator
     iterator = model(init_time, x, rpert)
     for k, (time, data, _) in enumerate(iterator):
         if vocal:
@@ -696,7 +695,7 @@ def gen_elliptical_perturbation(lat,lon,k,ylat,xlon,locRad):
 
     return perturb
 
-def gen_baroclinic_wave_perturbation(lat,lon,ylat,xlon,u_pert_base,locRad):
+def gen_baroclinic_wave_perturbation(lat,lon,ylat,xlon,u_pert_base,locRad,a=6.371e6):
     """
     Implementation of baroclinic wave perturbation from Bouvier et al. (2024). 
     
@@ -716,6 +715,8 @@ def gen_baroclinic_wave_perturbation(lat,lon,ylat,xlon,u_pert_base,locRad):
         the base amplitude of the u-wind perturbation
     locRad : float
         the localization radius (approximate size of perturbation) in km 
+    a (optional) : float
+        the radius of the earth in m (default is 6.371e6 m)
         
     output:
     -------
@@ -728,19 +729,13 @@ def gen_baroclinic_wave_perturbation(lat,lon,ylat,xlon,u_pert_base,locRad):
     radxlon = np.deg2rad(xlon)
     
     # make the grid
-    nlat = len(lat)
-    nlon = len(lon)
-    lat_2d, lon_2d = np.meshgrid(lat, lon)
-    lat_2d = lat_2d.flatten()
-    lon_2d = lon_2d.flatten()
+    lon_2d, lat_2d = np.meshgrid(radlon, radlat)
 
     # calculate distance from center of perturbation for each grid point
-    great_circle_dist_flat = np.arccos(
+    great_circle_dist = a*np.arccos(
         np.sin(radylat) * np.sin(lat_2d) + 
         np.cos(radylat) * np.cos(lat_2d) * np.cos(lon_2d - radxlon)
     )
-    great_circle_dist = np.reshape(great_circle_dist_flat, (nlon, nlat))
-    
     perturb = u_pert_base * np.exp(-(great_circle_dist / locRad)**2)
     
     return perturb
@@ -749,7 +744,7 @@ if __name__=="__main__":
     # test the functions
     lat = np.arange(90, -90.001, -0.25)
     lon = np.arange(0, 360, 0.25)
-    ylat = 40. # deg N
+    ylat = 0. # deg N
     xlon = 20. # deg E
     a = 6.371e6 # radius of earth in m
     locRad = a/10 # 10% of the radius of the earth
@@ -757,4 +752,8 @@ if __name__=="__main__":
     pert = gen_baroclinic_wave_perturbation(
         lat, lon, ylat, xlon, u_pert_base, locRad
     )
-    breakpoint()
+    import matplotlib.pyplot as plt
+    plt.imshow(pert)
+    plt.colorbar()
+    plt.savefig("pert.png")
+    plt.close()
