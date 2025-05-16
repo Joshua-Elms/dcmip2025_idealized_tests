@@ -15,10 +15,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 this_dir = Path(__file__).parent
 
 # read configuration
-TR="t"
-P="t"
-exper = f"tendency_reversion_bwave_ctrl"
-config_path = this_dir / "data" / exper / "config.yml"
+config_path = this_dir / "0.config.yaml"
 with open(config_path, 'r') as file:
     config = yaml.safe_load(file)
     
@@ -37,7 +34,9 @@ g = 9.81 # m/s^2
 # load datasets
 ds = xr.open_dataset(data_path)
 mean_ds = xr.open_dataset(exp_dir/"ic_nc/ic_zt0=288.nc").squeeze().rename({"lat": "latitude", "lon": "longitude"})
-ipert_ds = xr.open_dataset(exp_dir/"ic_nc/initial_perturbation.nc").sortby("latitude", ascending=False)
+perturbed = config["perturbation_parameters"]["enabled"]
+if perturbed:
+    ipert_ds = xr.open_dataset(exp_dir/"ic_nc/initial_perturbation.nc").sortby("latitude", ascending=False)
 
 # make pretty plots
 # titles = [f"VAR_2T at t={t*6} hours" for t in range(n_timesteps+1)]
@@ -133,6 +132,27 @@ vis.create_and_plot_variable_gif(
 
 print(f"Made Z500_anom.gif.")
 
+# plot Z anoms at diff levels
+choose_t = 12
+titles = [f"$Z_{{{lev}}}$ anomalies at t={choose_t*6} hours (TR={tendency_reversion}, P={perturbed})" for lev in ds.level.values]
+data = ds["Z"].isel(ensemble=0, zt0=0, lead_time=choose_t)/(g) - mean_ds["Z"] / (g)
+vis.create_and_plot_variable_gif(
+    data=data,
+    plot_var="Z_anom_levs",
+    iter_var="level",
+    iter_vals=[i for i, v in enumerate(ds.level.values)],
+    plot_dir=plot_dir,
+    units="m",
+    cmap="bwr",
+    titles=titles,
+    keep_images=False,
+    dpi=300,
+    fps=0.5,
+    vlims=(-10, 10),
+)
+
+print(f"Made Z_anom_levs.gif.")
+
 titles = [f"MSLP anomalies at t={t*6} hours (TR={tendency_reversion}, P={perturbed})" for t in range(0, lim, 1)]
 msl_anom = ds["MSL"].isel(zt0=0, ensemble=0) / 100 - mean_ds["MSL"] / 100 # convert to hPa
 vis.create_and_plot_variable_gif(
@@ -152,24 +172,25 @@ vis.create_and_plot_variable_gif(
 
 print(f"Made MSLP_anom.gif.")
 
-# show initial perturbation
-titles = [f"Initial U-Wind Perturbation (all levels)"]
-vis.create_and_plot_variable_gif(
-    data=ipert_ds["U"].isel(ensemble=0).sel(level=500),
-    plot_var="U_perturbation",
-    iter_var="time",
-    iter_vals=[0],
-    plot_dir=plot_dir,  
-    units="m/s",
-    cmap="Greens",
-    titles=titles,
-    keep_images=True,
-    dpi=300,
-    fps=1,
-    vlims=(0, 1),
-)
-    
-print("Made U_perturbation.gif.")
+if perturbed:
+    # show initial perturbation
+    titles = [f"Initial U-Wind Perturbation (all levels)"]
+    vis.create_and_plot_variable_gif(
+        data=ipert_ds["U"].isel(ensemble=0).sel(level=500),
+        plot_var="U_perturbation",
+        iter_var="time",
+        iter_vals=[0],
+        plot_dir=plot_dir,  
+        units="m/s",
+        cmap="Greens",
+        titles=titles,
+        keep_images=True,
+        dpi=300,
+        fps=1,
+        vlims=(0, 1),
+    )
+        
+    print("Made U_perturbation.gif.")
 
 # # debug tds
 # titles = ["DJF VAR_2T Tendency (SFNO)"]

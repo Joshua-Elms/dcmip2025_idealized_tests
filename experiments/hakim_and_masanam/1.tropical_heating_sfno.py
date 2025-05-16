@@ -86,9 +86,9 @@ print(f"Saving heating dataset to {config['heating_save_path']}.")
 heating_ds_path = config["heating_save_path"]
 heating_ds.to_netcdf(heating_ds_path)
     
-# rpert = - tds + heating_ds
+rpert = - tds + heating_ds
 # test with below line -- model output should be static
-rpert = -tds
+# rpert = -tds
 
 ds = inference.single_IC_inference(
         model=model,
