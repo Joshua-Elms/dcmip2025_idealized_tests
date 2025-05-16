@@ -38,6 +38,7 @@ def plotting_loop(
     output_dir,
     fname_prefix,
     titles,
+    central_longitude,
     keep_images=False,
     fps=1,
     dpi=100,
@@ -53,6 +54,7 @@ def plotting_loop(
         output_dir (directory to save images)
         fname_prefix (prefix for image filenames)
         titles (list of titles for each image, must match length of iterable)
+        central_longitude (central longitude for the map projection)
         keep_images (if True, images will not be deleted after the loop)
         fps (frames per second for gif)
 
@@ -64,9 +66,13 @@ def plotting_loop(
     """
     save_dir = output_dir / fname_prefix
     save_dir.mkdir(exist_ok=True, parents=True)
+    # if user specifies a central longitude, roll the data
+    # away from default of 180 °E by specified amount
+    roll_by = round(180 - central_longitude) * 4
     for i, idx in enumerate(iterable):
         data_slice = data.isel({dim_name: idx}).values
-        update_func(fig, obj, data_slice, title=titles[i])
+        rolled_slice = np.roll(data_slice, shift=roll_by, axis=-1)
+        update_func(fig, obj, rolled_slice, title=titles[i])
         fig.savefig(save_dir / f"{fname_prefix}_{i:03}.png", dpi=dpi)
 
     dir2gif(save_dir, output_dir / f"{fname_prefix}.gif", fps=fps)
@@ -86,6 +92,7 @@ def create_and_plot_variable_gif(
     units: str,
     cmap: str,
     titles: list[str],
+    central_longitude: float = 0.,
     adjust: dict = None,
     dpi: int = 100,
     fps: int = 2,
@@ -112,11 +119,12 @@ def create_and_plot_variable_gif(
         Directory path where to save the output GIF and temporary files
     units : str
         Units of the variable for labeling
-    title_str : str
-        Format of title string for the plot, e.g. "{var_name} [{units}] at {time}", with
-        valid placeholders {var_name}, {units}, and {time}
     cmap : str
         Colormap to use for plotting, e.g. 'viridis'
+    titles : str
+        List of titles for each frame of the animation. Must match the length of iter_vals.
+    central_longitude : float, optional
+        Central longitude for the map projection. Default is 180 °E
     adjust : dict, optional
         Dictionary of subplot adjustment parameters for matplotlib
     fig_size : tuple, optional
@@ -145,6 +153,9 @@ def create_and_plot_variable_gif(
     # lat/lon info
     lat, lon = data.latitude.values, data.longitude.values
     nlat, nlon = len(lat), len(lon)
+    
+    # check titles
+    assert len(titles) == len(iter_vals), "Num. titles must match length of iter_vals"
 
     # vlims can be set for manual color scaling
     if vlims:
@@ -157,7 +168,7 @@ def create_and_plot_variable_gif(
 
     ### make plot
     # set up figure and axis
-    fig, ax = plt.subplots(figsize=fig_size, subplot_kw={"projection": ccrs.PlateCarree(central_longitude=180)}) # , subplot_kw={"projection": ccrs.PlateCarree(central_longitude=180)}
+    fig, ax = plt.subplots(figsize=fig_size, subplot_kw={"projection": ccrs.PlateCarree(central_longitude=central_longitude)}) # , subplot_kw={"projection": ccrs.PlateCarree(central_longitude=180)}
 
     # set up first frame to be updated in later loop
     extent = [lon.min(), lon.max(), lat.min(), lat.max()]
@@ -168,7 +179,7 @@ def create_and_plot_variable_gif(
         cmap=cmap, 
         origin="lower",
         extent=extent,
-        transform=ccrs.PlateCarree(central_longitude=180),
+        transform=ccrs.PlateCarree(central_longitude=central_longitude),
     )   
     ax.coastlines()
     ax.set_global()
@@ -249,6 +260,7 @@ def create_and_plot_variable_gif(
         plot_dir,
         f"{plot_var}",
         titles,
+        central_longitude,
         keep_images=keep_images,
         fps=fps,
         dpi=dpi,
