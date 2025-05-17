@@ -9,11 +9,10 @@ from earth2mip.inference_ensemble import run_basic_inference
 dotenv.load_dotenv()
 
 model = get_model("e2mip://graphcast_operational", device="cuda:0")
-output_path = "era5_graphcast.nc"
+output_path = "graphcast_operational_0.nc"
 print(f"output_path: {output_path}")
 data_source = cds.DataSource(model.in_channel_names)
 print(model.in_channel_names)
-breakpoint()
 ds = run_basic_inference(model, n=1, data_source=data_source, time=datetime.datetime(2018, 1, 1))
 ds.to_netcdf(output_path)
 print(f"output: {ds}")
@@ -57,6 +56,6 @@ Graphcast channels:
     'w400', 'w450', 'w500', 'w550', 'w600', 'w650', 
     'w700', 'w750', 'w775', 'w800', 'w825', 'w850', 
     'w875', 'w900', 'w925', 'w950', 'w975', 'w1000', 
-    'u10m', 'v10m', 't2m', 'msl', 'tp06'
+    'u10m', 'v10m', 't2m', 'msl'
 ]
 """

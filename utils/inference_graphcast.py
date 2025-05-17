@@ -22,9 +22,9 @@ import torch
 
 graphcast_levels = [50,100,150,200,250,300,400,500,600,700,850,925,1000]
 graphcast_3dvars = ["Z", "Q", "T", "U", "V", "W"]
-graphcast_2dvars = ["u10m", "v10m", "t2m", "msl"]
-nlat = 180
-nlon = 360
+graphcast_2dvars = ["VAR_10U", "VAR_10V", "VAR_2T", "MSL"]
+nlat = 721
+nlon = 1440
 
 def pack_graphcast_state(
         ds : xr.Dataset,
@@ -75,14 +75,12 @@ def pack_graphcast_state(
         "t2m", "msl";
 
     """
-
-
     with dask.config.set(**{'array.slicing.split_large_chunks': False}):
         # concatenate the 3d variables along a new axis
         x3d = None
         for var in graphcast_3dvars:
             for lev in graphcast_levels:
-                if x3d is None:
+                if x3d is None: 
                     x3d = ds[var].sel(level=lev).drop_vars('level').squeeze()
                 else:
                     x3d = xr.concat((x3d, ds[var].sel(level=lev).drop_vars('level').squeeze()), dim = "n")
@@ -94,7 +92,7 @@ def pack_graphcast_state(
         x2d = xr.concat((x2d, ds["MSL"].squeeze()), dim = "n")
 
         # concatenate the 2d and 3d variables
-        x = xr.concat((x2d, x3d), dim = "n")
+        x = xr.concat((x3d, x2d), dim = "n")
 
     # convert to a torch array of type float32
     x = torch.from_numpy(x.values).to(device=device).float()
@@ -174,7 +172,7 @@ def read_graphcast_vars_from_era5_rda(
         t_file = t_template.format(year=date.year, month=date.month, day=date.day)
         z_file = z_template.format(year=date.year, month=date.month, day=date.day)
         q_file = q_template.format(year=date.year, month=date.month, day=date.day)
-        w_file = w_template.format(year=date.year, month=time.month, day=time.day)
+        w_file = w_template.format(year=date.year, month=date.month, day=date.day)
         u10_file = u10_template.format(year=date.year, month=date.month, dayend=dayend)
         v10_file = v10_template.format(year=date.year, month=date.month, dayend=dayend)
         msl_file = msl_template.format(year=date.year, month=date.month, dayend=dayend)
@@ -229,7 +227,8 @@ def rda_era5_to_graphcast_state(
     """
 
     # read the data
-    combined_xr = read_graphcast_vars_from_era5_rda(time, e5_base = e5_base)
+    # unlike SFNO, graphcast expends latitude from -90 to 90
+    combined_xr = read_graphcast_vars_from_era5_rda(time, e5_base = e5_base).sortby("latitude", ascending=True)
 
     # pack the data into a tensor
     x = pack_graphcast_state(combined_xr, device=device)
@@ -367,7 +366,6 @@ def unpack_graphcast_state(
     ds : xr.Dataset
 
     """
-
     # get the number of ensemble members
     n_ensemble = x.shape[1]
 
@@ -378,22 +376,22 @@ def unpack_graphcast_state(
 
     # initialize the dataset
     ds = initialize_graphcast_xarray_ds(time, n_ensemble)
-    breakpoint()
 
-    # loop over the 2D variables and insert them into the dataset
-    for i, var in enumerate(graphcast_2dvars):
-        ds[var] = xr.DataArray(x[:,:,i,:,:].flip(-2).cpu().numpy(), dims=('time', 'ensemble', 'latitude', 'longitude'))
-
-    n2d = len(graphcast_2dvars)
     nlev = len(graphcast_levels)
     # loop over the 3D variables and insert them into the dataset
     for j, var in enumerate(graphcast_3dvars):
         # get the indices for the current 3D variable
-        i1 = n2d + j*nlev
-        i2 = n2d + (j+1)*nlev
+        i1 = j*nlev
+        i2 = (j+1)*nlev
 
         # load the 3D variables
-        ds[var] = xr.DataArray(x[:,:,i1:i2,:,:].flip(-2).cpu().numpy(), dims=('time', 'ensemble', 'level', 'latitude', 'longitude'))
+        ds[var] = xr.DataArray(x[:,:,i1:i2,:,:].cpu().numpy(), dims=('time', 'ensemble', 'level', 'latitude', 'longitude'))
+        
+    # loop over the 2D variables and insert them into the dataset
+    n3d = len(graphcast_3dvars)
+    for i, var in enumerate(graphcast_2dvars):
+        i1 = i + n3d*nlev
+        ds[var] = xr.DataArray(x[:,:,i1,:,:].cpu().numpy(), dims=('time', 'ensemble', 'latitude', 'longitude'))
 
     return ds
 
@@ -558,8 +556,7 @@ def single_IC_inference(
     else:
         rpert = None
         
-    iterator = model(init_time, x, rpert)
-    breakpoint()
+    iterator = model(init_time, x)
     for k, (time, data, _) in enumerate(iterator):
         if vocal:
             print(f"Step {k}: {time} completed.")
