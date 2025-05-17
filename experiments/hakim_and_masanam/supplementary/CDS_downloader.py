@@ -17,12 +17,14 @@ this_dir = Path(__file__).parent
 scratch_dir = Path(os.environ.get("SCRATCH")) / "dcmip" / "era5"
 ncpus=1 # number of CPUs to use for parallelization, don't exceed ncpus from job request
 
-pl_variables = [ ### REMOVECOMMENT
-    # "geopotential",
-    # "relative_humidity",
-    # "temperature",
+pl_variables = [ 
+    "geopotential",
+    "relative_humidity",
+    "specific_humidity",
+    "temperature",
     "u_component_of_wind",
-    # "v_component_of_wind"
+    "v_component_of_wind",
+    "vertical_velocity",
 ]
 sfc_variables = [
     "10m_u_component_of_wind",
@@ -40,8 +42,8 @@ p_levels =  [
     1000
     ]
 years = [str(year) for year in np.arange(1979, 2020)] # str years 1979-2019
-# months = ["12", "01", "02", "07", "08", "09"] # str months DJF and JAS ### REMOVECOMMENT
-months = ["08"] 
+months = ["12", "01", "02", "07", "08", "09"] # str months DJF and JAS
+
 # days are at 10-day intervals DJF and JAS
 days_by_month = { 
     "12": ["1", "11", "21", "31"],
@@ -105,9 +107,9 @@ for month in months:
         args = (pl_variable, years, month, days, hours_utc, p_levels, pl_dataset, scratch_dir)
         args_list.append(args)
 
-    # for variable in sfc_variables: # ### REMOVECOMMENT
-    #     args = (variable, years, month, days, hours_utc, "sfc", sfc_dataset, scratch_dir)
-    #     args_list.append(args)
+    for variable in sfc_variables:
+        args = (variable, years, month, days, hours_utc, "sfc", sfc_dataset, scratch_dir)
+        args_list.append(args)
         
 ### download the data in parallel
 print(f"mp.Pool using ncpus={ncpus}")
