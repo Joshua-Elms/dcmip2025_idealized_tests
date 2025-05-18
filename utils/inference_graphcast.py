@@ -29,6 +29,7 @@ nlon = 1440
 def pack_graphcast_state(
         ds : xr.Dataset,
         device : str = "cpu",
+        is_rpert : bool = False,
         ) -> torch.Tensor:
     """ Takes an xarray dataset with the necessary fields and packs it into a tensor for the GRAPHCAST model. 
 
@@ -54,6 +55,9 @@ def pack_graphcast_state(
 
     device : str
         the device to put the tensor on
+        
+    is_rpert (optional): bool
+        if True, the tensor has a dummy channel/variable appended to the end of it. Required to match expected tensor shape in earth2mip/networks/graphcast.py(439)step().
 
     output:
     -------
@@ -75,6 +79,10 @@ def pack_graphcast_state(
         "t2m", "msl";
 
     """
+    # check whether the latitudes are increasing (correct) or decreasing (incorrect)
+    if ds.latitude[0] > ds.latitude[-1]:
+        ds = ds.flip('latitude')
+    
     with dask.config.set(**{'array.slicing.split_large_chunks': False}):
         # concatenate the 3d variables along a new axis
         x3d = None
@@ -90,6 +98,11 @@ def pack_graphcast_state(
         x2d = xr.concat((x2d, ds["VAR_10V"].squeeze()), dim = "n")
         x2d = xr.concat((x2d, ds["VAR_2T"].squeeze()), dim = "n")
         x2d = xr.concat((x2d, ds["MSL"].squeeze()), dim = "n")
+        
+        # optionally add dummy channel for recurrent perturbation
+        if is_rpert:
+            zeros = ds["VAR_10U"].squeeze() * 0
+            x2d = xr.concat((x2d, zeros), dim = "n")
 
         # concatenate the 2d and 3d variables
         x = xr.concat((x3d, x2d), dim = "n")
@@ -97,12 +110,17 @@ def pack_graphcast_state(
     # convert to a torch array of type float32
     x = torch.from_numpy(x.values).to(device=device).float()
     
+    # check shape
+    assert x.ndim < 5, f"Input data has too many dimensions: {x.ndim}. Expected 4 or less."
+    
     # current shape is (n, time, lat, lon)
     # graphcast expects (time, n, lat, lon)
-    x = x.permute(1, 0, 2, 3)
+    if x.ndim == 4:
+        print("Permuting dimensions to match GRAPHCAST input shape.")
+        x = x.permute(1, 0, 2, 3)
 
     # add batch dimension
-    if len(x.shape) == 4:
+    if x.ndim == 4:
         x = x[None, ...]
 
     return x
@@ -531,6 +549,8 @@ def single_IC_inference(
     end_time = init_time + dt.timedelta(hours=6*(n_timesteps))
     
     if initial_condition is not None:
+        # for graphcast, IC must have two timesteps: t=0 and t=-1 (0 and -6 hours)
+        assert initial_condition.dims['time'] == 2, f"Initial condition must have 2 timesteps: {initial_condition.dims['time']} found."
         # pack the initial condition into a tensor
         x = pack_graphcast_state(initial_condition, device=device)
         
@@ -551,12 +571,12 @@ def single_IC_inference(
     # handle perturbation which will be added to the model output at every timestep
     if recurrent_perturbation is not None:
         # pack the perturbation into a tensor
-        rpert = pack_graphcast_state(recurrent_perturbation, device=device)
+        rpert = pack_graphcast_state(recurrent_perturbation, device=device, is_rpert=True)
         
     else:
         rpert = None
         
-    iterator = model(init_time, x)
+    iterator = model(init_time, x, rpert)
     for k, (time, data, _) in enumerate(iterator):
         if vocal:
             print(f"Step {k}: {time} completed.")

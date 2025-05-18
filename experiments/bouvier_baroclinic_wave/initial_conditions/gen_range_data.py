@@ -1,4 +1,4 @@
-from utils import *
+from experiments.bouvier_baroclinic_wave.initial_conditions.utils import *
 import numpy as np
 from itertools import product
 import yaml

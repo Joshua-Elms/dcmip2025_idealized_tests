@@ -44,7 +44,7 @@ processor_parameters:
   include_dewpt: false
   latitudes_fname: latitude.npy
   longitudes_fname: longitude.npy
-  metadata_dir: /glade/work/jmelms/data/dcmip/initial_conditions/metadata
+  metadata_dir: /glade/u/home/jmelms/projects/dcmip2025_idealized_tests/experiments/bouvier_baroclinic_wave/initial_conditions/metadata
   model_plevels_fname: levels_model.txt
   standardize: false
   write_data: true

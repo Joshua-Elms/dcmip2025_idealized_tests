@@ -70,8 +70,10 @@ def compute_time_mean_from_files(variables: list, months: list, scratch_dir: Pat
         t="T",
         z="Z",
         r="R",
+        q="Q",
         u="U",
         v="V",
+        w="W",
         pressure_level="level",
     ))
     

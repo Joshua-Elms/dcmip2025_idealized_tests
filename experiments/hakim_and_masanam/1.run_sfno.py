@@ -90,6 +90,7 @@ rpert = - tds + heating_ds
 # test with below line -- model output should be static
 # rpert = -tds
 
+breakpoint()
 ds = inference.single_IC_inference(
         model=model,
         n_timesteps=n_timesteps,
