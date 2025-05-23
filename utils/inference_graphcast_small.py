@@ -292,7 +292,7 @@ def initialize_graphcast_xarray_ds(time, n_ensemble : int) -> xr.Dataset:
     ds['time'] = xr.DataArray(time, dims='time')
     ds['level'] = xr.DataArray(graphcast_levels, dims='level')
     ds['latitude'] = xr.DataArray(np.linspace(-90,90,nlat), dims='latitude')
-    ds['longitude'] = xr.DataArray(np.linspace(0,359.75,nlon), dims='longitude')
+    ds['longitude'] = xr.DataArray(np.linspace(0,359.,nlon), dims='longitude')
     ds['ensemble'] = xr.DataArray(np.arange(n_ensemble), dims='ensemble')
 
     # add metadata to the coordinates
@@ -583,7 +583,6 @@ def single_IC_inference(
     else:
         rpert = None
         
-    breakpoint()
     iterator = model(init_time, x, rpert)
     for k, (time, data, _) in enumerate(iterator):
         if vocal:
