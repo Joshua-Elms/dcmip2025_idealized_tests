@@ -1,9 +1,9 @@
 experiment_dir: /glade/u/home/jmelms/projects/dcmip2025_idealized_tests/experiments/bouvier_baroclinic_wave/data
-experiment_name: perturbed_slow_flow
+experiment_name: perturbed_fast_flow
 fort_executable_path: /glade/u/home/jmelms/projects/dcmip2025_idealized_tests/experiments/bouvier_baroclinic_wave/initial_conditions/gen_IC_FCN.out
 inference_parameters:
   device: cuda:0
-  n_steps: 60
+  n_steps: 5
   tendency_reversion: true
 initial_condition_parameters:
   moisture:
@@ -31,7 +31,7 @@ initial_condition_parameters:
   - - 288
   - K
   zu0:
-  - 20
+  - 100
   - m s^-1
 perturbation_parameters:
   center_latitude: 40

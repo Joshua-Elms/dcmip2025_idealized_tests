@@ -271,6 +271,9 @@ def process_individual_fort_file(
     
     # flip levels to match SFNO
     ds_73 = ds_73.sortby("level", ascending=True)
+    
+    # rename to latitude and longitude to match SFNO
+    ds_73 = ds_73.rename({"lat": "latitude", "lon": "longitude"})
 
     # save to disk
     if write_data:

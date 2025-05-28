@@ -1,21 +1,14 @@
 import xarray as xr
-import datetime as dt
-import torch
-import numpy as np
 import logging
 from earth2mip import networks # type: ignore
 import utils.inference as inference
 import experiments.bouvier_baroclinic_wave.initial_conditions.utils as bouvier_utils
-import dotenv
 from pathlib import Path
 import numpy as np
 import yaml
 from time import perf_counter
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
-
-# load the earth2mip environment variables
-dotenv.load_dotenv()
 
 # read configuration
 this_dir = Path(__file__).parent
@@ -26,18 +19,10 @@ ic_params = config["initial_condition_parameters"]
 
 # set up directories
 exp_dir = Path(config["experiment_dir"]) / config["experiment_name"] # all data for experiment stored here
-exp_dir.mkdir(parents=True, exist_ok=True) # make dir if it doesn't exist
 ic_csv_dir = exp_dir / "ic_csv" # contains fort generated ICs, must be processed into nc before used for inference
-ic_csv_dir.mkdir(exist_ok=True)
 ic_nc_dir = exp_dir / "ic_nc" # contains processed ICs in nc format, ready for inference
-ic_nc_dir.mkdir(exist_ok=True)
 output_path = exp_dir / "output.nc" # where to save output from inference
-log_path = exp_dir / "python.log" # where to save log
-
-# copy config to experiment directory
-config_path_exp = exp_dir / "config.yml"
-with open(config_path_exp, 'w') as file:
-    yaml.dump(config, file)
+log_path = exp_dir / "output.log" # where to save log
 
 # set up logging
 logging.basicConfig(
@@ -46,9 +31,6 @@ logging.basicConfig(
     format='%(asctime)s:%(message)s',
     datefmt='%Y-%m-%dH%H:%M:%S'
 )
-logging.info(f"Experiment: {config['experiment_name']}")
-logging.info(f"Config: {config_path}")
-print(f"Logging to: {log_path}")
     
 # load the model
 device = config["inference_parameters"]["device"]
@@ -58,7 +40,6 @@ end = perf_counter()
 logging.info(f"Model loaded in {end-start:.2f} seconds.")
 
 # find the iterable parameter (only one allowed currently)
-# see format of ic_params in initial_conditions/bouvier/configs/example.yml
 keys, val_pairs = zip(*ic_params.items())
 vals, units = zip(*val_pairs)
 param_val_pairs = dict(zip(keys, vals))
@@ -98,8 +79,7 @@ for i, val in enumerate(iter_vals.tolist()): # whichever parameter is iterable
         "metadata_dir": Path(config["processor_parameters"]["metadata_dir"]),
         "logf": log_path,
     }
-    ic = bouvier_utils.process_individual_fort_file(**nc_kwargs).sortby("lat", ascending=False)
-    # ic = xr.open_dataset("/glade/u/home/jmelms/projects/dcmip2025_idealized_tests/experiments/hakim_and_masanam/data/DJF_ERA5_time_mean.nc").sortby("latitude", ascending=False)
+    ic = bouvier_utils.process_individual_fort_file(**nc_kwargs).sortby("latitude", ascending=False)
     
     # check whether H&M24 tendency reversion is required
     tendency_reversion = config["inference_parameters"]["tendency_reversion"]
@@ -142,7 +122,7 @@ for i, val in enumerate(iter_vals.tolist()): # whichever parameter is iterable
         
         # set up the perturbation
         upert = inference.gen_baroclinic_wave_perturbation(
-            ic.lat, ic.lon, ylat, xlon, u_pert_base, locRad
+            ic.latitude, ic.longitude, ylat, xlon, u_pert_base, locRad
         )
         initial_perturbation = inference.create_empty_sfno_ds()
 

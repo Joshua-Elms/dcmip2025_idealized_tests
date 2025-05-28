@@ -1,11 +1,8 @@
 import datetime
-import dotenv
 import datetime as dt
 import torch
 from utils import inference_graphcast_small
 from earth2mip.networks import get_model # :ignore
-
-dotenv.load_dotenv()
 
 model = get_model("e2mip://graphcast_small", device="cuda:0")
 output_path = "graphcast_small_0.nc"
