@@ -1,0 +1,141 @@
+Lmod Warning:
+-------------------------------------------------------------------------------
+The following dependent module(s) are not currently loaded: cuda/12.3.2
+(required by: ucx/1.17.0, openmpi/5.0.6)
+-------------------------------------------------------------------------------
+
+
+
+Lmod Warning:
+-------------------------------------------------------------------------------
+The following dependent module(s) are not currently loaded: cuda/12.3.2
+(required by: ucx/1.17.0, openmpi/5.0.6)
+-------------------------------------------------------------------------------
+
+
+
+Lmod Warning:
+-------------------------------------------------------------------------------
+The following dependent module(s) are not currently loaded: cuda/12.3.2
+(required by: ucx/1.17.0, openmpi/5.0.6)
+-------------------------------------------------------------------------------
+
+
+
+Lmod Warning:
+-------------------------------------------------------------------------------
+The following dependent module(s) are not currently loaded: cuda/12.3.2
+(required by: ucx/1.17.0, openmpi/5.0.6)
+-------------------------------------------------------------------------------
+
+
+
+Lmod Warning:
+-------------------------------------------------------------------------------
+The following dependent module(s) are not currently loaded: cuda/12.3.2
+(required by: ucx/1.17.0, openmpi/5.0.6)
+-------------------------------------------------------------------------------
+
+
+
+python3: can't open file '/glade/u/home/jmelms/projects/dcmip2025_idealized_tests/experiments/test_era5/experiments/test_era5/test_graphcast_small.py': [Errno 2] No such file or directory
+Lmod Warning:
+-------------------------------------------------------------------------------
+The following dependent module(s) are not currently loaded: cuda/12.3.2
+(required by: ucx/1.17.0, openmpi/5.0.6)
+-------------------------------------------------------------------------------
+
+
+
+Lmod Warning:
+-------------------------------------------------------------------------------
+The following dependent module(s) are not currently loaded: cuda/12.3.2
+(required by: ucx/1.17.0, openmpi/5.0.6)
+-------------------------------------------------------------------------------
+
+
+
+Lmod Warning:
+-------------------------------------------------------------------------------
+The following dependent module(s) are not currently loaded: cuda/12.3.2
+(required by: ucx/1.17.0, openmpi/5.0.6)
+-------------------------------------------------------------------------------
+
+
+
+Lmod Warning:
+-------------------------------------------------------------------------------
+The following dependent module(s) are not currently loaded: cuda/12.3.2
+(required by: ucx/1.17.0, openmpi/5.0.6)
+-------------------------------------------------------------------------------
+
+
+
+Lmod Warning:
+-------------------------------------------------------------------------------
+The following dependent module(s) are not currently loaded: cuda/12.3.2
+(required by: ucx/1.17.0, openmpi/5.0.6)
+-------------------------------------------------------------------------------
+
+
+
+Model description:
+ 
+Low resolution version of the GraphCast model (1deg, smaller mesh), with 37
+pressure levels. This model is trained on ERA5 data from 1979 to 2015, and can
+be causally evaluated on 2016 and later years. This model takes as inputs
+`total_precipitation_6hr`. This model has much lower memory requirements.
+ 
+
+Model license:
+ 
+The model weights are licensed under the Creative Commons
+Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0). You
+may obtain a copy of the License at:
+https://creativecommons.org/licenses/by-nc-sa/4.0/.
+The weights were trained on ERA5 data, see README for attribution statement.
+ 
+
+/glade/u/home/jmelms/software/earth2mip/earth2mip/networks/graphcast.py:606: FutureWarning: The return type of `Dataset.dims` will be changed to return a set of dimension names in future, in order to be more consistent with `DataArray.dims`. To access a mapping from dimension names to lengths, please use `Dataset.sizes`.
+  assert example_batch.dims["time"] >= 3  # noqa
+All Examples:   {'lon': 360, 'lat': 181, 'level': 13, 'time': 6, 'batch': 1}
+Eval Inputs:    {'batch': 1, 'time': 2, 'lat': 181, 'lon': 360, 'level': 13}
+Eval Targets:   {'batch': 1, 'time': 1, 'lat': 181, 'lon': 360, 'level': 13}
+Eval Forcings:  {'batch': 1, 'time': 1, 'lat': 181, 'lon': 360}
+Inputs:   {'batch': 1, 'time': 2, 'lat': 181, 'lon': 360, 'level': 13}
+Targets:  {'batch': 1, 'time': 1, 'lat': 181, 'lon': 360, 'level': 13}
+Forcings: {'batch': 1, 'time': 1, 'lat': 181, 'lon': 360}
+output_path: graphcast_small_0.nc
+Permuting dimensions to match GRAPHCAST input shape.
+Detected error in x.contiguous() call, permuting axes...
+Step 0: 2018-01-01 00:00:00 completed.
+/glade/work/jmelms/software/miniconda3/envs/earth2mip_graphcast/lib/python3.10/site-packages/graphcast/autoregressive.py:202: FutureWarning: The return type of `Dataset.dims` will be changed to return a set of dimension names in future, in order to be more consistent with `DataArray.dims`. To access a mapping from dimension names to lengths, please use `Dataset.sizes`.
+  scan_length = targets_template.dims['time']
+WARNING:absl:Skipping gradient checkpointing for sequence length of 1
+Loading cached graph structures from .cache.pkl
+/glade/work/jmelms/software/miniconda3/envs/earth2mip_graphcast/lib/python3.10/site-packages/graphcast/autoregressive.py:115: FutureWarning: The return type of `Dataset.dims` will be changed to return a set of dimension names in future, in order to be more consistent with `DataArray.dims`. To access a mapping from dimension names to lengths, please use `Dataset.sizes`.
+  num_inputs = inputs.dims['time']
+2025-05-28 15:41:46.631462: W external/xla/xla/service/gpu/autotuning/gemm_fusion_autotuner.cc:1093] Compiling 517 configs for 17 fusions on a single thread.
+/glade/work/jmelms/software/miniconda3/envs/earth2mip_graphcast/lib/python3.10/site-packages/graphcast/rollout.py:202: FutureWarning: The return type of `Dataset.dims` will be changed to return a set of dimension names in future, in order to be more consistent with `DataArray.dims`. To access a mapping from dimension names to lengths, please use `Dataset.sizes`.
+  num_inputs = prev_inputs.dims["time"]
+Step 1: 2018-01-01 06:00:00 completed.
+output: <xarray.Dataset> Size: 43MB
+Dimensions:    (time: 2, level: 13, latitude: 181, longitude: 360, ensemble: 1)
+Coordinates:
+  * time       (time) datetime64[ns] 16B 1970-01-01 1970-01-01T00:00:00.00000...
+  * level      (level) int64 104B 50 100 150 200 250 ... 600 700 850 925 1000
+  * latitude   (latitude) float64 1kB -90.0 -89.0 -88.0 -87.0 ... 88.0 89.0 90.0
+  * longitude  (longitude) float64 3kB 0.0 1.0 2.0 3.0 ... 357.0 358.0 359.0
+  * ensemble   (ensemble) int64 8B 0
+Data variables:
+    Z          (time, ensemble, level, latitude, longitude) float32 7MB 2.021...
+    Q          (time, ensemble, level, latitude, longitude) float32 7MB 2.854...
+    T          (time, ensemble, level, latitude, longitude) float32 7MB 235.9...
+    U          (time, ensemble, level, latitude, longitude) float32 7MB -0.00...
+    V          (time, ensemble, level, latitude, longitude) float32 7MB -7.62...
+    W          (time, ensemble, level, latitude, longitude) float32 7MB -0.00...
+    VAR_10U    (time, ensemble, latitude, longitude) float32 521kB 0.6627 ......
+    VAR_10V    (time, ensemble, latitude, longitude) float32 521kB 0.0336 ......
+    VAR_2T     (time, ensemble, latitude, longitude) float32 521kB 249.3 ... ...
+    MSL        (time, ensemble, latitude, longitude) float32 521kB 1.001e+05 ...
+    TP06       (time, ensemble, latitude, longitude) float32 521kB 0.0 ... -4...
