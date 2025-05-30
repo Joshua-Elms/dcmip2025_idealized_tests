@@ -1,7 +1,7 @@
 n_timesteps: 24
 ic_dates: ["2018/01/01 12:00", "2018/07/01 12:00"]
 keep_vars: [] # if empty list, only surface pressure will be kept. see README for name convention
-experiment_dir: /glade/u/home/jmelms/projects/dcmip2025_idealized_tests/experiments/mass_conservation/data
+experiment_dir: /glade/u/home/YOURUSERNAME/projects/dcmip2025_idealized_tests/experiments/mass_conservation/data
 experiment_name: test
 device: cuda:0
 

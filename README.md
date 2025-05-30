@@ -24,19 +24,19 @@ e.g., `git clone https://github.com/taobrienlbl/DCMIP2025-ML.git` in your home d
 The repository contains code that will facilitate running the hands-on session experiments.  It is organized as follows:
 
 ```
-experiments\ (folders containing experiment code & instructions)
-    A.mass_conservation\        (the first experiment that everyone will run)
-    B.hakim_and_masanam\        (one of two experiments that participants will run)
-    C.bouvier_baroclinic_wave\  (one of two experiments that participants will run)
-    additional_experiments\     (this won't likely be used in DCMIP 2025)
-utils\  (a folder with helper code that you won't likely need to directly use)
+experiments/ (folders containing experiment code & instructions)
+    A.mass_conservation/        (the first experiment that everyone will run)
+    B.hakim_and_masanam/        (one of two experiments that participants will run)
+    C.bouvier_baroclinic_wave/  (one of two experiments that participants will run)
+    additional_experiments/     (this won't likely be used in DCMIP 2025)
+utils/  (a folder with helper code that you won't likely need to directly use)
 ```
 
 ### 2. Follow README instructions
 
-Each of the above folders in `experiments\` has a `README.md` file with details about the experiments and instructions on getting started.  You can either view the README file in a text editor or you can view a nicely-rendered version of it on [the DCMIP 2025 ML experiment github site](https://github.com/taobrienlbl/DCMIP2025-ML).
+Each of the above folders in `experiments/` has a `README.md` file with details about the experiments and instructions on getting started.  You can either view the README file in a text editor or you can view a nicely-rendered version of it on [the DCMIP 2025 ML experiment github site](https://github.com/taobrienlbl/DCMIP2025-ML).
 
-## Basic Details About Experiments
+## Basic details about experiments
 
 **A. Mass Conservation:** This experiment runs either SFNO or GraphCast in standard re-forecast mode: taking initial conditions from ERA5 and running the model forward a set amount of time. This experiment aims to satisfy objective (1): *gain familiarity with running two ML weather forecast emulators.*
 
@@ -57,7 +57,7 @@ More details about each experiment can be found in the `experiments/*/README.md`
 As time allows, we will also work with participants to create and document entirely new idealized tests.
 
 
-## Frequently Used Commands
+## Frequently used commands
 
 There are some commands that we will use frequently in these experiments, so we provide examples below that you can copy and paste.
 

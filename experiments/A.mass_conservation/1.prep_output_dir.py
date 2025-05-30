@@ -1,3 +1,4 @@
+""" This script prepares the output directory for an experiment. """
 import logging
 from pathlib import Path
 import yaml
@@ -10,6 +11,11 @@ with open(config_path, 'r') as file:
 
 # set up directories
 exp_dir = Path(config["experiment_dir"]) / config["experiment_name"] # all data for experiment stored here
+
+# check if YOURUSERNAME appears in exp_dir; error-out if it does
+if "YOURUSERNAME" in str(exp_dir):
+    raise ValueError("Please replace 'YOURUSERNAME' in 0.config.yaml with your actual username.")
+
 exp_dir.mkdir(parents=True, exist_ok=True) # make dir if it doesn't exist
 output_path = exp_dir / "output.nc" # where to save output from inference
 log_path = exp_dir / "output.log" # where to save log
