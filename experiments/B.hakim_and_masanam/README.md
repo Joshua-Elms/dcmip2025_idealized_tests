@@ -1,5 +1,28 @@
 # Hakim & Masanam (2024) Experiments
 
+This experiment runs either SFNO or GraphCast following the Hakim and Masanam protocol in which the model tendencies are constrained such that an unperturbed version of the model runs in steady state.  The perturbed versions aim to isolate the response of the model to various perturbations: e.g., tropical heating.  This experiment aims to satisfy both objectives (2) and (3): *run idealized simulations with these two models to probe aspects of the models' physical fidelity; and explore and intercompare model responses as the model inputs stray further and further from their training dataset*.
+
+## Instructions
+
+The scripts/notebooks in this folder are labeled and arranged in the order in which they should be modified and/or run.
+
+### `0.config.yaml`
+The `0.config.yaml` file contains variables that can be configured to modify the behavior of the simulation.
+
+### `1.run_sfno.py`
+
+TODO
+
+### `2.analysis.py`
+
+TODO
+
+### Choosing which experiment
+
+TODO
+
+## Details
+
 This is an implementation of the four experiments provided in Hakim & Masanam's 2024 paper on machine learning forecast model testing, henceforth "HM24". 
 
 These four experiments are: 

@@ -1,36 +1,27 @@
-## Quantitative Analysis of Energy Conservation
-We use Total energy ($E_T$) to capture the energetic perturbation applied by ML weather models. 
+# Bouvier et al. (2024) Moist Baroclinic Wave Test
 
-Equations modified from Eqs. (1, 13, 16, 17) from [Corraliza and Mayta 2023](https://doi.org/10.1175/JAS-D-23-0005.1) and Eq. (4.1) of [Darkow 1983](https://search-library.ucsd.edu/permalink/01UCS_SDI/desb83/alma991015986439706535).
+This experiment runs either SFNO or GraphCast using an idealized, zonally-symmetric (unless perturbed) aquaplanet initial condition.  The initial condition is designed to be baroclinically unstable, such that perturbing the initial condition should spontaneously result in the growth of a baroclinic wave. The initial condition protocol for this experiment was designed by Clement Bouvier: a DCMIP 2025 attendee! This experiment aims to satisfy both objectives (2) and (3): *run idealized simulations with these two models to probe aspects of the models' physical fidelity; and explore and intercompare model responses as the model inputs stray further and further from their training dataset*.
 
-|                       | Description                                   | Value (if const.)   | Units                            |
-|-----------------------|-----------------------------------------------|---------------------|----------------------------------|
-| $T$                   | Temperature                                   |                     | $\text{K}$                       |
-| $z$                   | Geopotential height                           |                     | $\text{m}$                       |
-| $q$                   | Specific humidity                             |                     | $\text{g kg}^{-1}$               |
-| $u$                   | u-component of wind                           |                     | $\text{m s}^{-1}$                |
-| $v$                   | v-component of wind                           |                     | $\text{m s}^{-1}$                |
-| $E_T$                 | Total energy                                  |                     | $\text{J kg}^{-1}$               |
-| $\langle E_T \rangle$ | Mass-weighted/column-integrated total energy  |                     | $\text{J}$                       |
-| $C_p$                 | Specific heat of dry air at constant pressure | $1.005 \times 10^3$ | $\text{J kg}^{-1} \text{K}^{-1}$ |
-| $g$                   | Acceleration due to gravity                   | $9.81$              | $\text{m s}^{-2}$                |
-| $L_v$                 | Latent energy of vaporization                 | $2.260 \times 10^6$ | $\text{J kg}^{-1}$               |
-| $R$                   | Radius of Earth                               | $6.371 \times 10^6$ | $\text{m}$                       |
-| $p_s$                 | Surface pressure                              | $10^{5}$            | $\text{hPa}$                     |
+## Instructions
 
-Total energy combines sensible, geopotential, latent, and kinetic energies into an intensive quantity which shows energy density. 
+The scripts/notebooks in this folder are labeled and arranged in the order in which they should be modified and/or run.
 
-$$
-E_T \equiv C_p T + gz + L_v q + \frac{1}{2}(u^2 + v^2)
-$$
+### `0.config.yaml`
+The `0.config.yaml` file contains variables that can be configured to modify the behavior of the simulation.
 
-We take the mass-weighted column integral of $E_T$ to calculate $\langle E_T \rangle$, the extensive total energy of a column. 
+### `1.prep_output_dir.py`
+Run this script to prepare the experiment directory that you specified in the last step.
 
-$$
-\langle E_T \rangle = \frac{1}{g}\int_0^{p_s} E_T dp
-$$
+### TODO - fill out next steps
 
-References: 
+TODO
 
-- Adames Corraliza, Ángel F., and Víctor C. Mayta. "On the Accuracy of the Moist Static Energy Budget When Applied to Large-Scale Tropical Motions". Journal of the Atmospheric Sciences 80.10 (2023): 2365-2376. https://doi.org/10.1175/JAS-D-23-0005.1 Web.
-- Darkow, G. L., 1983:  Basic thunderstorm energetics and thermodynamics.  "Thunderstorm Morphology and Dynamics," E. Kessler, Ed., 2nd ed., University of Oklahoma Press, 59-73. https://search-library.ucsd.edu/permalink/01UCS_SDI/desb83/alma991015986439706535
+## Details
+
+This test uses initial conditions from [Bouvier et al. (2024)](https://doi.org/10.5194/gmd-17-2961-2024), who derived a set of initial conditions for an aquaplanet model that are conditionally unstable.  The ICs are defined such that if they are perturbed, a model should produce a baroclinic wave. This test is designed to assess whether machine learning models produce baroclinic waves in response to such an IC in the same way that traditional dynamical cores do.
+
+The unperturbed Bouvier et al. initial conditions (copied from their paper) are shown below:
+![unperturbed initial condition from Bouvier et al. (2024) Figure 4](gmd-17-2961-2024-f04-thumb.png)
+
+The response of the OpenIFS model to a perturbed version of these initial conditions follows:
+![response of OpenIFS from Bouvier et al. (2024) Figure 6](gmd-17-2961-2024-f06-thumb.png)

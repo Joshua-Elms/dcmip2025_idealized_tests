@@ -1,4 +1,4 @@
-experiment_dir: /glade/u/home/jmelms/projects/dcmip2025_idealized_tests/experiments/bouvier_baroclinic_wave/data
+experiment_dir: /glade/u/home/YOURUSERNAME/projects/dcmip2025_idealized_tests/experiments/bouvier_baroclinic_wave/data
 experiment_name: perturbed_fast_flow
 fort_executable_path: /glade/u/home/jmelms/projects/dcmip2025_idealized_tests/experiments/bouvier_baroclinic_wave/initial_conditions/gen_IC_FCN.out
 inference_parameters:
