@@ -1,3 +1,6 @@
 *__pycache__*
 *.nc
 *.o*
+.DS_Store
+.cache.pkl
+logs/
