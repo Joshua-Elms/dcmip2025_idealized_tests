@@ -1,7 +1,7 @@
 import xarray as xr
 import logging
 from earth2mip import networks # type: ignore
-import utils.inference as inference
+import utils.inference_graphcast_small as inference
 import initial_conditions.utils as bouvier_utils
 from pathlib import Path
 import numpy as np
@@ -21,8 +21,8 @@ ic_params = config["initial_condition_parameters"]
 exp_dir = Path(config["experiment_dir"]) / config["experiment_name"] # all data for experiment stored here
 ic_csv_dir = exp_dir / "ic_csv" # contains fort generated ICs, must be processed into nc before used for inference
 ic_nc_dir = exp_dir / "ic_nc" # contains processed ICs in nc format, ready for inference
-output_path = exp_dir / "sfno_output.nc" # where to save output from inference
-log_path = exp_dir / "sfno.log" # where to save log
+output_path = exp_dir / "graphcast_output.nc" # where to save output from inference
+log_path = exp_dir / "graphcast.log" # where to save log
 
 # set up logging
 logging.basicConfig(
@@ -35,11 +35,12 @@ logging.basicConfig(
 # load the model
 device = config["inference_parameters"]["device"]
 start = perf_counter()
-model = networks.get_model("fcnv2_sm").to(device)
+model = networks.get_model("e2mip://graphcast_small",device=device)
 end = perf_counter()
 logging.info(f"Model loaded in {end-start:.2f} seconds.")
 
 # find the iterable parameter (only one allowed currently)
+# see format of ic_params in initial_conditions/bouvier/configs/example.yml
 keys, val_pairs = zip(*ic_params.items())
 vals, units = zip(*val_pairs)
 param_val_pairs = dict(zip(keys, vals))
@@ -76,17 +77,23 @@ for i, val in enumerate(iter_vals.tolist()): # whichever parameter is iterable
         "csv_path": csv_ic_path,
         "nc_path": nc_ic_path,
         "nlat": ic_params["nlat"][0],
-        "include_dewpt": False, # dewpoint temperature not needed for this model
         "metadata_dir": Path(config["processor_parameters"]["metadata_dir"]),
         "logf": log_path,
     }
-    ic = bouvier_utils.process_individual_fort_file_sfno(**nc_kwargs)
+    ic = bouvier_utils.process_individual_fort_file_graphcast(**nc_kwargs).sortby("latitude", ascending=True)
     
+    # ic should be 181 x 360 for graphcast_small, so coarsen it
+    ic = ic.coarsen(latitude=4, longitude=4, boundary="pad").mean()
+    
+    # repeat ic along extant time dimension to provide 2 input timesteps for inference
+    ic = xr.concat([ic, ic], dim="time")
+   
     # check whether H&M24 tendency reversion is required
     tendency_reversion = config["inference_parameters"]["tendency_reversion"]
     
     # if so, calculate the tendency for this IC
     if tendency_reversion:
+        print(f"Calculating tendency for {iter_param}={val} initial condition.")
         tendency_ds = inference.single_IC_inference(
             model=model,
             n_timesteps=1,
@@ -94,10 +101,11 @@ for i, val in enumerate(iter_vals.tolist()): # whichever parameter is iterable
             device=device,
             vocal=True
         )
-        tds = (tendency_ds.isel(time=1) - tendency_ds.isel(time=0)).sortby("latitude", ascending=False)
+        tds = (tendency_ds.isel(time=1) - tendency_ds.isel(time=0)).sortby("latitude", ascending=True)
         rpert = -tds  # recurrent perturbation is the negative of the tendency
         
         # Run a test to verify the recurrent perturbation mechanism
+        print(f"Verifying recurrent perturbation for {iter_param}={val} initial condition.")
         verification_ds = inference.single_IC_inference(
             model=model,
             n_timesteps=1,
@@ -109,6 +117,7 @@ for i, val in enumerate(iter_vals.tolist()): # whichever parameter is iterable
         # We should find that: verification_ds.isel(time=1) ≈ verification_ds.isel(time=0)
         max_e = (verification_ds.isel(time=1) - verification_ds.isel(time=0)).max()
         print(f"RMSE between t=1 and t=0 with perturbation: {max_e}")
+        
     # else, set the recurrent perturbation to None
     else:
         rpert = None
@@ -125,26 +134,26 @@ for i, val in enumerate(iter_vals.tolist()): # whichever parameter is iterable
         upert = inference.gen_baroclinic_wave_perturbation(
             ic.latitude, ic.longitude, ylat, xlon, u_pert_base, locRad
         )
-        initial_perturbation = inference.create_empty_sfno_ds()
+        initial_perturbation = inference.create_empty_graphcast_ds()
 
         # set perturbation u-wind profile to `upert` field
         initial_perturbation["U"][:] = upert
         initial_perturbation["VAR_10U"][:] = upert
-        initial_perturbation["VAR_100U"][:] = upert
         
         # set perturbation to zero for all other variables
-        zero_vars = ["T", "V", "Z", "R", "VAR_10V", "VAR_100V", "SP", "MSL", "TCW", "VAR_2T"]
+        zero_vars = ["T", "V", "Z", "Q", "W", "VAR_10V", "MSL", "VAR_2T", "TP06"]
         for var in zero_vars:
             initial_perturbation[var][:] = 0.
             
         initial_perturbation.to_netcdf(
-            ic_nc_dir / f"initial_perturbation_sfno.nc"
+            ic_nc_dir / f"initial_perturbation_graphcast.nc"
         )
-        print(f"Perturbation saved to {ic_nc_dir / 'initial_perturbation_sfno.nc'}")
+        print(f"Perturbation saved to {ic_nc_dir / 'initial_perturbation_graphcast.nc'}")
             
     else: 
         initial_perturbation = None
         
+    print(f"Running inference for {iter_param}={val} initial condition.")
     single_ds = inference.single_IC_inference(
         model=model,
         n_timesteps=config["inference_parameters"]["n_timesteps"],

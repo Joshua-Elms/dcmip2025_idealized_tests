@@ -1,6 +1,5 @@
 import datetime as dt
 import calendar
-#import logging
 import dask
 import xarray as xr
 import numpy as np
@@ -76,9 +75,8 @@ def pack_sfno_state(
         "r925", "r1000" ;
 
     """
-    # check whether the latitudes are decreasing (correct) or increasing (incorrect)
-    if ds.latitude[0] < ds.latitude[-1]:
-        ds = ds.sortby('latitude', ascending=False)
+    # latitudes should be decreasing for SFNO
+    ds = ds.sortby('latitude', ascending=False)
 
     with dask.config.set(**{'array.slicing.split_large_chunks': False}):
         # concatenate the 3d variables along a new axis

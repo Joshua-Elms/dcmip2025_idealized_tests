@@ -1,6 +1,5 @@
 import datetime as dt
 import calendar
-#import logging
 import dask
 import xarray as xr
 import numpy as np
@@ -31,7 +30,7 @@ def pack_graphcast_state(
         device : str = "cpu",
         is_rpert : bool = False,
         ) -> torch.Tensor:
-    """ Takes an xarray dataset with the necessary fields and packs it into a tensor for the GRAPHCAST model. 
+    """ Takes an xarray dataset with the necessary fields and packs it into a tensor for the graphcast_operational model. 
 
     input:
     ------
@@ -63,7 +62,7 @@ def pack_graphcast_state(
     -------
 
     x : torch.Tensor
-        a tensor with dimensions (1, 1, 82, 180, 360) containing the packed data (ensemble=1, time=1, channels=83, lat=180, lon=360)
+        a tensor with dimensions (1, 2, 82, 721, 1440) containing the packed data (ensemble=1, time=2, channels=82, lat=721, lon=1440)
 
     The data are packed as follows:
 
@@ -79,9 +78,8 @@ def pack_graphcast_state(
         "t2m", "msl";
 
     """
-    # check whether the latitudes are increasing (correct) or decreasing (incorrect)
-    if ds.latitude[0] > ds.latitude[-1]:
-        ds = ds.flip('latitude')
+    # latitudes should be increasing for graphcast_operational
+    ds = ds.sortby('latitude', ascending=True)
     
     with dask.config.set(**{'array.slicing.split_large_chunks': False}):
         # concatenate the 3d variables along a new axis
@@ -116,7 +114,7 @@ def pack_graphcast_state(
     # current shape is (n, time, lat, lon)
     # graphcast expects (time, n, lat, lon)
     if x.ndim == 4:
-        print("Permuting dimensions to match GRAPHCAST input shape.")
+        print("Permuting dimensions to match graphcast_operational input shape.")
         x = x.permute(1, 0, 2, 3)
 
     # add batch dimension
@@ -129,7 +127,7 @@ def read_graphcast_vars_from_era5_rda(
         time : dt.datetime,
         e5_base : str = "/glade/campaign/collections/rda/data/ds633.0/",
         ) -> xr.Dataset:
-    """ Fetches the ERA5 data for a specific time necessary for running the GRAPHCAST model. 
+    """ Fetches the ERA5 data for a specific time necessary for running the graphcast_operational model. 
     
     input:
     ------
@@ -157,7 +155,7 @@ def read_graphcast_vars_from_era5_rda(
         - MSL : (time, latitude, longitude) float32
         - T2M : (time, latitude, longitude) float32 >MOD< betting copilot snuck this one in
 
-        The levels specific to GRAPHCAST are selected: [50,100,150,200,250,300,400,500,600,700,850,925,1000]
+        The levels specific to graphcast_operational are selected: [50,100,150,200,250,300,400,500,600,700,850,925,1000]
     
     """
     # set the file name templates
@@ -222,7 +220,7 @@ def rda_era5_to_graphcast_state(
         device : str = "cpu",
         e5_base : str = "/glade/campaign/collections/rda/data/ds633.0/",
         ) -> torch.tensor:
-    """ Fetches the ERA5 data for a specific time and packs it into a tensor for the GRAPHCAST model.
+    """ Fetches the ERA5 data for a specific time and packs it into a tensor for the graphcast_operational model.
 
     input:
     ------
@@ -254,7 +252,7 @@ def rda_era5_to_graphcast_state(
     return x
 
 def initialize_graphcast_xarray_ds(time, n_ensemble : int) -> xr.Dataset:
-    """ Initializes an xarray dataset for output from the GRAPHCAST model. 
+    """ Initializes an xarray dataset for output from the graphcast_operational model. 
     
     input:
     -----
@@ -301,7 +299,7 @@ def initialize_graphcast_xarray_ds(time, n_ensemble : int) -> xr.Dataset:
     return ds
 
 def set_graphcast_xarray_metadata(ds : xr.Dataset, copy : bool = False) -> xr.Dataset:
-    """Sets the metadata for the GRAPHCAST model xarray dataset.
+    """Sets the metadata for the graphcast_operational model xarray dataset.
     
     input:
     ------
@@ -367,7 +365,15 @@ def unpack_graphcast_state(
         x : torch.tensor,
         time = None,
         ) -> xr.Dataset:
-    """ Unpacks the GRAPHCAST model state tensor into an xarray dataset.
+    """ Unpacks the graphcast_operational model state tensor into an xarray dataset.
+    
+    TODO: implement below feature
+    
+    Because all versions of graphcast requires two initial conditions (t=0 and t=-6 hours) for inference,
+    this function will apply any provided initial perturbation to the t=0 timestep of the initial condition,
+    leaving the t=-6 hour timestep unchanged.
+    
+    It is recommended to only provide an initial perturbation if your initial condition is steady-state. 
 
     input:
     ------
@@ -417,7 +423,7 @@ def create_empty_graphcast_ds(
         n_ensemble : int = 1,
         time : dt.datetime = dt.datetime(1850,1,1),
         ) -> xr.Dataset:
-    """ Initializes an empty xarray dataset for the GRAPHCAST model.
+    """ Initializes an empty xarray dataset for the graphcast_operational model.
 
     input:
     ------
@@ -512,11 +518,11 @@ def single_IC_inference(
         device : str = "cpu",
         vocal: bool = False,
         ) -> xr.Dataset:
-    """ Runs the GRAPHCAST model for a single initial condition.
+    """ Runs the graphcast_operational model for a single initial condition.
     input:
     ------
     model : torch.nn.Module
-        the GRAPHCAST model to run
+        the graphcast_operational model to run
         
     n_timesteps : int
         the number of timesteps to run the model for
@@ -726,4 +732,50 @@ def gen_elliptical_perturbation(lat,lon,k,ylat,xlon,locRad):
     [a,b] = np.meshgrid(covLoc,yfunc)
     perturb = a*b
 
+    return perturb
+
+
+def gen_baroclinic_wave_perturbation(lat,lon,ylat,xlon,u_pert_base,locRad,a=6.371e6):
+    """
+    Implementation of baroclinic wave perturbation from Bouvier et al. (2024). 
+    
+    Produces a "localised unbalanced [u-]wind perturbation" to be added to a "baroclinically unstable background state".
+    
+    input:
+    ------
+    lat : numpy.ndarray
+        the latitude values
+    lon : numpy.ndarray
+        the longitude values
+    ylat : float
+        the latitude of the center of the perturbation
+    xlon : float
+        the longitude of the center of the perturbation
+    u_pert_base : float
+        the base amplitude of the u-wind perturbation
+    locRad : float
+        the localization radius (approximate size of perturbation) in km 
+    a (optional) : float
+        the radius of the earth in m (default is 6.371e6 m)
+        
+    output:
+    -------
+    perturb : numpy.ndarray
+        the perturbation array with shape (nlat, nlon)
+    """
+    radlat = np.deg2rad(lat)
+    radlon = np.deg2rad(lon)
+    radylat = np.deg2rad(ylat)
+    radxlon = np.deg2rad(xlon)
+    
+    # make the grid
+    lon_2d, lat_2d = np.meshgrid(radlon, radlat)
+
+    # calculate distance from center of perturbation for each grid point
+    great_circle_dist = a*np.arccos(
+        np.sin(radylat) * np.sin(lat_2d) + 
+        np.cos(radylat) * np.cos(lat_2d) * np.cos(lon_2d - radxlon)
+    )
+    perturb = u_pert_base * np.exp(-(great_circle_dist / locRad)**2)
+    
     return perturb
