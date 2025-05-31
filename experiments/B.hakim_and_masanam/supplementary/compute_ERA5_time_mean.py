@@ -145,6 +145,7 @@ for model in models:
         DJF_time_mean_ds = compute_time_mean_from_files(all_vars, DJF, scratch_dir)
         print(f"Saving DJF time mean to {save_dir / f'DJF_ERA5_time_mean_{model}.nc'}")
         DJF_time_mean_ds.to_netcdf(save_dir / f"DJF_ERA5_time_mean_{model}.nc")
+        DJF_time_mean_ds.close()
         end = perf_counter()
         print(f"DJF ran for: {(end - start)/60:.1f} minutes")
 
@@ -155,5 +156,6 @@ for model in models:
             
         print(f"Saving JAS time mean to {save_dir / f'JAS_ERA5_time_mean_{model}.nc'}")
         JAS_time_mean_ds.to_netcdf(save_dir / f"JAS_ERA5_time_mean_{model}.nc")
+        JAS_time_mean_ds.close()
         end = perf_counter()
         print(f"JAS ran for: {(end - start)/60:.1f} minutes")
