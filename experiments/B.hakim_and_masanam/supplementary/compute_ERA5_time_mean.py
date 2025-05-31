@@ -5,6 +5,10 @@ compute the time mean for DJF and JAS 0z 1979-2019 at 10 day intervals.
 Will need minor modifications if you used the CDS downloader to download
 ERA5 data split up by level. 
 
+This would be much more efficient if means for all variables were computed
+and merged into one dataset which is subsetted for each model, but this
+works with enough job time. 
+
 Note: the first run of this script threw HDF5 errors when reading the 
 files for August (08) temperature (t) and 10m u-component of wind (u10).
 If you have the same problem, try re-downloading those files from the CDS.
@@ -75,14 +79,15 @@ def compute_time_mean_from_files(variables: list, months: list, scratch_dir: Pat
     # time_mean_ds = time_mean_ds.assign_coords({"time": np.array(dt.datetime(1850,1,1))})
     
     # rename to match the variables in the model
-    rename_dict = {var: name_dict.get(var) for var in variables if var in name_dict}
+    vars_and_coords = list(time_mean_ds.data_vars) + list(time_mean_ds.coords)
+    rename_dict = {var: name_dict.get(var) for var in vars_and_coords if var in name_dict}
     print(f"Renaming variables: \n{rename_dict}")
     time_mean_ds = time_mean_ds.rename(rename_dict)
     
     return time_mean_ds
 
 model_variables = dict(
-    SFNO=[
+    sfno=[
         "geopotential",
         "relative_humidity",
         "temperature",
@@ -97,7 +102,7 @@ model_variables = dict(
         "100m_v_component_of_wind",
         "total_column_water_vapour",
         ],
-    Pangu=[
+    pangu=[
         "geopotential",
         "specific_humidity",
         "temperature",
@@ -124,16 +129,16 @@ model_variables = dict(
 
 this_dir = Path(__file__).parent
 scratch_dir = Path(os.environ.get("SCRATCH")) / "dcmip" / "era5"
-save_dir = this_dir / ".." / "data"
+save_dir = Path(os.environ.get("SCRATCH")) / "dcmip" / "era5_time_means"
 DJF = ["12", "01", "02"]
 JAS = ["07", "08", "09"]
 
 seasons = ["DJF", "JAS"]
-models = ["SFNO", "Pangu", "graphcast_small_mtp06"]
+models = ["sfno", "pangu", "graphcast_small_mtp06"]
 
 for model in models:
     all_vars = model_variables[model]
-    print(f"Starting {model} with variables: {all_vars}")
+    print(f"Starting {model} with variables: \n{all_vars}\n\n")
     if "DJF" in seasons:
         print("Computing time mean for DJF 0z 1979-2019 at 10 day intervals...")
         start = perf_counter()

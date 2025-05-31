@@ -11,15 +11,26 @@ import yaml
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 
-# set up paths
-this_dir = Path(__file__).parent
-plot_dir = this_dir / "plots" # save figures here
-plot_dir.mkdir(parents=True, exist_ok=True) # make dir if it doesn't exist
+# choose model to visualize
+model = "sfno" # options: sfno, pangu, graphcast_small
 
 # read configuration
+this_dir = Path(__file__).parent
 config_path = this_dir / "0.config.yaml"
 with open(config_path, 'r') as file:
     config = yaml.safe_load(file)
+    
+# set up directories
+exp_dir = Path(config["experiment_dir"]) / config["hm24_experiment_params"]["hm24_experiment"] / config["experiment_name"] # all data for experiment stored here
+plot_dir = exp_dir / "plots" # save figures here
+tendency_dir = Path(config["experiment_dir"]) / "tendencies" # tendency data stored here
+IC_dir = Path(config["time_mean_IC_dir"])
+IC_season = config["IC_season"]
+IC_path = IC_dir / f"{IC_season}_ERA5_time_mean_sfno.nc"
+IC_ds = xr.open_dataset(IC_path).sortby("latitude", ascending=False)   
+model_output_path = exp_dir / f"{model}_output.nc"
+heating_ds_path = exp_dir / f"heating.nc"
+tendency_path = tendency_dir / f"{IC_season}_{model}_tendency.nc"
     
 # convenience vars
 n_timesteps = config["n_timesteps"]
@@ -27,10 +38,12 @@ lead_times_h = np.arange(0, 6*n_timesteps+1, 6)
 g = 9.81 # m/s^2
 
 # load datasets
-ds = xr.open_dataset(config["output_path"])
-heating_ds = xr.open_dataset(config["heating_save_path"])
-tds = xr.open_dataset(config["IC_tendency_path"])
-mean_ds = xr.open_dataset(config["IC_path"])
+ds = xr.open_dataset(model_output_path)
+heating_ds = xr.open_dataset(heating_ds_path)
+tds = xr.open_dataset(tendency_path)
+mean_ds = xr.open_dataset(IC_path)
+
+print(f"Loaded data from {model}, beginning visualization.")
 
 # make pretty plots
 # titles = [f"VAR_2T at t={t*6} hours" for t in range(n_timesteps+1)]
@@ -66,21 +79,20 @@ mean_ds = xr.open_dataset(config["IC_path"])
 # )
 
 # print(f"Made Z500.gif.")
-titles = [f"$Z_{{500}}$ Anomalies from DJF Climatology at t={t*6} hours" for t in range(0, 10, 1)]
+titles = [f"$Z_{{500}}$ Anomalies from DJF Climatology at t={t*6} hours" for t in range(0, 100, 2)]
 data = ds["Z"].isel(ensemble=0).sel(level=500)/(g) - (mean_ds["Z"].sel(level=500)/(g)).squeeze()
 vis.create_and_plot_variable_gif(
-    data=data.isel(lead_time=slice(0, 10)),
+    data=data,
     plot_var="Z500_anom",
     iter_var="lead_time",
-    iter_vals=np.arange(0, 10, 1),
+    iter_vals=np.arange(0, 100, 2),
     plot_dir=plot_dir,
     units="m",
     cmap="bwr",
     titles=titles,
     keep_images=False,
     dpi=300,
-    fps=0.6, 
-    vlims=(-0.1, 0.1)
+    fps=2, 
 )
 
 print(f"Made Z500_anom.gif.")
@@ -198,5 +210,6 @@ print(f"Made Z500_anom.gif.")
 
 #     ax[axi].text(-0.02,0.02,panel_label[axi],transform=ax[axi].transAxes)
 
-#     fig.tight_layout()
-#     plt.savefig(plot_dir / 'heating_500z_day20.pdf',dpi=300,bbox_inches='tight')
+# fig.tight_layout()
+# plt.savefig(plot_dir / 'heating_500z_day20.pdf',dpi=300,bbox_inches='tight')
+# print(f"Saved heating_500z_day20.pdf to {plot_dir}.")

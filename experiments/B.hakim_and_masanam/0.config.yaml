@@ -1,7 +1,17 @@
-n_timesteps: 10 # 20 days
-keep_vars: [] # if empty, no vars except those needed for exp are kept
-IC_path: "data/DJF_ERA5_time_mean.nc"
-IC_tendency_path: "data/DJF_ERA5_time_mean_tendency.nc"
-output_path: "data/output_ctrl.nc"
-heating_save_path: "data/heating.nc"
+experiment_dir: /glade/u/home/jmelms/projects/dcmip2025_idealized_tests/experiments/B.hakim_and_masanam/data
+experiment_name: test_sfno
+n_timesteps: 120
+device: cuda:0
+time_mean_IC_dir: /glade/derecho/scratch/jmelms/dcmip/era5_time_means
+IC_season: DJF
+hm24_experiment_params:
+  hm24_experiment: tropical_heating
+  tendency_reversion: true
+  perturbation_params:
+    km: 1000.
+    amp: 0.1
+    k: 6
+    ylat: 0.
+    xlon: 120.
+    locRadkm: 10000
 
