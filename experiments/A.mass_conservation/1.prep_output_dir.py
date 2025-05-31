@@ -16,6 +16,8 @@ if "YOURUSERNAME" in str(exp_dir):
     raise ValueError("Please replace 'YOURUSERNAME' in 0.config.yaml with your actual username.")
 
 exp_dir.mkdir(parents=True, exist_ok=True) # make dir if it doesn't exist
+plot_dir = exp_dir / "plots" # save figures here
+plot_dir.mkdir(parents=True, exist_ok=True) # make dir if it doesn't exist
 
 # copy config to experiment directory
 config_path_exp = exp_dir / "config.yaml"

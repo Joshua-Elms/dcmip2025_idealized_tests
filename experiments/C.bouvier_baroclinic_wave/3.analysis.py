@@ -21,7 +21,6 @@ with open(config_path, 'r') as file:
     
 exp_dir = Path(config["experiment_dir"]) / config["experiment_name"]
 plot_dir = exp_dir / "plots" # save figures here
-plot_dir.mkdir(parents=True, exist_ok=True) # make dir if it doesn't exist
 data_path = exp_dir / "output.nc" # where output from inference was saved
 tendency_reversion = config["inference_parameters"]["tendency_reversion"]
 perturbed = config["perturbation_parameters"]["enabled"]

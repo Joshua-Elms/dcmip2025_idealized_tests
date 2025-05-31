@@ -22,7 +22,6 @@ model = "graphcast"
 
 # set up directories
 exp_dir = Path(config["experiment_dir"]) / config["experiment_name"] # all data for experiment stored here
-exp_dir.mkdir(parents=True, exist_ok=True) # make dir if it doesn't exist
 era5_pressure_path = exp_dir / "era5_pressure.nc" # where to save cached ERA5 data
 data_path = exp_dir / f"{model}_output.nc" # where to save output from inference
 e5_base = "/glade/campaign/collections/rda/data/ds633.0/"

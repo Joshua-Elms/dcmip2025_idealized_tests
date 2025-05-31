@@ -21,6 +21,8 @@ if "YOURUSERNAME" in str(exp_dir):
     raise ValueError("Please replace 'YOURUSERNAME' in 0.config.yaml with your actual username.")
 
 exp_dir.mkdir(parents=True, exist_ok=True) # make dir if it doesn't exist
+plot_dir = exp_dir / "plots" # save figures here
+plot_dir.mkdir(parents=True, exist_ok=True) # make dir if it doesn't exist
 ic_csv_dir = exp_dir / "ic_csv" # contains fort generated ICs, must be processed into nc before used for inference
 ic_csv_dir.mkdir(exist_ok=True)
 ic_nc_dir = exp_dir / "ic_nc" # contains processed ICs in nc format, ready for inference
