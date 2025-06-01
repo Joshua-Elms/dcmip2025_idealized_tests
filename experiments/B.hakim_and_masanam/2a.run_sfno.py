@@ -190,6 +190,7 @@ if isinstance(rpert, int) and rpert == 0:
     rpert = None
 
 ### Run Experiment & Save Output ###
+print(f"Running inference for experiment \"{hm24_exp_name}\" with {n_timesteps} timesteps.")
 ds = inference.single_IC_inference(
         model=model,
         n_timesteps=n_timesteps,
