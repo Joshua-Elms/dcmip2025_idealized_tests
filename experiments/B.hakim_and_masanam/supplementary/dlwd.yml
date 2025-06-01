@@ -10,8 +10,6 @@ dependencies:
   - scipy
   - pip
   - pip:
-    - ecmwflibs
-    - climetlab
     - onnxruntime-gpu
     - torch
   

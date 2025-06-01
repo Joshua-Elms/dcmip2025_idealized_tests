@@ -28,9 +28,14 @@ Use the `hm24_experiment` parameter in the config file to switch between the exp
 ### Experiment-Specific Config Options
 Check general config information at [`experiments/README.md`](../README.md) for options shared by multiple experiments. 
 
+Parameters shared by all HM24 experiments:
+
 - `time_mean_IC_dir`: Path to the directory that contains model-specific time-mean initial conditions drawn from ERA5. Default is `/glade/derecho/scratch/jmelms/dcmip/era5_time_means`, but you can create your own using the `CDS_downloader.py` and `compute_ERA5_time_mean.py` scripts under `experiments/B.hakim_and_masanam/supplementary`. 
 - `IC_season`: Either `DJF` (December, January, and February) or `JAS` (July, August, and September); used to select IC file from above directory. HM24 experiments 1-3 are typically run with `DJF` and experiment 4 is run with `JAS`. 
 - `hm24_experiment`: See section on [experiment selection](#experiment-selection). 
+
+(1) Tropical Heating Parameters
+
 - `perturbation_params`: See [HM24 methods](https://journals.ametsoc.org/view/journals/aies/3/3/AIES-D-23-0090.1.xml#d2752741e274) for more details on these parameters. 
     - `amp`: Amplitude of perturbation
     - `k`: horizontal wavenumber of perturbation cosine wave. Perturbation longitudinal extent defined as lon where wave < 0.
@@ -38,6 +43,17 @@ Check general config information at [`experiments/README.md`](../README.md) for 
     - `ylat`: Latitude (-90 to 90 °N) of center of perturbation
     - `xlon`: Longitude (0 to 359.75 °E) of center of perturbation
 
+(2) Extratropical Cyclone (ETC) Parameters:
+- `perturbation_params`: 
+    - `amp`: Scale factor for HM24 ETC perturbation. `0.5` will halve the original perturbation, for example. 
+
+(3) Geostrophic Adjustment (GA) Parameters:
+- `perturbation_params`: 
+    - `amp`: Scale factor for HM24 GA perturbation. `0.5` will halve the original perturbation, for example. 
+
+(4) Geostrophic Adjustment (TC) Parameters:
+- `perturbation_params`: 
+    - `amp`: Scale factor for HM24 TC perturbation. `0.5` will halve the original perturbation, for example. 
 
 ## Details
 

@@ -76,6 +76,7 @@ if hm24_exp_name == "tropical_heating":
         
     # save heating_ds to file
     print(f"Saving heating dataset to {heating_ds_path}.")
+    print(f"Applying tropical heating perturbation: {heating_ds}")
     heating_ds.to_netcdf(heating_ds_path)
     
     # these two get passed to inference.single_IC_inference (via rpert for f)
@@ -83,14 +84,59 @@ if hm24_exp_name == "tropical_heating":
     f = heating_ds
     
 elif hm24_exp_name == "extratropical_cyclone":
-    pass
+    etc_pert_path = list(Path(config["perturbation_dir"]).glob(f"cyclone_{IC_season}_*_regression_sfno.nc"))[0]
+    etc_pert = xr.open_dataset(etc_pert_path)
+    print(f"Loaded extratropical cyclone perturbation from {etc_pert_path}.")
+    # pert scaled by user-defined amplitude, separate from HM24 file amp in supplementary/
+    amp = config["perturbation_params"]["amp"]
+    initial_perturbation = etc_pert * amp # to be added to initial condition before inference
+    print(f"Applying ETC perturbation: {initial_perturbation}")
+    f = 0 # no recurrent perturbation
 
 elif hm24_exp_name == "geostrophic_adjustment":
-    pass
+    etc_pert_path = list(Path(config["perturbation_dir"]).glob(f"cyclone_{IC_season}_*_regression_sfno.nc"))[0]
+    etc_pert = xr.open_dataset(etc_pert_path)
+    print(f"Loaded ETC perturbation from {etc_pert_path}.")
+    # for geostrophic adjustment test, only z500 is perturbed
+    ga_pert = etc_pert * 0
+    # pert scaled by user-defined amplitude, separate from HM24 file amp in supplementary/
+    amp = config["perturbation_params"]["amp"]
+    ga_pert["Z"].loc[{"level": 500}] = etc_pert["Z"].sel(level=500) * amp
+    initial_perturbation = ga_pert # to be added to initial condition before inference
+    print(f"Applying GA perturbation: {initial_perturbation}")
+    f = 0 # no recurrent perturbation
 
 elif hm24_exp_name == "tropical_cyclone":
-    pass
-
+    tc_pert_path = list(Path(config["perturbation_dir"]).glob(f"hurricane_{IC_season}_*_regression_sfno.nc"))[0]
+    tc_pert = xr.open_dataset(tc_pert_path)
+    print(f"Loaded tropical cyclone perturbation from {tc_pert_path}.")
+    # pert scaled by user-defined amplitude, separate from HM24 file amp in supplementary/
+    amp = config["perturbation_params"]["amp"]
+    initial_perturbation = tc_pert * amp # to be added to initial condition before inference
+    print(f"Applying TC perturbation: {initial_perturbation}")
+    f = 0 # no recurrent perturbation
+    
+# initial_perturbation might be a smaller region than IC_ds
+# so we add to an empty dataset with the same shape as IC_ds
+if initial_perturbation is not None:
+    zero_ds = IC_ds.copy(deep=True) * 0  # create a zero dataset with the same shape as IC_ds
+    
+    lat_coords = initial_perturbation.latitude.values
+    lon_coords = initial_perturbation.longitude.values
+    
+    # Create a selection dictionary with the coordinates from the smaller dataset
+    selection = {
+        'latitude': lat_coords,
+        'longitude': lon_coords
+    }
+    
+    # Add the smaller array to the larger array at the selected coordinates
+    zero_ds.loc[selection] += initial_perturbation
+    
+    initial_perturbation = zero_ds  # now initial_perturbation has the same shape as IC_ds
+    assert initial_perturbation.dims == IC_ds.dims, \
+        f"Initial perturbation dimensions {initial_perturbation.dims} do not match IC dimensions {IC_ds.dims}. Check the perturbation shape."
+    
 ### Compute Tendencies ###
 
 # only need to compute tendencies if tendency reversion is enabled
@@ -131,7 +177,6 @@ if tendency_reversion:
     print("---------------------------")
 else:
     tds = 0
-    
     
 ### Prepare Recurrent Perturbation ###
     

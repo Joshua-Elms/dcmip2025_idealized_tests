@@ -24,21 +24,21 @@ from pathlib import Path
 #
 
 # select DJF or JAS initial conditions
-ic = 'DJF'
-# set lat/lon of perturbation in degrees N, E
-ylat = 40; xlon = 150
-# localization radius in km for the scale of the initial perturbation
-locrad = 2000.
-# scaling amplitude for initial condition (1=climo variance at the base point)
-amp = -1.
-
-# ic = 'JAS'
+# ic = 'DJF'
 # # set lat/lon of perturbation in degrees N, E
-# ylat = 15.; xlon = 360.-40.
+# ylat = 40; xlon = 150
 # # localization radius in km for the scale of the initial perturbation
-# locrad = 1000.
+# locrad = 2000.
 # # scaling amplitude for initial condition (1=climo variance at the base point)
 # amp = -1.
+
+ic = 'JAS'
+# set lat/lon of perturbation in degrees N, E
+ylat = 15.; xlon = 360.-40.
+# localization radius in km for the scale of the initial perturbation
+locrad = 1000.
+# scaling amplitude for initial condition (1=climo variance at the base point)
+amp = -1.
 
 # netcdf data lives here
 dpath = Path('/glade/derecho/scratch/jmelms/dcmip/era5')
@@ -47,7 +47,7 @@ dpath = Path('/glade/derecho/scratch/jmelms/dcmip/era5')
 opath = Path('/glade/derecho/scratch/jmelms/dcmip/hm24_perts')
 
 # choose model
-model = "sfno"
+model = "pangu"
 if model == "graphcast_small":
     raise NotImplementedError("Graphcast small model is not supported in this script, it uses a different resolution (1 degree) than these models and will need some thoughtful work before it runs.")
 
@@ -285,10 +285,8 @@ else:
     str_lon = f"{round(xlon*4)/4:.2f}"
 rgfile = opath / f'{event}_{ic}_{str_lat}N_{str_lon}E_regression_{model}.nc'
 
-breakpoint()
 ds = xr.Dataset(
     coords={
-        "time": dt.datetime(1850, 1, 1),
         "level": level,
         "latitude": lat[iminlat:imaxlat],
         "longitude": lon[iminlon:imaxlon],
@@ -297,11 +295,11 @@ ds = xr.Dataset(
 
 for i, var in enumerate(param_level_pl[0]):
     ds[name_convert_to_framework_dict[var]] = xr.DataArray(
-        regf_pl[i], dims=["level", "lat", "lon"], attrs={"long_name": name_dict[var]}
+        regf_pl[i], dims=["level", "latitude", "longitude"], attrs={"long_name": name_dict[var]}
     )
 for i, var in enumerate(param_sfc):
     ds[name_convert_to_framework_dict[var]] = xr.DataArray(
-        regf_sfc[i], dims=["lat", "lon"], attrs={"long_name": name_dict[var]}
+        regf_sfc[i], dims=["latitude", "longitude"], attrs={"long_name": name_dict[var]}
     )
 if rgfile.exists():
     print(f"Warning: {rgfile} already exists. Overwriting.")
