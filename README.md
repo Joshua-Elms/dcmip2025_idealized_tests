@@ -2,7 +2,7 @@
 
 **Objectives:** Participants engaging in the DCMIP 2025 ML hands-on session will:
 
-1. gain familiarity with running three ML weather forecast emulators: [NVidia's SFNO](https://doi.org/10.48550/arXiv.2306.03838), [Google's GraphCast](https://doi.org/10.48550/arXiv.2212.12794), and [Huawei's Pangu](https://doi.org/10.1038/s41586-023-06185-3);
+1. gain familiarity with running three ML weather forecast emulators: [NVidia's SFNO](https://doi.org/10.48550/arXiv.2306.03838), [Google's GraphCast](https://doi.org/10.48550/arXiv.2212.12794), and [Huawei Cloud's Pangu](https://doi.org/10.1038/s41586-023-06185-3);
 2. run idealized simulations with these three models to probe aspects of the models' physical fidelity; and
 3. explore and intercompare model responses as the model inputs stray further and further from their training dataset
 
