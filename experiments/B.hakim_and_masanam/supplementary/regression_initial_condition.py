@@ -24,21 +24,21 @@ from pathlib import Path
 #
 
 # select DJF or JAS initial conditions
-# ic = 'DJF'
-# # set lat/lon of perturbation in degrees N, E
-# ylat = 40; xlon = 150
-# # localization radius in km for the scale of the initial perturbation
-# locrad = 2000.
-# # scaling amplitude for initial condition (1=climo variance at the base point)
-# amp = -1.
-
-ic = 'JAS'
+ic = 'DJF'
 # set lat/lon of perturbation in degrees N, E
-ylat = 15.; xlon = 360.-40.
+ylat = 40; xlon = 150
 # localization radius in km for the scale of the initial perturbation
-locrad = 1000.
+locrad = 2000.
 # scaling amplitude for initial condition (1=climo variance at the base point)
 amp = -1.
+
+# ic = 'JAS'
+# # set lat/lon of perturbation in degrees N, E
+# ylat = 15.; xlon = 360.-40.
+# # localization radius in km for the scale of the initial perturbation
+# locrad = 1000.
+# # scaling amplitude for initial condition (1=climo variance at the base point)
+# amp = -1.
 
 # netcdf data lives here
 dpath = Path('/glade/derecho/scratch/jmelms/dcmip/era5')
@@ -47,7 +47,7 @@ dpath = Path('/glade/derecho/scratch/jmelms/dcmip/era5')
 opath = Path('/glade/derecho/scratch/jmelms/dcmip/hm24_perts')
 
 # choose model
-model = "pangu"
+model = "sfno"
 if model == "graphcast_small":
     raise NotImplementedError("Graphcast small model is not supported in this script, it uses a different resolution (1 degree) than these models and will need some thoughtful work before it runs.")
 
