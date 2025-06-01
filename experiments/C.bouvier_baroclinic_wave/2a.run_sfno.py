@@ -155,6 +155,7 @@ for i, val in enumerate(iter_vals.tolist()): # whichever parameter is iterable
 # save output
 ds_out = xr.concat(ds_list, dim=iter_param)
 ds_out = ds_out.rename({"time": "lead_time"})
+ds_out = ds_out.assign_coords({"lead_time": np.arange(0, 6*(config["inference_parameters"]["n_timesteps"]+1), 6)})
 ds_out = ds_out.assign_coords({iter_param: iter_vals})
 ds_out = ds_out.assign_attrs({f"{iter_param} units": iter_param_units})       
 ds_out.to_netcdf(output_path)

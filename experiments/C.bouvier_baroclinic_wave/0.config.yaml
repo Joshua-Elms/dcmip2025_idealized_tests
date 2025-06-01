@@ -1,9 +1,9 @@
 experiment_dir: /glade/u/home/jmelms/projects/dcmip2025_idealized_tests/experiments/C.bouvier_baroclinic_wave/data
-experiment_name: test
+experiment_name: test_all_models
 fort_executable_path: /glade/u/home/jmelms/projects/dcmip2025_idealized_tests/experiments/C.bouvier_baroclinic_wave/initial_conditions/gen_IC_FCN.out
 inference_parameters:
   device: cuda:0
-  n_timesteps: 5
+  n_timesteps: 20
   tendency_reversion: true
 initial_condition_parameters:
   moisture:
@@ -36,7 +36,7 @@ initial_condition_parameters:
 perturbation_parameters:
   center_latitude: 40
   center_longitude: 20
-  enabled: false
+  enabled: true
   localization_radius: 637100
   u_wind_pert_base: 1
 processor_parameters:

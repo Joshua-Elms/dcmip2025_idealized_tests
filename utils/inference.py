@@ -626,7 +626,7 @@ def gen_circular_perturbation(lat_2d,lon_2d,ilat,ilon,amp,locRad=1000.,Z500=Fals
         print('heating perturbation...')
         perturb = np.reshape(covLoc*amp,[nlat,nlon])
 
-    return perturb
+    return perturb  # flip latitude to match SFNO convention (decreasing latitudes)
 
 def gen_elliptical_perturbation(lat,lon,k,ylat,xlon,locRad):
 
@@ -738,7 +738,7 @@ def gen_baroclinic_wave_perturbation(lat,lon,ylat,xlon,u_pert_base,locRad,a=6.37
     )
     perturb = u_pert_base * np.exp(-(great_circle_dist / locRad)**2)
     
-    return perturb
+    return perturb[..., ::-1, :]  # flip latitude to match SFNO convention (decreasing latitudes)
 
 if __name__=="__main__": 
     # test the functions

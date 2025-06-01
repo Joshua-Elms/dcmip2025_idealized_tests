@@ -89,3 +89,8 @@ code --remote ssh-remote+<YOURUSERNAME>@casper07.hpc.ucar.edu # to actually reco
 To check how much storage you are using, run `gladequota`
 
 To check full job info, run `qstat -f -u <YOURUSERNAME>`
+
+If you wish to modify the conda environments `inference` or `analysis`, you'll have to clone them with the following command: 
+`conda create -n NEW_NAME --clone /path/to/desired/env`
+
+
