@@ -26,4 +26,7 @@ python -u 2a.run_sfno.py
 # step 2b: run the small Graphcast model 
 python -u 2b.run_gc_small.py
 
+# step 2c: run the pangu model 
+python -u 2c.run_pangu.py
+
 echo "--------- Job finished at $(date) ------------"

@@ -4,130 +4,110 @@ import dask
 import xarray as xr
 import numpy as np
 import torch
+import onnxruntime as ort
 
 
-# Note: the 82 channel graphcast-operational model uses the following fields 
-# (no tp06)
-# channel = "z50", "z100", "z150", "z200", "z250", "z300", "z400", "z500",
-#    "z600", "z700", "z850", "z925", "z1000", "q50", "q100", "q150", "q200",
-#    "q250", "q300", "q400", "q500", "q600", "q700", "q850", "q925", "q1000",
-#    "t50", "t100", "t150", "t200", "t250", "t300", "t400", "t500", "t600",
-#    "t700", "t850", "t925", "t1000","u50", "u100", "u150", "u200", "u250",
-#    "u300", "u400", "u500", "u600", "u700", "u850", "u925", "u1000", "v50",
-#    "v100", "v150", "v200", "v250", "v300", "v400", "v500", "v600", "v700",
-#    "v850", "v925", "v1000", "w50", "w100", "w150", "w200", "w250", "w300",
-#    "w400", "w500", "w600", "w700", "w850", "w925", "w1000", "u10m", "v10m",
-#    "t2m", "msl" ;
+# Note: the 69 channel Pangu  model uses the following fields
+# channel = 
+#     "z1000", "z925", "z850", "z700", "z600", "z500", "z400", "z300", "z250"
+#     "z200", "z150", "z100", "z50", "q1000", "q925", "q850", "q700", "q600"
+#     "q500", "q400", "q300", "q250", "q200", "q150", "q100", "q50", "t1000"
+#     "t925", "t850", "t700", "t600", "t500", "t400", "t300", "t250", "t200"
+#     "t150", "t100", "t50", "u1000", "u925", "u850", "u700", "u600", "u500"
+#     "u400", "u300", "u250", "u200", "u150", "u100", "u50", "v1000", "v925"
+#     "v850", "v700", "v600", "v500", "v400", "v300", "v250", "v200", "v150"
+#     "v100", "v50", "msl", "var_10u", "var_10v", "var_2t"
 
-graphcast_levels = [50,100,150,200,250,300,400,500,600,700,850,925,1000]
-graphcast_3dvars = ["Z", "Q", "T", "U", "V", "W"]
-graphcast_2dvars = ["VAR_10U", "VAR_10V", "VAR_2T", "MSL"]
+pangu_levels = [1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50]
+pangu_3dvars = ["Z", "Q", "T", "U", "V"]
+pangu_2dvars = ["MSL", "VAR_10U", "VAR_10V", "VAR_2T"]
 nlat = 721
 nlon = 1440
 
-def pack_graphcast_state(
+def pack_pangu_state(
         ds : xr.Dataset,
         device : str = "cpu",
-        is_rpert : bool = False,
         ) -> torch.Tensor:
-    """ Takes an xarray dataset with the necessary fields and packs it into a tensor for the graphcast_operational model. 
+    """ Takes an xarray dataset with the necessary fields and packs it into a tensor for the pangu model. 
 
     input:
     ------
 
     ds : xr.Dataset
         an xarray dataset with the following fields:
+        - Z : (time, level, latitude, longitude) float32
+        - Q : (time, level, latitude, longitude) float32
+        - T : (time, level, latitude, longitude) float32
         - U : (time, level, latitude, longitude) float32
         - V : (time, level, latitude, longitude) float32
-        - Z : (time, level, latitude, longitude) float32
-        - T : (time, level, latitude, longitude) float32
-        - Q : (time, level, latitude, longitude) float32
-        - W : (time, level, latitude, longitude) float32
+        - MSL : (time, latitude, longitude) float32
         - VAR_10U : (time, latitude, longitude) float32
         - VAR_10V : (time, latitude, longitude) float32
         - VAR_2T : (time, latitude, longitude) float32
-        - MSL : (time, latitude, longitude) float32
-        - T2M : (time, latitude, longitude) float32 >MOD< betting copilot snuck this one in
-    
+
         Note that the following specific levels are expected to be available: 
-        [50,100,150,200,250,300,400,500,600,700,850,925,1000] 
+        [1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50]
 
     device : str
         the device to put the tensor on
-        
-    is_rpert (optional): bool
-        if True, the tensor has a dummy channel/variable appended to the end of it. Required to match expected tensor shape in earth2mip/networks/graphcast.py(439)step().
 
     output:
     -------
 
     x : torch.Tensor
-        a tensor with dimensions (1, 2, 82, 721, 1440) containing the packed data (ensemble=1, time=2, channels=82, lat=721, lon=1440)
+        a tensor with dimensions (1, 1, 69, 721, 1440) containing the packed data (ensemble = 1, time = 1, channels = 69, lat = 721, lon = 1440)
 
     The data are packed as follows:
 
-    channel = "z50", "z100", "z150", "z200", "z250", "z300", "z400", "z500",
-        "z600", "z700", "z850", "z925", "z1000", "q50", "q100", "q150", "q200",
-        "q250", "q300", "q400", "q500", "q600", "q700", "q850", "q925", "q1000",
-        "t50", "t100", "t150", "t200", "t250", "t300", "t400", "t500", "t600",
-        "t700", "t850", "t925", "t1000","u50", "u100", "u150", "u200", "u250",
-        "u300", "u400", "u500", "u600", "u700", "u850", "u925", "u1000", "v50",
-        "v100", "v150", "v200", "v250", "v300", "v400", "v500", "v600", "v700",
-        "v850", "v925", "v1000", "w50", "w100", "w150", "w200", "w250", "w300",
-        "w400", "w500", "w600", "w700", "w850", "w925", "w1000", "u10m", "v10m",
-        "t2m", "msl";
+    channel = 
+    "z1000", "z925", "z850", "z700", "z600", "z500", "z400", "z300", "z250"
+    "z200", "z150", "z100", "z50", "q1000", "q925", "q850", "q700", "q600"
+    "q500", "q400", "q300", "q250", "q200", "q150", "q100", "q50", "t1000"
+    "t925", "t850", "t700", "t600", "t500", "t400", "t300", "t250", "t200"
+    "t150", "t100", "t50", "u1000", "u925", "u850", "u700", "u600", "u500"
+    "u400", "u300", "u250", "u200", "u150", "u100", "u50", "v1000", "v925"
+    "v850", "v700", "v600", "v500", "v400", "v300", "v250", "v200", "v150"
+    "v100", "v50", "msl", "var_10u", "var_10v", "var_2t"
 
     """
-    # latitudes should be increasing for graphcast_operational
-    ds = ds.sortby('latitude', ascending=True)
-    
+    # latitudes should be decreasing for pangu
+    ds = ds.sortby('latitude', ascending=False)
+
     with dask.config.set(**{'array.slicing.split_large_chunks': False}):
         # concatenate the 3d variables along a new axis
         x3d = None
-        for var in graphcast_3dvars:
-            for lev in graphcast_levels:
-                if x3d is None: 
+        for var in pangu_3dvars:
+            for lev in pangu_levels:
+                if x3d is None:
                     x3d = ds[var].sel(level=lev).drop_vars('level').squeeze()
                 else:
                     x3d = xr.concat((x3d, ds[var].sel(level=lev).drop_vars('level').squeeze()), dim = "n")
 
         # concatenate the 2d variables
-        x2d = ds["VAR_10U"].squeeze()
+        x2d = ds["MSL"].squeeze()
+        x2d = xr.concat((x2d, ds["VAR_10U"].squeeze()), dim = "n")
         x2d = xr.concat((x2d, ds["VAR_10V"].squeeze()), dim = "n")
         x2d = xr.concat((x2d, ds["VAR_2T"].squeeze()), dim = "n")
-        x2d = xr.concat((x2d, ds["MSL"].squeeze()), dim = "n")
-        
-        # optionally add dummy channel for recurrent perturbation
-        if is_rpert:
-            zeros = ds["VAR_10U"].squeeze() * 0
-            x2d = xr.concat((x2d, zeros), dim = "n")
 
         # concatenate the 2d and 3d variables
         x = xr.concat((x3d, x2d), dim = "n")
 
     # convert to a torch array of type float32
     x = torch.from_numpy(x.values).to(device=device).float()
-    
-    # check shape
-    assert x.ndim < 5, f"Input data has too many dimensions: {x.ndim}. Expected 4 or less."
-    
-    # current shape is (n, time, lat, lon)
-    # graphcast expects (time, n, lat, lon)
-    if x.ndim == 4:
-        print("Permuting dimensions to match graphcast_operational input shape.")
-        x = x.permute(1, 0, 2, 3)
 
-    # add batch dimension
-    if x.ndim == 4:
+    # add ensemble and time dimension
+    if len(x.shape) == 4:
         x = x[None, ...]
+    elif len(x.shape) == 3:
+        x = x[None, None, ...]
 
     return x
 
-def read_graphcast_vars_from_era5_rda(
+def read_pangu_vars_from_era5_rda(
         time : dt.datetime,
         e5_base : str = "/glade/campaign/collections/rda/data/ds633.0/",
         ) -> xr.Dataset:
-    """ Fetches the ERA5 data for a specific time necessary for running the graphcast_operational model. 
+    """ Fetches the ERA5 data for a specific time necessary for running the pangu model. 
     
     input:
     ------
@@ -143,84 +123,59 @@ def read_graphcast_vars_from_era5_rda(
 
     ds : xr.Dataset
         an xarray dataset with the following fields:
+        - Z : (time, level, latitude, longitude) float32
+        - Q : (time, level, latitude, longitude) float32
+        - T : (time, level, latitude, longitude) float32
         - U : (time, level, latitude, longitude) float32
         - V : (time, level, latitude, longitude) float32
-        - Z : (time, level, latitude, longitude) float32
-        - T : (time, level, latitude, longitude) float32
-        - Q : (time, level, latitude, longitude) float32
-        - W : (time, level, latitude, longitude) float32
+        - MSL : (time, latitude, longitude) float32
         - VAR_10U : (time, latitude, longitude) float32
         - VAR_10V : (time, latitude, longitude) float32
         - VAR_2T : (time, latitude, longitude) float32
-        - MSL : (time, latitude, longitude) float32
-        - T2M : (time, latitude, longitude) float32 >MOD< betting copilot snuck this one in
 
-        The levels specific to graphcast_operational are selected: [50,100,150,200,250,300,400,500,600,700,850,925,1000]
+    The levels specific to pangu are selected: [1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50]
     
     """
-    # set the file name templates
-    w_template = f"{e5_base}/e5.oper.an.pl/{{year:04}}{{month:02}}/e5.oper.an.pl.128_135_w.ll025sc.{{year:04}}{{month:02}}{{day:02}}00_{{year:04}}{{month:02}}{{day:02}}23.nc"
+
+   # set the file name templates
     u_template = f"{e5_base}/e5.oper.an.pl/{{year:04}}{{month:02}}/e5.oper.an.pl.128_131_u.ll025uv.{{year:04}}{{month:02}}{{day:02}}00_{{year:04}}{{month:02}}{{day:02}}23.nc"
     v_template = f"{e5_base}/e5.oper.an.pl/{{year:04}}{{month:02}}/e5.oper.an.pl.128_132_v.ll025uv.{{year:04}}{{month:02}}{{day:02}}00_{{year:04}}{{month:02}}{{day:02}}23.nc"
     t_template = f"{e5_base}/e5.oper.an.pl/{{year:04}}{{month:02}}/e5.oper.an.pl.128_130_t.ll025sc.{{year:04}}{{month:02}}{{day:02}}00_{{year:04}}{{month:02}}{{day:02}}23.nc"
     z_template = f"{e5_base}/e5.oper.an.pl/{{year:04}}{{month:02}}/e5.oper.an.pl.128_129_z.ll025sc.{{year:04}}{{month:02}}{{day:02}}00_{{year:04}}{{month:02}}{{day:02}}23.nc"
     q_template = f"{e5_base}/e5.oper.an.pl/{{year:04}}{{month:02}}/e5.oper.an.pl.128_133_q.ll025sc.{{year:04}}{{month:02}}{{day:02}}00_{{year:04}}{{month:02}}{{day:02}}23.nc"
-    # r_template = f"{e5_base}/e5.oper.an.pl/{{year:04}}{{month:02}}/e5.oper.an.pl.128_157_r.ll025sc.{{year:04}}{{month:02}}{{day:02}}00_{{year:04}}{{month:02}}{{day:02}}23.nc" # unused by graphcast_operational
     u10_template = f"{e5_base}/e5.oper.an.sfc/{{year:04}}{{month:02}}/e5.oper.an.sfc.128_165_10u.ll025sc.{{year:04}}{{month:02}}0100_{{year:04}}{{month:02}}{{dayend:02}}23.nc"
     v10_template = f"{e5_base}/e5.oper.an.sfc/{{year:04}}{{month:02}}/e5.oper.an.sfc.128_166_10v.ll025sc.{{year:04}}{{month:02}}0100_{{year:04}}{{month:02}}{{dayend:02}}23.nc"
-    # u100_template = f"{e5_base}/e5.oper.an.sfc/{{year:04}}{{month:02}}/e5.oper.an.sfc.228_246_100u.ll025sc.{{year:04}}{{month:02}}0100_{{year:04}}{{month:02}}{{dayend:02}}23.nc" # unused by graphcast_operational
-    # v100_template = f"{e5_base}/e5.oper.an.sfc/{{year:04}}{{month:02}}/e5.oper.an.sfc.228_247_100v.ll025sc.{{year:04}}{{month:02}}0100_{{year:04}}{{month:02}}{{dayend:02}}23.nc" # unused by graphcast_operational
-    # sp_template = f"{e5_base}/e5.oper.an.sfc/{{year:04}}{{month:02}}/e5.oper.an.sfc.128_134_sp.ll025sc.{{year:04}}{{month:02}}0100_{{year:04}}{{month:02}}{{dayend:02}}23.nc" # unused by graphcast_operational
     msl_template = f"{e5_base}/e5.oper.an.sfc/{{year:04}}{{month:02}}/e5.oper.an.sfc.128_151_msl.ll025sc.{{year:04}}{{month:02}}0100_{{year:04}}{{month:02}}{{dayend:02}}23.nc"
-    # tcw_template = f"{e5_base}/e5.oper.an.sfc/{{year:04}}{{month:02}}/e5.oper.an.sfc.128_136_tcw.ll025sc.{{year:04}}{{month:02}}0100_{{year:04}}{{month:02}}{{dayend:02}}23.nc" # unused by graphcast_operational
     t2m_template = f"{e5_base}/e5.oper.an.sfc/{{year:04}}{{month:02}}/e5.oper.an.sfc.128_167_2t.ll025sc.{{year:04}}{{month:02}}0100_{{year:04}}{{month:02}}{{dayend:02}}23.nc"
 
-    dates = [time-dt.timedelta(hours=6), time]
-    fileset = set()
-    for date in dates:
+    # get the last day of the month
+    dayend = calendar.monthrange(time.year, time.month)[1]
 
-        # get the last day of the month
-        dayend = calendar.monthrange(date.year, date.month)[1]
+    # set the file names for the current date
+    u_file = u_template.format(year=time.year, month=time.month, day=time.day)
+    v_file = v_template.format(year=time.year, month=time.month, day=time.day)
+    t_file = t_template.format(year=time.year, month=time.month, day=time.day)
+    z_file = z_template.format(year=time.year, month=time.month, day=time.day)
+    q_file = q_template.format(year=time.year, month=time.month, day=time.day)
+    u10_file = u10_template.format(year=time.year, month=time.month, dayend=dayend)
+    v10_file = v10_template.format(year=time.year, month=time.month, dayend=dayend)
+    msl_file = msl_template.format(year=time.year, month=time.month, dayend=dayend)
+    t2m_file = t2m_template.format(year=time.year, month=time.month, dayend=dayend)
 
-        # set the file names for the current date
-        u_file = u_template.format(year=date.year, month=date.month, day=date.day)
-        v_file = v_template.format(year=date.year, month=date.month, day=date.day)
-        t_file = t_template.format(year=date.year, month=date.month, day=date.day)
-        z_file = z_template.format(year=date.year, month=date.month, day=date.day)
-        q_file = q_template.format(year=date.year, month=date.month, day=date.day)
-        w_file = w_template.format(year=date.year, month=date.month, day=date.day)
-        u10_file = u10_template.format(year=date.year, month=date.month, dayend=dayend)
-        v10_file = v10_template.format(year=date.year, month=date.month, dayend=dayend)
-        msl_file = msl_template.format(year=date.year, month=date.month, dayend=dayend)
-        t2m_file = t2m_template.format(year=date.year, month=date.month, dayend=dayend)
-        
-        # add the files to the set
-        # this avoids duplicates
-        fileset.add(u_file)
-        fileset.add(v_file)
-        fileset.add(t_file)
-        fileset.add(z_file)
-        fileset.add(q_file)
-        fileset.add(w_file)
-        fileset.add(u10_file)
-        fileset.add(v10_file)
-        fileset.add(msl_file)
-        fileset.add(t2m_file)
-        
     # open the files
-    combined_xr = xr.open_mfdataset(list(fileset), combine='by_coords')
+    combined_xr = xr.open_mfdataset([u_file, v_file, t_file, z_file, q_file, u10_file, v10_file, msl_file, t2m_file], combine='by_coords')
 
-    # select the specific time and the timestep 6 hours prior
-    combined_xr = combined_xr.sel(time=dates, level = graphcast_levels).squeeze()
-    
+    # select the specific time
+    combined_xr = combined_xr.sel(time=time, level = pangu_levels).squeeze()
+
     return combined_xr
 
-def rda_era5_to_graphcast_state(
+def rda_era5_to_pangu_state(
         time : dt.datetime,
         device : str = "cpu",
         e5_base : str = "/glade/campaign/collections/rda/data/ds633.0/",
         ) -> torch.tensor:
-    """ Fetches the ERA5 data for a specific time and packs it into a tensor for the graphcast_operational model.
+    """ Fetches the ERA5 data for a specific time and packs it into a tensor for the pangu model.
 
     input:
     ------
@@ -238,21 +193,20 @@ def rda_era5_to_graphcast_state(
     -------
 
     x : torch.Tensor
-        a tensor with dimensions (1, 1, 82, 721, 1440) containing the packed data
+        a tensor with dimensions (1, 1, 69, 721, 1440) containing the packed data
     
     """
 
     # read the data
-    # unlike SFNO, graphcast expends latitude from -90 to 90
-    combined_xr = read_graphcast_vars_from_era5_rda(time, e5_base = e5_base).sortby("latitude", ascending=True)
+    combined_xr = read_pangu_vars_from_era5_rda(time, e5_base = e5_base)
 
     # pack the data into a tensor
-    x = pack_graphcast_state(combined_xr, device=device)
+    x = pack_pangu_state(combined_xr, device=device)
 
     return x
 
-def initialize_graphcast_xarray_ds(time, n_ensemble : int) -> xr.Dataset:
-    """ Initializes an xarray dataset for output from the graphcast_operational model. 
+def initialize_pangu_xarray_ds(time, n_ensemble : int) -> xr.Dataset:
+    """ Initializes an xarray dataset for output from the pangu model. 
     
     input:
     -----
@@ -281,7 +235,7 @@ def initialize_graphcast_xarray_ds(time, n_ensemble : int) -> xr.Dataset:
     
     # create the coordinates
     ds['time'] = xr.DataArray(time, dims='time')
-    ds['level'] = xr.DataArray(graphcast_levels, dims='level')
+    ds['level'] = xr.DataArray(pangu_levels, dims='level')
     ds['latitude'] = xr.DataArray(np.linspace(-90,90,nlat), dims='latitude')
     ds['longitude'] = xr.DataArray(np.linspace(0,359.75,nlon), dims='longitude')
     ds['ensemble'] = xr.DataArray(np.arange(n_ensemble), dims='ensemble')
@@ -298,8 +252,8 @@ def initialize_graphcast_xarray_ds(time, n_ensemble : int) -> xr.Dataset:
 
     return ds
 
-def set_graphcast_xarray_metadata(ds : xr.Dataset, copy : bool = False) -> xr.Dataset:
-    """Sets the metadata for the graphcast_operational model xarray dataset.
+def set_pangu_xarray_metadata(ds : xr.Dataset, copy : bool = False) -> xr.Dataset:
+    """Sets the metadata for the pangu model xarray dataset.
     
     input:
     ------
@@ -319,10 +273,8 @@ def set_graphcast_xarray_metadata(ds : xr.Dataset, copy : bool = False) -> xr.Da
         ds = ds.copy()
 
     # set metadata
-    all_vars = graphcast_2dvars + graphcast_3dvars
+    all_vars = pangu_2dvars + pangu_3dvars
     md = { v : {} for v in all_vars }
-    md['W']['long_name'] = 'vertical velocity'
-    md['W']['units'] = 'Pa s**-1'
     md['U']['long_name'] = 'zonal wind'
     md['U']['units'] = 'm/s'
     md['V']['long_name'] = 'meridional wind'
@@ -331,28 +283,16 @@ def set_graphcast_xarray_metadata(ds : xr.Dataset, copy : bool = False) -> xr.Da
     md['Z']['units'] = 'm**2 s**-2'
     md['T']['long_name'] = 'temperature'
     md['T']['units'] = 'K'
-    # md['R']['long_name'] = 'relative humidity'
-    # md['R']['units'] = '%'
     md['Q']['long_name'] = 'specific humidity'
     md['Q']['units'] = 'kg/kg'
     md['VAR_10U']['long_name'] = '10m zonal wind'
     md['VAR_10U']['units'] = 'm/s'
     md['VAR_10V']['long_name'] = '10m meridional wind'
     md['VAR_10V']['units'] = 'm/s'
-    # md['VAR_100U']['long_name'] = '100m zonal wind'
-    # md['VAR_100U']['units'] = 'm/s'
-    # md['VAR_100V']['long_name'] = '100m meridional wind'
-    # md['VAR_100V']['units'] = 'm/s'
     md['VAR_2T']['long_name'] = '2m temperature'
     md['VAR_2T']['units'] = 'K'
-    # md['SP']['long_name'] = 'surface pressure'
-    # md['SP']['units'] = 'Pa'
     md['MSL']['long_name'] = 'mean sea level pressure'
     md['MSL']['units'] = 'Pa'
-    # md['TCW']['long_name'] = 'total column water'
-    # md['TCW']['units'] = 'kg/m^2'
-    # md['TP']['long_name'] = 'total precipitation'
-    # md['TP']['units'] = 'm'
 
     # loop over the variables and set the metadata
     for var in all_vars:
@@ -361,19 +301,11 @@ def set_graphcast_xarray_metadata(ds : xr.Dataset, copy : bool = False) -> xr.Da
 
     return ds
 
-def unpack_graphcast_state(
+def unpack_pangu_state(
         x : torch.tensor,
         time = None,
         ) -> xr.Dataset:
-    """ Unpacks the graphcast_operational model state tensor into an xarray dataset.
-    
-    TODO: implement below feature
-    
-    Because all versions of graphcast requires two initial conditions (t=0 and t=-6 hours) for inference,
-    this function will apply any provided initial perturbation to the t=0 timestep of the initial condition,
-    leaving the t=-6 hour timestep unchanged.
-    
-    It is recommended to only provide an initial perturbation if your initial condition is steady-state. 
+    """ Unpacks the pangu model state tensor into an xarray dataset.
 
     input:
     ------
@@ -390,6 +322,7 @@ def unpack_graphcast_state(
     ds : xr.Dataset
 
     """
+
     # get the number of ensemble members
     n_ensemble = x.shape[1]
 
@@ -399,11 +332,11 @@ def unpack_graphcast_state(
         time = [dt.datetime(1850,1,1) + dt.timedelta(hours=i*6) for i in range(n_time)]
 
     # initialize the dataset
-    ds = initialize_graphcast_xarray_ds(time, n_ensemble)
+    ds = initialize_pangu_xarray_ds(time, n_ensemble)
 
-    nlev = len(graphcast_levels)
+    nlev = len(pangu_levels)
     # loop over the 3D variables and insert them into the dataset
-    for j, var in enumerate(graphcast_3dvars):
+    for j, var in enumerate(pangu_3dvars):
         # get the indices for the current 3D variable
         i1 = j*nlev
         i2 = (j+1)*nlev
@@ -412,18 +345,18 @@ def unpack_graphcast_state(
         ds[var] = xr.DataArray(x[:,:,i1:i2,:,:].cpu().numpy(), dims=('time', 'ensemble', 'level', 'latitude', 'longitude'))
         
     # loop over the 2D variables and insert them into the dataset
-    n3d = len(graphcast_3dvars)
-    for i, var in enumerate(graphcast_2dvars):
+    n3d = len(pangu_3dvars)
+    for i, var in enumerate(pangu_2dvars):
         i1 = i + n3d*nlev
         ds[var] = xr.DataArray(x[:,:,i1,:,:].cpu().numpy(), dims=('time', 'ensemble', 'latitude', 'longitude'))
 
     return ds
 
-def create_empty_graphcast_ds(
+def create_empty_pangu_ds(
         n_ensemble : int = 1,
         time : dt.datetime = dt.datetime(1850,1,1),
         ) -> xr.Dataset:
-    """ Initializes an empty xarray dataset for the graphcast_operational model.
+    """ Initializes an empty xarray dataset for the pangu model.
 
     input:
     ------
@@ -443,18 +376,18 @@ def create_empty_graphcast_ds(
     """
 
     # initialize the dataset
-    ds = initialize_graphcast_xarray_ds(time, n_ensemble)
+    ds = initialize_pangu_xarray_ds(time, n_ensemble)
 
     # loop over the 2D variables and insert empty arrays
-    for var in graphcast_2dvars:
+    for var in pangu_2dvars:
         ds[var] = xr.DataArray(np.empty((1, n_ensemble, nlat, nlon)), dims=('time', 'ensemble', 'latitude', 'longitude'))
 
     # loop over the 3D variables and insert empty arrays
-    for var in graphcast_3dvars:
-        ds[var] = xr.DataArray(np.empty((1, n_ensemble, len(graphcast_levels), nlat, nlon)), dims=('time', 'ensemble', 'level', 'latitude', 'longitude'))
+    for var in pangu_3dvars:
+        ds[var] = xr.DataArray(np.empty((1, n_ensemble, len(pangu_levels), nlat, nlon)), dims=('time', 'ensemble', 'level', 'latitude', 'longitude'))
 
     # set the metadata
-    ds = set_graphcast_xarray_metadata(ds)
+    ds = set_pangu_xarray_metadata(ds)
 
     return ds
 
@@ -518,11 +451,11 @@ def single_IC_inference(
         device : str = "cpu",
         vocal: bool = False,
         ) -> xr.Dataset:
-    """ Runs the graphcast_operational model for a single initial condition.
+    """ Runs the pangu model for a single initial condition.
     input:
     ------
     model : torch.nn.Module
-        the graphcast_operational model to run
+        the pangu model to run
         
     n_timesteps : int
         the number of timesteps to run the model for
@@ -531,7 +464,7 @@ def single_IC_inference(
         the time to initialize the model at. if providing initial_condition, this doesn't need to be set
 
     initial_condition (optional) : xr.Dataset
-        the initial condition to use for the model. If not provided, the model will be initialized using the rda_era5_to_graphcast_state function at init_time.
+        the initial condition to use for the model. If not provided, the model will be initialized using the rda_era5_to_pangu_state function at init_time.
 
     perturbation (optional) : xr.Dataset
         the perturbation to apply to the initial condition. This is added to the initial condition before running the model.
@@ -555,33 +488,30 @@ def single_IC_inference(
     end_time = init_time + dt.timedelta(hours=6*(n_timesteps))
     
     if initial_condition is not None:
-        # for graphcast, IC must have two timesteps: t=0 and t=-1 (0 and -6 hours)
-        assert initial_condition.dims['time'] == 2, f"Initial condition must have 2 timesteps: {initial_condition.dims['time']} found."
         # pack the initial condition into a tensor
-        x = pack_graphcast_state(initial_condition, device=device)
+        x = pack_pangu_state(initial_condition, device=device)
         
     else:
-        # just use rda_era5_to_graphcast_state to get the initial condition
-        x = rda_era5_to_graphcast_state(device=device, time = init_time)
+        # just use rda_era5_to_pangu_state to get the initial condition
+        x = rda_era5_to_pangu_state(device=device, time = init_time)
         
     # check if we need to apply a perturbation
     if initial_perturbation is not None:
         # pack the perturbation into a tensor
-        xpert = pack_graphcast_state(initial_perturbation, device=device)
+        xpert = pack_pangu_state(initial_perturbation, device=device)
         
         # add the perturbation to the initial condition
-        x[0, 1] = x[:, 1:] + xpert
+        x = x + xpert
 
-    # run the model
-    data_list = [] ## keep initial condition, [0] gets first (only) time
     # handle perturbation which will be added to the model output at every timestep
     if recurrent_perturbation is not None:
-        # pack the perturbation into a tensor
-        rpert = pack_graphcast_state(recurrent_perturbation, device=device, is_rpert=True)
+        rpert = pack_pangu_state(recurrent_perturbation, device=device)
         
     else:
         rpert = None
         
+    # run the model
+    data_list = [] # output accumulator
     iterator = model(init_time, x, rpert)
     for k, (time, data, _) in enumerate(iterator):
         if vocal:
@@ -598,7 +528,7 @@ def single_IC_inference(
     # stack the output data by time
     data = torch.stack(data_list)
     
-    return unpack_graphcast_state(data, time = timedeltas)
+    return unpack_pangu_state(data, time = timedeltas)
 
 def haversine(lon1, lat1, lon2, lat2):
     """
@@ -734,7 +664,6 @@ def gen_elliptical_perturbation(lat,lon,k,ylat,xlon,locRad):
 
     return perturb
 
-
 def gen_baroclinic_wave_perturbation(lat,lon,ylat,xlon,u_pert_base,locRad,a=6.371e6):
     """
     Implementation of baroclinic wave perturbation from Bouvier et al. (2024). 
@@ -779,3 +708,21 @@ def gen_baroclinic_wave_perturbation(lat,lon,ylat,xlon,u_pert_base,locRad,a=6.37
     perturb = u_pert_base * np.exp(-(great_circle_dist / locRad)**2)
     
     return perturb
+
+if __name__=="__main__": 
+    # test the functions
+    lat = np.arange(90, -90.001, -0.25)
+    lon = np.arange(0, 360, 0.25)
+    ylat = 0. # deg N
+    xlon = 20. # deg E
+    a = 6.371e6 # radius of earth in m
+    locRad = a/10 # 10% of the radius of the earth
+    u_pert_base = 1.0 # m/s
+    pert = gen_baroclinic_wave_perturbation(
+        lat, lon, ylat, xlon, u_pert_base, locRad
+    )
+    import matplotlib.pyplot as plt
+    plt.imshow(pert)
+    plt.colorbar()
+    plt.savefig("pert.png")
+    plt.close()

@@ -18,12 +18,13 @@ with open(config_path, 'r') as file:
     config = yaml.safe_load(file)
     
 # choose model to visualize
-model = "graphcast"
+model = "sfno"
 
 # set up directories
 exp_dir = Path(config["experiment_dir"]) / config["experiment_name"] # all data for experiment stored here
 era5_pressure_path = exp_dir / "era5_pressure.nc" # where to save cached ERA5 data
 data_path = exp_dir / f"{model}_output.nc" # where to save output from inference
+plot_dir = exp_dir / "plots" # where to save plots
 e5_base = "/glade/campaign/collections/rda/data/ds633.0/"
 
 ic_dates = [dt.datetime.strptime(str_date, "%Y/%m/%d %H:%M") for str_date in config["ic_dates"]]
@@ -33,7 +34,7 @@ n_timesteps = config["n_timesteps"]
 
 # set these variables
 cmap_str = "Set2" # options here: matplotlib.org/stable/tutorials/colors/colormaps.html
-day_interval_x_ticks = 3 # how many days between x-ticks on the plot
+day_interval_x_ticks = 2 # how many days between x-ticks on the plot
 
 # define consts
 cp = 1005.0  # J/kg/K
@@ -151,6 +152,6 @@ ax.grid()
 ax.set_facecolor("#FFFFFF")
 fig.tight_layout()
 plt.legend(fontsize=12, loc="lower left", ncols=3)
-plt.savefig(exp_dir / save_title, dpi=300, bbox_inches="tight")
-print(f"Saved figure to {exp_dir / save_title}")
+plt.savefig(plot_dir / save_title, dpi=300, bbox_inches="tight")
+print(f"Saved figure to {plot_dir / save_title}")
 ###########################################
