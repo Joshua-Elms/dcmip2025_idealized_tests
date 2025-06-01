@@ -161,5 +161,3 @@ ds_out.to_netcdf(output_path)
 
 print(f"ds_out shape: {ds_out.dims}")
 print(f"Saved ds of size {ds_out.nbytes/1e9:.2f} GB to {output_path}")
-print("Finished.")
-print("Finished.")
