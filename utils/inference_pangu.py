@@ -70,8 +70,8 @@ def pack_pangu_state(
     "v100", "v50", "msl", "var_10u", "var_10v", "var_2t"
 
     """
-    # latitudes should be decreasing for pangu
-    ds = ds.sortby('latitude', ascending=False)
+    # latitudes should be increasing for pangu
+    ds = ds.sortby('latitude', ascending=True)
 
     with dask.config.set(**{'array.slicing.split_large_chunks': False}):
         # concatenate the 3d variables along a new axis
@@ -349,6 +349,9 @@ def unpack_pangu_state(
     for i, var in enumerate(pangu_2dvars):
         i1 = i + n3d*nlev
         ds[var] = xr.DataArray(x[:,:,i1,:,:].cpu().numpy(), dims=('time', 'ensemble', 'latitude', 'longitude'))
+        
+    # pangu expects the latitude to be sorted in ascending order
+    ds = ds.sortby('latitude', ascending=True)
 
     return ds
 
