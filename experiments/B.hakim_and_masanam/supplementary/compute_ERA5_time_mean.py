@@ -37,7 +37,7 @@ name_dict = dict(
         pressure_level="level",
     )
 
-def compute_time_mean_from_files(variables: list, months: list, scratch_dir: Path) -> xr.Dataset:
+def compute_time_mean_from_files(variables: list, months: list, scratch_dir: Path, model: str) -> xr.Dataset:
     """
     Computes the time mean for a list of variables and months.
     """
@@ -84,6 +84,24 @@ def compute_time_mean_from_files(variables: list, months: list, scratch_dir: Pat
     print(f"Renaming variables: \n{rename_dict}")
     time_mean_ds = time_mean_ds.rename(rename_dict)
     
+    # if graphcast_small or graphcast (not graphcast_operational), 
+    # add zero field for tp06
+    if model in ["graphcast_small", "graphcast"]:
+        if "TP06" not in time_mean_ds.data_vars:
+            print("Adding TP06 variable with all zeros.")
+            time_mean_ds["TP06"] = xr.DataArray(
+                data=0.0, 
+                dims=["ensemble", "time", "latitude", "longitude"],
+                coords={
+                    "ensemble": time_mean_ds["ensemble"],
+                    "time": time_mean_ds["time"],
+                    "latitude": time_mean_ds["latitude"],
+                    "longitude": time_mean_ds["longitude"],
+                },
+            )
+    else:
+        print(f"Graphcast had tp06 already. Check if it's correct: \n{time_mean_ds}")
+    
     return time_mean_ds
 
 model_variables = dict(
@@ -113,7 +131,7 @@ model_variables = dict(
         "2m_temperature",
         "mean_sea_level_pressure",
         ],
-    graphcast_small_mtp06=[
+    graphcast_small=[
         "geopotential",
         "specific_humidity",
         "temperature",
@@ -134,27 +152,26 @@ DJF = ["12", "01", "02"]
 JAS = ["07", "08", "09"]
 
 seasons = ["DJF", "JAS"]
-models = ["sfno", "pangu", "graphcast_small_mtp06"]
+models = ["graphcast_small"] # ["sfno", "pangu", "graphcast_small"]
 
 for model in models:
     all_vars = model_variables[model]
     print(f"Starting {model} with variables: \n{all_vars}\n\n")
     if "DJF" in seasons:
-        if model != "sfno":
-            print("Computing time mean for DJF 0z 1979-2019 at 10 day intervals...")
-            start = perf_counter()
-            DJF_time_mean_ds = compute_time_mean_from_files(all_vars, DJF, scratch_dir)
-            print(f"Saving DJF time mean to {save_dir / f'DJF_ERA5_time_mean_{model}.nc'}")
-            DJF_time_mean_ds.to_netcdf(save_dir / f"DJF_ERA5_time_mean_{model}.nc")
-            DJF_time_mean_ds.close()
-            del DJF_time_mean_ds
-            end = perf_counter()
-            print(f"DJF ran for: {(end - start)/60:.1f} minutes")
+        print("Computing time mean for DJF 0z 1979-2019 at 10 day intervals...")
+        start = perf_counter()
+        DJF_time_mean_ds = compute_time_mean_from_files(all_vars, DJF, scratch_dir, model)
+        print(f"Saving DJF time mean to {save_dir / f'DJF_ERA5_time_mean_{model}.nc'}")
+        DJF_time_mean_ds.to_netcdf(save_dir / f"DJF_ERA5_time_mean_{model}.nc")
+        DJF_time_mean_ds.close()
+        del DJF_time_mean_ds
+        end = perf_counter()
+        print(f"DJF ran for: {(end - start)/60:.1f} minutes")
 
     if "JAS" in seasons:
         print("Computing time mean for JAS 0z 1979-2019 at 10 day intervals...")
         start = perf_counter()
-        JAS_time_mean_ds = compute_time_mean_from_files(all_vars, JAS, scratch_dir)    
+        JAS_time_mean_ds = compute_time_mean_from_files(all_vars, JAS, scratch_dir, model)    
             
         print(f"Saving JAS time mean to {save_dir / f'JAS_ERA5_time_mean_{model}.nc'}")
         JAS_time_mean_ds.to_netcdf(save_dir / f"JAS_ERA5_time_mean_{model}.nc")
