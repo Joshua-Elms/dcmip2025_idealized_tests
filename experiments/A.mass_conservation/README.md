@@ -21,7 +21,7 @@ Run this script (or the jupyter notebook version of it, `3aux.analysis.ipynb`) t
 
 The dependencies for this script are contained in the `analysis` conda environment, which can be set via `conda activate /glade/work/jmelms/software/miniconda3/envs/analysis`. 
 
-## Experiment-Specific Config Options
+### Experiment-Specific Config Options
 Check general config information at [`experiments/README.md`](../README.md) for options shared by multiple experiments. 
 
 - `ic_dates`: The dates and times for which inference will be performed. These are pulled directly from the ERA5 stored in NCAR's RDA ([linked here](https://rda.ucar.edu/datasets/d633000/)). Must be between 1940 and present day, and formatted as a list with datetime strings, e.g. `["2018/01/01 12:00", "2018/07/01 12:00"]`.

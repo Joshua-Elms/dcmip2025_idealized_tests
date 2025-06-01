@@ -9,7 +9,7 @@ with open(config_path, 'r') as file:
     config = yaml.safe_load(file)
 
 # set up directories
-exp_dir = Path(config["experiment_dir"]) / config["hm24_experiment_params"]["hm24_experiment"] / config["experiment_name"] # all data for experiment stored here
+exp_dir = Path(config["experiment_dir"]) / config["hm24_experiment"] / config["experiment_name"] # all data for experiment stored here
 
 # check if YOURUSERNAME appears in exp_dir; error-out if it does
 if "YOURUSERNAME" in str(exp_dir):

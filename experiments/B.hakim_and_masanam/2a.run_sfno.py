@@ -8,6 +8,8 @@ import yaml
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 
+print("\n\nRunning SFNO model inference for an HM24 experiment.\n\n")
+
 ### General Setup ###
 
 # read configuration
@@ -17,7 +19,7 @@ with open(config_path, 'r') as file:
     config = yaml.safe_load(file)
     
 # set up directories
-exp_dir = Path(config["experiment_dir"]) / config["hm24_experiment_params"]["hm24_experiment"] / config["experiment_name"] # all data for experiment stored here
+exp_dir = Path(config["experiment_dir"]) / config["hm24_experiment"] / config["experiment_name"] # all data for experiment stored here
 tendency_dir = Path(config["experiment_dir"]) / "tendencies" # where to save tendencies
 output_path = exp_dir / "sfno_output.nc" # where to save output from inference
 
@@ -31,9 +33,8 @@ print("Model loaded.")
 # unpack experiment config
 n_timesteps : int = config["n_timesteps"]
 lead_times_h = np.arange(0, 6*n_timesteps+1, 6)
-exp_params = config["hm24_experiment_params"]
-tendency_reversion : bool = exp_params["tendency_reversion"] 
-hm24_exp_name : str = exp_params["hm24_experiment"]
+tendency_reversion : bool = config["tendency_reversion"] 
+hm24_exp_name : str = config["hm24_experiment"]
 hm24_exp_name_options = ["tropical_heating", "extratropical_cyclone", 
                          "geostrophic_adjustment", "tropical_cyclone"]
 assert hm24_exp_name in hm24_exp_name_options, \
@@ -50,8 +51,7 @@ IC_ds = xr.open_dataset(IC_path).sortby("latitude", ascending=False)
 # depending on the experiment, grab appropriate parameters & prepare perturbation
 if hm24_exp_name == "tropical_heating":
     heating_ds_path = exp_dir / "heating.nc"
-    pert_params = exp_params["perturbation_params"]
-    km = pert_params["km"]
+    pert_params = config["perturbation_params"]
     amp = pert_params["amp"]
     k = pert_params["k"]
     ylat = pert_params["ylat"]
@@ -81,7 +81,6 @@ if hm24_exp_name == "tropical_heating":
     # these two get passed to inference.single_IC_inference (via rpert for f)
     initial_perturbation = None
     f = heating_ds
-    f = 0
     
 elif hm24_exp_name == "extratropical_cyclone":
     pass
@@ -109,10 +108,27 @@ if tendency_reversion:
             n_timesteps=1,
             initial_condition=IC_ds,
             device=device,
-            vocal=True
+            vocal=False
         )
-        tds = tendency_ds.isel(time=1) - tendency_ds.isel(time=0)
+        tds = (tendency_ds.isel(time=1) - tendency_ds.isel(time=0)).sortby("latitude", ascending=False)
         tds.to_netcdf(tendency_path)
+        
+    # verify tendency reversion
+    vds = inference.single_IC_inference(
+        model=model,
+        n_timesteps=1,
+        initial_condition=IC_ds,
+        initial_perturbation=None,  # no initial perturbation
+        recurrent_perturbation=-tds,  # use tendencies as recurrent perturbation
+        device=device,
+        vocal=False
+    )
+    # check if the output is close to the initial condition
+    print("Verifying tendency reversion.")
+    print("If largest value in following output is close to zero, tendency reversion is working.")
+    print("---------------------------")
+    print((vds.isel(time=1) - vds.isel(time=0)).max().data_vars)
+    print("---------------------------")
 else:
     tds = 0
     
@@ -122,15 +138,13 @@ else:
 # rpert will be added to the model output at every timestep
 # so we add the negative of the tendency to reverse it
 # f will be 0 for all tests but tropical heating
+# test below by setting f to 0, model should have approx. static output
 rpert = - tds + f
-if rpert == 0:
+if isinstance(rpert, int) and rpert == 0:
+    print("No recurrent perturbation applied.")
     rpert = None
 
-# test with below line -- model output should be static
-# rpert = -tds
-
 ### Run Experiment & Save Output ###
-
 ds = inference.single_IC_inference(
         model=model,
         n_timesteps=n_timesteps,
@@ -147,7 +161,7 @@ ds = ds.assign_coords({"lead_time": lead_times_h})
 ds = ds.assign_attrs({"lead_time": "Lead time in hours"})
 
 # save output
-print(f"Saving output to {output_path}.")
+print(f"Saving output to {output_path}")
 if output_path.exists():
     print(f"Output file already exists. Overwriting.")
     output_path.unlink()

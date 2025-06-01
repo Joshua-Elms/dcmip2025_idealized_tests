@@ -1,0 +1,17 @@
+name: dlwd
+
+dependencies:
+  - python=3.11
+  - h5py
+  - numpy
+  - matplotlib
+  - cartopy
+  - pyyaml
+  - scipy
+  - pip
+  - pip:
+    - ecmwflibs
+    - climetlab
+    - onnxruntime-gpu
+    - torch
+  
