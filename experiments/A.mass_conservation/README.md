@@ -15,18 +15,9 @@ Run this script to prepare the experiment directory that you specified in the la
 ### `2a-c.submit_mass_conservation_test.pbs`
 Submit a PBS job that runs steps 2a, 2b, and 2c (running SFNO,Graphcast, and Pangu): `qsub 2a-c.submit_mass_conservation_test.pbs`
 
-### `3.analysis.py`
+### `3.submit.analysis.pbs`
 
-Run this script (or the jupyter notebook version of it, `3aux.analysis.ipynb`) to analyze the results. 
-
-The dependencies for this script are contained in the `analysis` conda environment, which can be set via 
-
-```bash
-conda activate /glade/work/jmelms/software/miniconda3/envs/analysis
-export PYTHONPATH=/glade/u/home/jmelms/projects/dcmip2025_idealized_tests
-```
-
-**Note:** the script may have errors if run on the login note. It is recommended to get an interactive session.
+Submit a PBS job to run the `3.analysis.py` script: `qsub 3.submit.analysis.pbs`
 
 ### Experiment-Specific Config Options
 Check general config information at [`experiments/README.md`](../README.md) for options shared by multiple experiments. 
