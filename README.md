@@ -32,7 +32,11 @@ experiments/ (folders containing experiment code & instructions)
 utils/  (a folder with helper code that you won't likely need to directly use)
 ```
 
-### 2. Follow README instructions
+### 2. Run `setup.py`
+
+Run the `setup.py` file in the main folder: `python3 setup.py`
+
+### 3. Follow README instructions
 
 Each of the above folders in `experiments/` has a `README.md` file with details about the experiments and instructions on getting started.  You can either view the README file in a text editor or you can view a nicely-rendered version of it on [the DCMIP 2025 ML experiment github site](https://github.com/taobrienlbl/DCMIP2025-ML).
 
