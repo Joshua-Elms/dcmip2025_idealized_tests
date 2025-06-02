@@ -1,0 +1,36 @@
+# recommended to copy at least "Necessary" section of this
+# file to ~/.bashrc so that all settings are applied 
+# on startup and when jobs are submitted
+
+### Necessary ###
+
+# for DCMIP2025 / Bouvier et al. 2024 implementation
+# changes stack size from default (8192) to unlimited
+# without this, ./gen_IC_FCN.out segfaults cryptically
+ulimit -s unlimited
+
+# other parts of the codebase assume this repo can be imported from
+# so barring proper installation (e.g. pip install -e .), this is necessary
+# set below to path to your local copy of the DCMIP2025-ML repo
+export PYTHONPATH=$HOME/DCMIP2025-ML
+
+# for inference
+export WORLD_SIZE=1
+export MODEL_REGISTRY=/glade/work/jmelms/.cache
+
+# without below line, you'll get error on "from torch._C import *  # noqa: F403"
+module unload cuda
+
+#################
+
+
+###  Helpful   ###
+# check personal job queue 
+alias lsq="qstat -u <your_username>"
+
+# auto-activate environment used for plotting
+conda activate /glade/work/jmelms/software/miniconda3/envs/analysis
+
+# allows use of command `qvscode` to request VS Code job on Casper
+module load ncarenv
+#################

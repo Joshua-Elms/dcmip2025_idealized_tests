@@ -69,21 +69,10 @@ To start a jupyter notebook:
 
     jupyter notebook --NotebookApp.allow_origin='*' --NotebookApp.ip='0.0.0.0' --port 9999
 
-To try (unsuccessfully) to reattach to a running job, use:
-
-    pbs_attach <job> # and once this fails
-    qdel <job> # and then see line 2
-    
 To run a vscode session on a dedicated compute node, follow these steps: https://nhug.readthedocs.io/en/latest/blog/launch-vscode-on-casper-compute-nodes/#motivation
 ```
-module load ncarenv/24.12
+module load ncarenv
 qvscode
-```
-
-Or circumvent with direct request: 
-```
-qsub -A UMIC0107 -q casper -N qvscode_<YOURUSERNAME> -l select=1:ncpus=1:mem=300GB:ngpus=1 -l walltime=6:00:00 -j oe -o /glade/derecho/scratch/<YOURUSERNAME>/.qvscode_logs/qvscode.log -v walltime_seconds=21600 /glade/u/apps/opt/qvscode/bin/launch.pbs
-code --remote ssh-remote+<YOURUSERNAME>@casper07.hpc.ucar.edu # to actually reconnect from vscode on login node
 ```
 
 To check how much storage you are using, run `gladequota`

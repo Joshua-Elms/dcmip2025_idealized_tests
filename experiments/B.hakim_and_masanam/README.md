@@ -1,6 +1,6 @@
 # Hakim & Masanam (2024) Experiments
 
-This experiment runs either SFNO or GraphCast following the Hakim and Masanam protocol in which the model tendencies are constrained such that an unperturbed version of the model runs in steady state.  The perturbed versions aim to isolate the response of the model to various perturbations: e.g., tropical heating.  This experiment aims to satisfy both objectives (2) and (3): *run idealized simulations with these two models to probe aspects of the models' physical fidelity; and explore and intercompare model responses as the model inputs stray further and further from their training dataset*.
+This experiment runs SFNO, Graphcast, or Pangu following the Hakim and Masanam protocol in which the model tendencies are constrained such that an unperturbed version of the model runs in steady state.  The perturbed versions aim to isolate the response of the model to various perturbations: e.g., tropical heating.  This experiment aims to satisfy both objectives (2) and (3): *run idealized simulations with these two models to probe aspects of the models' physical fidelity; and explore and intercompare model responses as the model inputs stray further and further from their training dataset*.
 
 ## Instructions
 
@@ -94,4 +94,3 @@ The scripts used to download the necessary ERA5 climatology are located in the `
 4. SFNO
 5. GraphCast
 6. PanGu
-7. ACE2
