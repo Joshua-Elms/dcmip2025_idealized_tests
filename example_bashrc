@@ -19,6 +19,7 @@ export WORLD_SIZE=1
 export MODEL_REGISTRY=/glade/work/jmelms/.cache
 
 # without below line, you'll get error on "from torch._C import *  # noqa: F403"
+module load conda
 module unload cuda
 
 #################
