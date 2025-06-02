@@ -92,7 +92,7 @@ def create_and_plot_variable_gif(
     units: str,
     cmap: str,
     titles: list[str],
-    central_longitude: float = 0.,
+    central_longitude: float = 180.,
     adjust: dict = None,
     dpi: int = 100,
     fps: int = 2,

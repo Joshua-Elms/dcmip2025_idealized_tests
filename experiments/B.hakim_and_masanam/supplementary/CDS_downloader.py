@@ -1,6 +1,6 @@
 """
 This script downloads ERA5 at 10-day intervals from 1979-2019 DJF and JAS 0z mean of the necessary
-fields to run the SFNO 73 channel model. 
+fields to run the SFNO 73 channel model, graphcast_small 83 channel model, and incidentally, the Pangu model.. 
 
 For parallelization, the script uses the multiprocessing library to download
 the data in chunks. Each chunk is a time series from 1979-2019 for a single variable
@@ -15,7 +15,7 @@ from time import perf_counter
 
 this_dir = Path(__file__).parent
 scratch_dir = Path(os.environ.get("SCRATCH")) / "dcmip" / "era5"
-ncpus=1 # number of CPUs to use for parallelization, don't exceed ncpus from job request
+ncpus=4 # number of CPUs to use for parallelization, don't exceed ncpus from job request
 
 pl_variables = [ 
     "geopotential",
@@ -26,6 +26,12 @@ pl_variables = [
     "v_component_of_wind",
     "vertical_velocity",
 ]
+# # just used for downloading extra pangu/graphcast_small data, temporary
+# pl_variables = [
+#     "specific_humidity",
+#     "vertical_velocity",
+# ]
+# sfc_variables = []
 sfc_variables = [
     "10m_u_component_of_wind",
     "10m_v_component_of_wind",

@@ -1,6 +1,6 @@
 import xarray as xr
 from earth2mip import networks # type: ignore
-import utils.inference as inference
+import utils.inference_pangu as inference
 import initial_conditions.utils as bouvier_utils
 from pathlib import Path
 import numpy as np
@@ -9,7 +9,7 @@ from time import perf_counter
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 
-print("\n\nRunning SFNO model inference for Bouvier Baroclinic Wave experiment.\n\n")
+print("\n\nRunning Pangu model inference for Bouvier Baroclinic Wave experiment.\n\n")
 
 # read configuration
 this_dir = Path(__file__).parent
@@ -22,12 +22,12 @@ ic_params = config["initial_condition_parameters"]
 exp_dir = Path(config["experiment_dir"]) / config["experiment_name"] # all data for experiment stored here
 ic_csv_dir = exp_dir / "ic_csv" # contains fort generated ICs, must be processed into nc before used for inference
 ic_nc_dir = exp_dir / "ic_nc" # contains processed ICs in nc format, ready for inference
-output_path = exp_dir / "sfno_output.nc" # where to save output from inference
+output_path = exp_dir / "pangu_output.nc" # where to save output from inference
 
 # load the model
 device = config["inference_parameters"]["device"]
 start = perf_counter()
-model = networks.get_model("fcnv2_sm").to(device)
+model = networks.get_model("pangu_6", device=device)
 end = perf_counter()
 print(f"Model loaded in {end-start:.2f} seconds.")
 
@@ -71,7 +71,7 @@ for i, val in enumerate(iter_vals.tolist()): # whichever parameter is iterable
         "include_dewpt": False, # dewpoint temperature not needed for this model
         "metadata_dir": Path(config["processor_parameters"]["metadata_dir"]),
     }
-    ic = bouvier_utils.process_individual_fort_file_sfno(**nc_kwargs)
+    ic = bouvier_utils.process_individual_fort_file_pangu(**nc_kwargs).sortby("latitude", ascending=True)
     
     # check whether H&M24 tendency reversion is required
     tendency_reversion = config["inference_parameters"]["tendency_reversion"]
@@ -119,22 +119,21 @@ for i, val in enumerate(iter_vals.tolist()): # whichever parameter is iterable
         upert = inference.gen_baroclinic_wave_perturbation(
             ic.latitude, ic.longitude, ylat, xlon, u_pert_base, locRad
         )
-        initial_perturbation = inference.create_empty_sfno_ds()
+        initial_perturbation = inference.create_empty_pangu_ds()
 
         # set perturbation u-wind profile to `upert` field
         initial_perturbation["U"][:] = upert
         initial_perturbation["VAR_10U"][:] = upert
-        initial_perturbation["VAR_100U"][:] = upert
         
         # set perturbation to zero for all other variables
-        zero_vars = ["T", "V", "Z", "R", "VAR_10V", "VAR_100V", "SP", "MSL", "TCW", "VAR_2T"]
+        zero_vars = ["T", "V", "Z", "Q", "VAR_10V", "MSL", "VAR_2T"]
         for var in zero_vars:
             initial_perturbation[var][:] = 0.
             
         initial_perturbation.to_netcdf(
-            ic_nc_dir / f"initial_perturbation_sfno.nc"
+            ic_nc_dir / f"initial_perturbation_pangu.nc"
         )
-        print(f"Perturbation saved to {ic_nc_dir / 'initial_perturbation_sfno.nc'}")
+        print(f"Perturbation saved to {ic_nc_dir / 'initial_perturbation_pangu.nc'}")
             
     else: 
         initial_perturbation = None

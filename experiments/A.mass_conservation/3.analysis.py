@@ -7,10 +7,7 @@ import datetime as dt
 import calendar
 from utils import inference
 import math
-from time import perf_counter
 from matplotlib import colormaps
-import logging
-
 
 ### Set up and parameter selection ########
 
@@ -25,35 +22,19 @@ model = "sfno"
 
 # set up directories
 exp_dir = Path(config["experiment_dir"]) / config["experiment_name"] # all data for experiment stored here
-exp_dir.mkdir(parents=True, exist_ok=True) # make dir if it doesn't exist
 era5_pressure_path = exp_dir / "era5_pressure.nc" # where to save cached ERA5 data
 data_path = exp_dir / f"{model}_output.nc" # where to save output from inference
-log_path = exp_dir / "plotting.log" # where to save log
-
-# set up logging
-logging.basicConfig(
-    filename=log_path,
-    level=logging.INFO,
-    format='%(asctime)s:%(message)s',
-    datefmt='%Y-%m-%dH%H:%M:%S'
-)
+plot_dir = exp_dir / "plots" # where to save plots
 e5_base = "/glade/campaign/collections/rda/data/ds633.0/"
-
-
-
-# read configuration
-config_path = this_dir / "0.config.yaml"
-with open(config_path, 'r') as file:
-    config = yaml.safe_load(file)
 
 ic_dates = [dt.datetime.strptime(str_date, "%Y/%m/%d %H:%M") for str_date in config["ic_dates"]]
 lead_times = np.arange(0, config["n_timesteps"] + 1) * 6  # in hours
 n_ics = len(ic_dates)
 n_timesteps = config["n_timesteps"]
 
-
 # set these variables
 cmap_str = "Set2" # options here: matplotlib.org/stable/tutorials/colors/colormaps.html
+day_interval_x_ticks = 2 # how many days between x-ticks on the plot
 
 # define consts
 cp = 1005.0  # J/kg/K
@@ -120,7 +101,7 @@ if not cached:
         )
         print(f"Loaded pressure for {ic_date} with shape {pds['SP'].shape}")
 
-    print(f"Caching the ERA5 data for {len(ic_dates)} initial conditions.")
+    print(f"Caching the ERA5 data for {len(ic_dates)} start dates.")
     # combine the data into a single xarray dataset
     e5_pds = xr.concat([pressure_dict[ic] for ic in ic_dates], dim="init_time")
     e5_pds["SP_mean"] = e5_pds["SP"].mean(dim="init_time")
@@ -134,18 +115,11 @@ if not cached:
 ### Load model output data ###
 print(f"Loading data from {data_path}")
 ds = xr.open_dataset(data_path)
-
-# reset time coordinate
-# time_hours = ds.time * np.timedelta64(
-#     1, "h"
-# )  # set time coord relative to start time
-# ds.update({"time": time_hours})
-time_hours = np.arange(0, n_timesteps + 1) * 6
 ds = ds.assign_attrs({"time units": "hours since start"})
 ##############################################
 
 ### Plot the results ######################
-plot_var = "SP"
+plot_var = "MSL"
 title = f"Global Mean Pressure Trends\n{model.upper()} vs. ERA5"
 save_title = f"{plot_var.lower()}_trends_{model}_era5.png"
 ylab = "Surface Pressure (hPa)" if plot_var == "SP" else "Mean Sea Level Pressure (hPa)"
@@ -160,23 +134,24 @@ for i, ic in enumerate(ic_dates):
     model_linedat = ds[f"MEAN_{plot_var}"].isel(init_time=i).squeeze()
     e5_linedat = e5_pds[plot_var].isel(init_time=i).squeeze()
     color = qual_colors[i]
-    ax.plot(time_hours, model_linedat, color=color, linewidth=linewidth, label=f"fcst init {ic}")
-    ax.plot(time_hours, e5_linedat, color=color, linewidth=linewidth, label=f"ERA5 data starting {ic}", linestyle="--")
+    ax.plot(lead_times, model_linedat, color=color, linewidth=linewidth, label=f"fcst init {ic.strftime('%Y-%m-%d %Hz')}", linestyle="-")
+    ax.plot(lead_times, e5_linedat, color=color, linewidth=linewidth, label=f"ERA5 data starting {ic.strftime('%Y-%m-%d %Hz')}", linestyle="--")
     
 ens_mean = ds[f"IC_MEAN_{plot_var}"].squeeze()
-ax.plot(time_hours, ens_mean, color="red", linewidth=2*linewidth, label="All fcst init mean", linestyle="-")
-ax.plot(time_hours, e5_pds[f"{plot_var}_mean"], color="red", linewidth=2*linewidth, label="All ERA5 data mean", linestyle="--")
+ax.plot(lead_times, ens_mean, color="red", linewidth=2*linewidth, label="All fcst init mean", linestyle="-")
+ax.plot(lead_times, e5_pds[f"{plot_var}_mean"], color="red", linewidth=2*linewidth, label="All ERA5 data mean", linestyle="--")
    
-ax.set_xticks(time_hours[::4*2], (time_hours[::4*2]//(24)), fontsize=smallsize)
+ax.set_xticks(lead_times[::4*day_interval_x_ticks], (lead_times[::4*day_interval_x_ticks]//(24)), fontsize=smallsize)
 yticks = np.arange(math.floor(ens_mean.min()), math.ceil(ens_mean.max())+0.5, 0.5)
 ax.set_yticks(yticks, yticks, fontsize=smallsize)
 ax.set_xlabel("Simulation Time (days)", fontsize=fontsize)
 ax.set_ylabel(ylab, fontsize=fontsize)
-ax.set_xlim(xmin=0, xmax=time_hours[-1])
+ax.set_xlim(xmin=-3, xmax=lead_times[-1]+3)
 fig.suptitle(title, fontsize=30)
 ax.grid()
 ax.set_facecolor("#FFFFFF")
 fig.tight_layout()
 plt.legend(fontsize=12, loc="lower left", ncols=3)
-plt.savefig(exp_dir / save_title, dpi=300, bbox_inches="tight")
+plt.savefig(plot_dir / save_title, dpi=300, bbox_inches="tight")
+print(f"Saved figure to {plot_dir / save_title}")
 ###########################################

@@ -1,6 +1,5 @@
 import datetime as dt
 import calendar
-#import logging
 import dask
 import xarray as xr
 import numpy as np
@@ -76,9 +75,8 @@ def pack_sfno_state(
         "r925", "r1000" ;
 
     """
-    # check whether the latitudes are decreasing (correct) or increasing (incorrect)
-    if ds.latitude[0] < ds.latitude[-1]:
-        ds = ds.sortby('latitude', ascending=False)
+    # latitudes should be decreasing for SFNO
+    ds = ds.sortby('latitude', ascending=False)
 
     with dask.config.set(**{'array.slicing.split_large_chunks': False}):
         # concatenate the 3d variables along a new axis
@@ -628,7 +626,7 @@ def gen_circular_perturbation(lat_2d,lon_2d,ilat,ilon,amp,locRad=1000.,Z500=Fals
         print('heating perturbation...')
         perturb = np.reshape(covLoc*amp,[nlat,nlon])
 
-    return perturb
+    return perturb  # flip latitude to match SFNO convention (decreasing latitudes)
 
 def gen_elliptical_perturbation(lat,lon,k,ylat,xlon,locRad):
 
@@ -740,7 +738,7 @@ def gen_baroclinic_wave_perturbation(lat,lon,ylat,xlon,u_pert_base,locRad,a=6.37
     )
     perturb = u_pert_base * np.exp(-(great_circle_dist / locRad)**2)
     
-    return perturb
+    return perturb[..., ::-1, :]  # flip latitude to match SFNO convention (decreasing latitudes)
 
 if __name__=="__main__": 
     # test the functions

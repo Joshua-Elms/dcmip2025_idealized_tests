@@ -1,14 +1,14 @@
 import xarray as xr
 import datetime as dt
 import torch
-import logging
 from earth2mip import networks # type: ignore
 from utils import inference_graphcast_small as inference
 from pathlib import Path
-import numpy as np
 import yaml
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
+
+print("\n\nRunning Graphcast small model inference for mass conservation experiment.\n\n")
 
 # read configuration
 this_dir = Path(__file__).parent
@@ -20,21 +20,13 @@ with open(config_path, 'r') as file:
 exp_dir = Path(config["experiment_dir"]) / config["experiment_name"] # all data for experiment stored here
 exp_dir.mkdir(parents=True, exist_ok=True) # make dir if it doesn't exist
 output_path = exp_dir / "graphcast_output.nc" # where to save output from inference
-log_path = exp_dir / "graphcast.log" # where to save log
-
-# set up logging
-logging.basicConfig(
-    filename=log_path,
-    level=logging.INFO,
-    format='%(asctime)s:%(message)s',
-    datefmt='%Y-%m-%dH%H:%M:%S'
-)
 
 # load the model
-device = "cuda:0" if torch.cuda.is_available() else "cpu"
-logging.info(f"Loading model on {device}.")
+device = config["device"]
+assert device in ["cpu", "cuda", "cuda:0"], "Device must be 'cpu' or 'cuda'."
+print(f"Loading model on {device}.")
 model = networks.get_model("e2mip://graphcast_small",device=device)
-logging.info("Model loaded.")
+print("Model loaded.")
 
 # load the initial condition times
 ic_dates = [dt.datetime.strptime(str_date, "%Y/%m/%d %H:%M") for str_date in config["ic_dates"]]
@@ -48,7 +40,7 @@ for d, date in enumerate(ic_dates):
     end_time = date + dt.timedelta(hours=6*config["n_timesteps"])
 
     # generate the initial condidtion
-    logging.info(f"Initializing model {d}: {init_time}.")
+    print(f"Running IC {d+1}/{len(ic_dates)}: {init_time}.")
     x = inference.rda_era5_to_graphcast_state(device=device, time = init_time)
 
     # run the model
@@ -56,7 +48,7 @@ for d, date in enumerate(ic_dates):
     data_list = []
     iterator = model(init_time, x)
     for k, (time, data, _) in enumerate(iterator):
-        logging.info(f"Step {time} completed.")
+        print(f"Step {time} completed.")
 
         # append the data to the list
         # (move the data to the cpu (memory))
@@ -72,6 +64,7 @@ for d, date in enumerate(ic_dates):
 
     # unpack the data into an xarray object
     ds = inference.unpack_graphcast_state(data, time = lead_times)
+    ds = ds.assign_coords({"lead_time": lead_times})
     da_stack.append(ds["MSL"])
 
         
@@ -89,6 +82,6 @@ ds_out["IC_MEAN_MSL"] = ds_out["MEAN_MSL"].mean(dim="init_time")
 
 # save to data dir in same directory as this file
 if output_path.exists():
-    logging.info(f"File {output_path} already exists. Overwriting.")
+    print(f"File {output_path} already exists. Overwriting.")
     output_path.unlink() # delete the file if it exists
 ds_out.to_netcdf(output_path)

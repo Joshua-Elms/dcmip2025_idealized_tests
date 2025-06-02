@@ -1,7 +1,11 @@
-n_timesteps: 10 # 20 days
-keep_vars: [] # if empty, no vars except those needed for exp are kept
-IC_path: "data/DJF_ERA5_time_mean.nc"
-IC_tendency_path: "data/DJF_ERA5_time_mean_tendency.nc"
-output_path: "data/output_ctrl.nc"
-heating_save_path: "data/heating.nc"
-
+experiment_dir: /glade/u/home/jmelms/projects/dcmip2025_idealized_tests/experiments/B.hakim_and_masanam/data
+experiment_name: test_all_models
+hm24_experiment: extratropical_cyclone
+IC_season: DJF
+device: cuda:0
+n_timesteps: 40
+tendency_reversion: true
+time_mean_IC_dir: /glade/derecho/scratch/jmelms/dcmip/era5_time_means
+perturbation_dir: /glade/derecho/scratch/jmelms/dcmip/hm24_perts
+perturbation_params:
+  amp: 5
