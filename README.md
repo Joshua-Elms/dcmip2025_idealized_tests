@@ -67,7 +67,7 @@ There are some commands that we will use frequently in these experiments, so we 
 
 To run a 6 hour (default) interactive job on casper w/ 1 GPU and X GB of memory:
 
-    qinteractive @casper -A UMIC0107 -l select=1:ncpus=1:ngpus=1:mem=300GB
+    qinteractive @casper -q workshop -A UMIC0107 -l select=1:ncpus=1:mem=50GB -l walltime=00:30:00
 
 To start a jupyter notebook:
 
