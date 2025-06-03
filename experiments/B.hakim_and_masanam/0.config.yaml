@@ -1,6 +1,6 @@
 experiment_dir: /glade/u/home/YOURUSERNAME/DCMIP2025-ML/experiments/B.hakim_and_masanam/data
 experiment_name: test_all_models
-hm24_experiment: steady_state
+hm24_experiment: extratropical_cyclone
 IC_season: DJF
 device: cuda:0
 n_timesteps: 40

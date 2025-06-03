@@ -24,9 +24,12 @@ python -u 1.prep_output_dir.py
 python -u 2a.run_sfno.py
 
 # step 2b: run the small Graphcast model 
-python -u 2b.run_gc_small.py
+# TAO: this is commented out because the tendency reversion approach is not yet working with GraphCast
+#python -u 2b.run_gc_small.py
 
 # step 2c: run the pangu model 
-python -u 2c.run_pangu.py
+# TAO: this is commented out because the initial condition files are not yet recreated on /glade/work; 
+# will uncomment when the initial conditions are ready
+#python -u 2c.run_pangu.py
 
 echo "--------- Job finished at $(date) ------------"

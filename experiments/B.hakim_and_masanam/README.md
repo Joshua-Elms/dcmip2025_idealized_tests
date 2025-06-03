@@ -7,15 +7,21 @@ This experiment runs SFNO, Graphcast, or Pangu following the Hakim and Masanam p
 The scripts/notebooks in this folder are labeled and arranged in the order in which they should be modified and/or run.
 
 ### `0.config.yaml`
-The `0.config.yaml` file contains variables that can be configured to modify the behavior of the simulation.
+The `0.config.yaml` file contains variables that can be configured to modify the behavior of the simulation, such as the specific experiment to run (see *Experiment Selection* below).
 
-### `1.run_sfno.py`
+### `1.prep_output_dir.py`
+Run this script to prepare the experiment directory that you specified in the last step.
 
-TODO
+### `2a-c.submit_hakim_masanam_test.pbs`
+Submit a PBS job that runs steps 2a, 2b, and 2c (running SFNO and Pangu): `qsub 2a-c.submit_hakim_masanam.pbs`
 
-### `2.analysis.py`
+**Note:** We cannot yet run this test on GraphCast.
 
-TODO
+### `3.submit.analysis.pbs`
+
+Submit a PBS job to run the `3.analysis.py` script: `qsub 3.submit.analysis.pbs`
+
+This will generate a plot in `data/test/plots` for the SFNO model.  You can edit line 21 of 3.analysis.py to "pangu" and re submit the PBS job to generate plots for pangu; likewise for "graphcast".
 
 ### Experiment Selection
 
@@ -80,12 +86,6 @@ The scripts used to download the necessary ERA5 climatology are located in the `
 - July: 01, 11, 21, 31
 - August: 10, 20, 30
 - September: 09, 19, 29
-
-### GC Localization Function
-
-### Idealized Cyclone Perturbations
-
-### Experiment
 
 ### References
 1. Hakim, G. J., and S. Masanam, 2024: Dynamical Tests of a Deep Learning Weather Prediction Model. Artif. Intell. Earth Syst., 3, e230090, https://doi.org/10.1175/AIES-D-23-0090.1.
