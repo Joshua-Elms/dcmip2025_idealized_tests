@@ -86,4 +86,4 @@ To check full job info, run `qstat -f -u <YOURUSERNAME>`
 If you wish to modify the conda environments `inference` or `analysis`, you'll have to clone them with the following command: 
 `conda create -n NEW_NAME --clone /path/to/desired/env`
 
-
+To run an inference job on the CPU instead of GPU, you'll have to switch both the 0.config.yaml "device=cuda:0" to "device=cpu", and remove "ngpus=1" from your job request script.
