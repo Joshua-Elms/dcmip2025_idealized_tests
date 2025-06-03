@@ -1,11 +1,11 @@
-experiment_dir: /glade/u/home/jmelms/projects/dcmip2025_idealized_tests/experiments/B.hakim_and_masanam/data
+experiment_dir: /glade/u/home/YOURUSERNAME/DCMIP2025-ML/experiments/B.hakim_and_masanam/data
 experiment_name: test_all_models
-hm24_experiment: extratropical_cyclone
+hm24_experiment: steady_state
 IC_season: DJF
 device: cuda:0
 n_timesteps: 40
 tendency_reversion: true
-time_mean_IC_dir: /glade/derecho/scratch/jmelms/dcmip/era5_time_means
-perturbation_dir: /glade/derecho/scratch/jmelms/dcmip/hm24_perts
+time_mean_IC_dir: /glade/work/jmelms/dcmip/era5_time_means
+perturbation_dir: /glade/work/jmelms/dcmip/hm24_perts
 perturbation_params:
   amp: 5
