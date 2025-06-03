@@ -80,13 +80,13 @@ print(f"Loaded data from {model}, beginning visualization.")
 # )
 
 # print(f"Made Z500.gif.")
-titles = [f"$Z_{{500}}$ Anomalies from DJF Climatology at t={t*6} hours" for t in range(0, 100, 2)]
+titles = [f"$Z_{{500}}$ Anomalies from DJF Climatology at t={t*6} hours" for t in range(0, n_timesteps+1)]
 data = ds["Z"].isel(ensemble=0).sel(level=500)/(g) - (mean_ds["Z"].sel(level=500)/(g)).squeeze()
 vis.create_and_plot_variable_gif(
     data=data,
     plot_var="Z500_anom",
     iter_var="lead_time",
-    iter_vals=np.arange(0, 100, 2),
+    iter_vals=np.arange(0, n_timesteps+1),
     plot_dir=plot_dir,
     units="m",
     cmap="bwr",
