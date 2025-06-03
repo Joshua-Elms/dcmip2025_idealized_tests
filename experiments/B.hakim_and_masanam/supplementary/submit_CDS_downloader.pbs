@@ -1,17 +1,17 @@
 #!/bin/bash -l
 #PBS -N CDS_downloader
+#PBS -q workshop
 #PBS -l select=1:ncpus=4:mem=200GB
-#PBS -l walltime=24:00:00
-#PBS -q casper
+#PBS -l walltime=16:00:00
 #PBS -j oe
-#PBS -o logs/output.log
+#PBS -o download.log
 #PBS -A UMIC0107
 
 echo "---------- Job starting at $(date) ------------"
 
 # load the earth2mip environment
 # (note that this automatically unloads cuda to avoid library errors; a warning will show up when this is run)
-export PYTHONPATH=/glade/u/home/jmelms/projects/dcmip2025_idealized_tests
+export PYTHONPATH=/glade/u/home/jmelms/projects/DCMIP2025-ML
 
 # -u triggers the print buffer to clear immediately so one can follow the log file live
 # choose appropriate number of cpus via the -l select flag
