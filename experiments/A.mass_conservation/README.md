@@ -19,6 +19,8 @@ Submit a PBS job that runs steps 2a, 2b, and 2c (running SFNO,Graphcast, and Pan
 
 Submit a PBS job to run the `3.analysis.py` script: `qsub 3.submit.analysis.pbs`
 
+This will generate a plot in `data/test/plots` for the SFNO model.  You can edit line 21 of 3.analysis.py to "pangu" and re submit the PBS job to generate plots for pangu; likewise for "graphcast".
+
 ### Experiment-Specific Config Options
 Check general config information at [`experiments/README.md`](../README.md) for options shared by multiple experiments. 
 
