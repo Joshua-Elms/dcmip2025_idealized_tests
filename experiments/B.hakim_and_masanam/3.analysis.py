@@ -26,7 +26,7 @@ plot_dir = exp_dir / "plots" # save figures here
 tendency_dir = Path(config["experiment_dir"]) / "tendencies" # tendency data stored here
 IC_dir = Path(config["time_mean_IC_dir"])
 IC_season = config["IC_season"]
-IC_path = IC_dir / f"{IC_season}_ERA5_time_mean_sfno.nc"
+IC_path = IC_dir / f"{IC_season}_ERA5_time_mean_{model}.nc"
 IC_ds = xr.open_dataset(IC_path).sortby("latitude", ascending=False)   
 model_output_path = exp_dir / f"{model}_output.nc"
 heating_ds_path = exp_dir / f"heating.nc"
