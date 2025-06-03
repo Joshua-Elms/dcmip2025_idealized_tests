@@ -21,7 +21,7 @@ with open(config_path, 'r') as file:
     config = yaml.safe_load(file)
     
 # set up directories
-exp_dir = Path(config["experiment_dir"]) / config["hm24_experiment_params"]["hm24_experiment"] / config["experiment_name"] # all data for experiment stored here
+exp_dir = Path(config["experiment_dir"]) / config["hm24_experiment"] / config["experiment_name"] # all data for experiment stored here
 plot_dir = exp_dir / "plots" # save figures here
 tendency_dir = Path(config["experiment_dir"]) / "tendencies" # tendency data stored here
 IC_dir = Path(config["time_mean_IC_dir"])
