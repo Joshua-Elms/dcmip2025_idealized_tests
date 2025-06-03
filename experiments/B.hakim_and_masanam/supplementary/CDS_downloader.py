@@ -14,7 +14,8 @@ import multiprocessing as mp
 from time import perf_counter
 
 this_dir = Path(__file__).parent
-scratch_dir = Path(os.environ.get("SCRATCH")) / "dcmip" / "era5"
+scratch_dir = Path(os.environ.get("WORK")) / "dcmip" / "era5"
+scratch_dir.mkdir(parents=True, exist_ok=True) # create scratch dir if it doesn't exist
 ncpus=4 # number of CPUs to use for parallelization, don't exceed ncpus from job request
 
 pl_variables = [ 
@@ -26,12 +27,6 @@ pl_variables = [
     "v_component_of_wind",
     "vertical_velocity",
 ]
-# # just used for downloading extra pangu/graphcast_small data, temporary
-# pl_variables = [
-#     "specific_humidity",
-#     "vertical_velocity",
-# ]
-# sfc_variables = []
 sfc_variables = [
     "10m_u_component_of_wind",
     "10m_v_component_of_wind",

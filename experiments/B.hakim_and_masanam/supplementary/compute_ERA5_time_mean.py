@@ -146,13 +146,14 @@ model_variables = dict(
 )
 
 this_dir = Path(__file__).parent
-scratch_dir = Path(os.environ.get("SCRATCH")) / "dcmip" / "era5"
-save_dir = Path(os.environ.get("SCRATCH")) / "dcmip" / "era5_time_means"
+scratch_dir = Path(os.environ.get("WORK")) / "dcmip" / "era5"
+save_dir = Path(os.environ.get("WORK")) / "dcmip" / "era5_time_means"
+save_dir.mkdir(parents=True, exist_ok=True)
 DJF = ["12", "01", "02"]
 JAS = ["07", "08", "09"]
 
 seasons = ["DJF", "JAS"]
-models = ["graphcast_small"] # ["sfno", "pangu", "graphcast_small"]
+models = ["sfno", "pangu", "graphcast_small"] # ["sfno", "pangu", "graphcast_small"]
 
 for model in models:
     all_vars = model_variables[model]
