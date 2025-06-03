@@ -39,7 +39,8 @@ g = 9.81 # m/s^2
 
 # load datasets
 ds = xr.open_dataset(model_output_path)
-heating_ds = xr.open_dataset(heating_ds_path)
+if heating_ds_path.exists():
+    heating_ds = xr.open_dataset(heating_ds_path)
 tds = xr.open_dataset(tendency_path)
 mean_ds = xr.open_dataset(IC_path)
 
