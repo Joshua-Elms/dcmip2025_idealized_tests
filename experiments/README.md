@@ -35,12 +35,12 @@ If we do not perturb the initial condition at all, we can ensure the model produ
 Running the model with TR enabled and an unperturbed initial condition is a good test of the TR mechanism implemented in the code, but it's not scientifically interesting to produce a sequence of identical vectors $x_n' = \ldots = x_1' = x_0$. 
 
 Instead, consider modeling the initial state $x_0$ with the addition of some slight perturbation $p$: $x_1' = M(x_0 + p) - dx$. If we assume that the model function $M$ is approximately linear w.r.t. the model state, then we can decompose the above into 
-$$
+$
 x_1' = M(x_0) + M(p) - dx = x_1 - dx + M(p)
-$$ 
+$ 
 
 We then use substitute the definition of our tendency $dx = x_1 - x_0$ to find 
-$$
+$
 x_1' = x_0 + M(p)
-$$
+$
 From here, we simply subtract away the initial state vector $x_0$ to isolate the model response to the perturbation, $M(p)$. Tendency reversion (TR) and the assumption of approximate model linearity let us see how a perturbation ripples through the model solution early on. This is not indefinitely useful, though; the assumption of linearity w.r.t. the initial perturbation fails as we pass a few simulated weeks, in our experience. 
