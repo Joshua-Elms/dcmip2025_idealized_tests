@@ -94,9 +94,9 @@ vis.create_and_plot_variable_gif(
     keep_images=False,
     dpi=300,
     fps=2, 
-    vlims=(-150, 150),  # Set vlims for better visualization
+    vlims=(-300, 300),  # Set vlims for better visualization
     central_longitude=180.0,
-    extent=[140, 280, 20, 70]
+    extent=[120, 280, 0, 70]
 )
 
 print(f"Made Z500_anom.gif.")
