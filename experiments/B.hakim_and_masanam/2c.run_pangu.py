@@ -144,11 +144,11 @@ if tendency_reversion:
     # if file exists at tendency_path, load it
     tendency_path = tendency_dir / f"{IC_season}_pangu_tendency.nc"
     if tendency_path.exists():
-        print(f"Loading cached tendencies from {tendency_path}")
+        print(f"Loading cached tendencies from {tendency_path}.")
         tds = xr.open_dataset(tendency_path).sortby("latitude", ascending=True)
     # else, compute tendencies and save to tendency_path for future use
     else:
-        print(f"Computing tendencies and saving to {tendency_path}")
+        print(f"Computing tendencies and saving to {tendency_path}.")
         tendency_ds = inference.single_IC_inference(
             model=model,
             n_timesteps=1,

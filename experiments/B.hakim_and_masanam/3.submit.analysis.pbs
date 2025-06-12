@@ -1,8 +1,8 @@
 #!/bin/bash -l
-#PBS -N dcmip_mass_conservation_analysis
+#PBS -N B.hakim_and_masanam.analysis
 #PBS -l select=1:ncpus=1:mem=16GB
 #PBS -l walltime=00:05:00
-#PBS -q workshop
+#PBS -q casper
 #PBS -j oe
 #PBS -o analysis.log
 #PBS -A UMIC0107

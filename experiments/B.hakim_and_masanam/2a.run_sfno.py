@@ -1,7 +1,7 @@
 import xarray as xr
 import numpy as np
 from earth2mip import networks # type: ignore
-from utils import inference_sfno
+from utils import inference_sfno as inference
 from pathlib import Path
 import numpy as np
 import yaml
@@ -59,8 +59,8 @@ if hm24_exp_name == "tropical_heating":
     locRad = pert_params["locRadkm"] * 1.e3 # convert km to m
     
     # make heating field
-    heating = amp*inference_sfno.gen_elliptical_perturbation(IC_ds.latitude,IC_ds.longitude,k,ylat,xlon,locRad)
-    heating_ds = inference_sfno.create_empty_sfno_ds()
+    heating = amp*inference.gen_elliptical_perturbation(IC_ds.latitude,IC_ds.longitude,k,ylat,xlon,locRad)
+    heating_ds = inference.create_empty_sfno_ds()
     
     # find levels between 1000 and 200 hPa (inclusive)
     levs = IC_ds["level"].values
@@ -149,7 +149,7 @@ if tendency_reversion:
     # else, compute tendencies and save to tendency_path for future use
     else:
         print(f"Computing tendencies and saving to {tendency_path}.")
-        tendency_ds = inference_sfno.single_IC_inference(
+        tendency_ds = inference.single_IC_inference(
             model=model,
             n_timesteps=1,
             initial_condition=IC_ds,
@@ -160,7 +160,7 @@ if tendency_reversion:
         tds.to_netcdf(tendency_path)
         
     # verify tendency reversion
-    vds = inference_sfno.single_IC_inference(
+    vds = inference.single_IC_inference(
         model=model,
         n_timesteps=1,
         initial_condition=IC_ds,
@@ -191,7 +191,7 @@ if isinstance(rpert, int) and rpert == 0:
 
 ### Run Experiment & Save Output ###
 print(f"Running inference for experiment \"{hm24_exp_name}\" with {n_timesteps} timesteps.")
-ds = inference_sfno.single_IC_inference(
+ds = inference.single_IC_inference(
         model=model,
         n_timesteps=n_timesteps,
         initial_condition=IC_ds,

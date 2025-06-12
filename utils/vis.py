@@ -189,7 +189,6 @@ def create_and_plot_variable_gif(
         extent=extent,
         transform=ccrs.PlateCarree(),
     )   
-    print(f"plotting over extent: {extent}")
     ax.coastlines()
     ax.set_global()
 

@@ -568,9 +568,9 @@ def single_IC_inference(
     if initial_perturbation is not None:
         # pack the perturbation into a tensor
         xpert = pack_graphcast_oper_state(initial_perturbation, device=device)
-        
+
         # add the perturbation to the initial condition
-        x[0, 1] = x[:, 1:] + xpert
+        x[0, 1] = x[0:1, 1:2] + xpert
 
     # run the model
     data_list = [] ## keep initial condition, [0] gets first (only) time

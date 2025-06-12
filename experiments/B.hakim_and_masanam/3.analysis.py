@@ -12,7 +12,7 @@ import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 # choose model to visualize
-model = "sfno" # options: sfno, pangu, graphcast_small
+models = ["sfno", "graphcast_oper", "pangu"] # full set is ["sfno", "graphcast_oper", "pangu"]
 
 # read configuration
 this_dir = Path(__file__).parent
@@ -26,115 +26,73 @@ plot_dir = exp_dir / "plots" # save figures here
 tendency_dir = Path(config["experiment_dir"]) / "tendencies" # tendency data stored here
 IC_dir = Path(config["time_mean_IC_dir"])
 IC_season = config["IC_season"]
-IC_path = IC_dir / f"{IC_season}_ERA5_time_mean_{model}.nc"
-IC_ds = xr.open_dataset(IC_path).sortby("latitude", ascending=False)   
-model_output_path = exp_dir / f"{model}_output.nc"
 heating_ds_path = exp_dir / f"heating.nc"
-tendency_path = tendency_dir / f"{IC_season}_{model}_tendency.nc"
     
 # convenience vars
 n_timesteps = config["n_timesteps"]
 lead_times_h = np.arange(0, 6*n_timesteps+1, 6)
 g = 9.81 # m/s^2
 
-# load datasets
-ds = xr.open_dataset(model_output_path)
-if heating_ds_path.exists():
-    heating_ds = xr.open_dataset(heating_ds_path)
-tds = xr.open_dataset(tendency_path)
-mean_ds = xr.open_dataset(IC_path)
+### create same visualizations for each model in list
+for model in models:
+    # load datasets
+    IC_path = IC_dir / f"{IC_season}_ERA5_time_mean_{model}.nc"
+    IC_ds = xr.open_dataset(IC_path).sortby("latitude", ascending=False)   
+    tendency_path = tendency_dir / f"{IC_season}_{model}_tendency.nc"
+    model_output_path = exp_dir / f"{model}_output.nc"
+    ds = xr.open_dataset(model_output_path)
+    if heating_ds_path.exists():
+        heating_ds = xr.open_dataset(heating_ds_path)
+    tds = xr.open_dataset(tendency_path)
+    mean_ds = xr.open_dataset(IC_path)
 
-print(f"Loaded data from {model}, beginning visualization.")
+    print(f"Loaded data from {model}, beginning visualization.")
 
-# make pretty plots
-# titles = [f"VAR_2T at t={t*6} hours" for t in range(n_timesteps+1)]
-# vis.create_and_plot_variable_gif(
-#     data=ds["VAR_2T"].isel(ensemble=0),
-#     plot_var="VAR_2T",
-#     iter_var="lead_time",
-#     iter_vals=np.arange(0, n_timesteps+1),
-#     plot_dir=plot_dir,
-#     units="degrees K",
-#     cmap="magma",
-#     titles=titles,
-#     keep_images=False,
-#     dpi=300,
-#     fps=8,
-# )
+    # make gifs
 
-# print(f"Made VAR_2T.gif.")
+    titles = [f"$Z_{{500}}$ Anomalies from DJF Climatology at t={t*6} hours" for t in range(0, n_timesteps+1)]
+    data = ds["Z"].isel(ensemble=0).sel(level=500)/(g) - (mean_ds["Z"].sel(level=500)/(g)).squeeze()
+    plot_var = f"Z500_anom_{model}"
+    vis.create_and_plot_variable_gif(
+        data=data,
+        plot_var=plot_var,
+        iter_var="lead_time",
+        iter_vals=np.arange(0, n_timesteps+1),
+        plot_dir=plot_dir,
+        units="m",
+        cmap="PRGn",
+        titles=titles,
+        keep_images=False,
+        dpi=300,
+        fps=2, 
+        vlims=(-150, 150),  # Set vlims for better visualization
+        central_longitude=180.0,
+        extent=[120, 280, 0, 70]
+    )
 
-# titles = [f"$Z_{{500}}$ at t={t*6} hours" for t in range(n_timesteps+1)]
-# vis.create_and_plot_variable_gif(
-#     data=ds["Z"].isel(ensemble=0).sel(level=500)/(10*g),
-#     plot_var="Z500",
-#     iter_var="lead_time",
-#     iter_vals=np.arange(0, n_timesteps+1),
-#     plot_dir=plot_dir,
-#     units="dam",
-#     cmap="coolwarm",
-#     titles=titles,
-#     keep_images=False,
-#     dpi=300,
-#     fps=8,
-# )
+    print(f"Made {plot_var}.gif.")
 
-# print(f"Made Z500.gif.")
-titles = [f"$Z_{{500}}$ Anomalies from DJF Climatology at t={t*6} hours" for t in range(0, n_timesteps+1)]
-data = ds["Z"].isel(ensemble=0).sel(level=500)/(g) - (mean_ds["Z"].sel(level=500)/(g)).squeeze()
-vis.create_and_plot_variable_gif(
-    data=data,
-    plot_var="Z500_anom",
-    iter_var="lead_time",
-    iter_vals=np.arange(0, n_timesteps+1),
-    plot_dir=plot_dir,
-    units="m",
-    cmap="bwr",
-    titles=titles,
-    keep_images=False,
-    dpi=300,
-    fps=2, 
-    vlims=(-300, 300),  # Set vlims for better visualization
-    central_longitude=180.0,
-    extent=[120, 280, 0, 70]
-)
+    titles = [f"$T_{{500}}$ Anomalies from DJF Climatology at t={t*6} hours" for t in range(0, n_timesteps+1)]
+    data = ds["T"].isel(ensemble=0).sel(level=500) - (mean_ds["T"].sel(level=500)).squeeze()
+    plot_var = f"T500_anom_{model}"
+    vis.create_and_plot_variable_gif(
+        data=data,
+        plot_var=plot_var,
+        iter_var="lead_time",
+        iter_vals=np.arange(0, n_timesteps+1),
+        plot_dir=plot_dir,
+        units="K",
+        cmap="bwr",
+        titles=titles,
+        keep_images=False,
+        dpi=300,
+        fps=2, 
+        vlims=(-15, 15),  # Set vlims for better visualization
+        central_longitude=180.0,
+        extent=[120, 280, 0, 70]
+    )
 
-print(f"Made Z500_anom.gif.")
-
-# # debug tds
-# titles = ["DJF VAR_2T Tendency (SFNO)"]
-# tds["VAR_d2T_dt"] = tds["VAR_2T"] / (6)
-# vis.create_and_plot_variable_gif(
-#     data=tds["VAR_d2T_dt"],
-#     plot_var="VAR_2T_tendency",
-#     iter_var="ensemble",
-#     iter_vals=[0],
-#     plot_dir=plot_dir,
-#     units="K hr$^{-1}$",
-#     cmap="magma",
-#     titles=titles,
-#     keep_images=False,
-#     dpi=300,
-#     fps=1,
-# )
-# print(f"Made VAR_2T_tendency.gif.")
-
-
-# titles = ["Heating Term $f$: $T_{500}$ Perturbation"]
-# vis.create_and_plot_variable_gif(
-#     data=heating_ds["T"].sel(level=500).isel(time=0),
-#     plot_var="T500_heating",
-#     iter_var="ensemble",
-#     iter_vals=[0],
-#     plot_dir=plot_dir,
-#     units="$\Delta$ degrees K",
-#     cmap="Reds",
-#     titles=titles,
-#     keep_images=False,
-#     dpi=300,
-#     fps=1,
-# )
-# print(f"Made T500_Heating.gif.")
+    print(f"Made {plot_var}.gif.")
 
 # projection = ccrs.Robinson(central_longitude=120.)
 # fig, ax = plt.subplots(nrows=3,ncols=1,figsize=(11*2,8.5*2),subplot_kw={'projection': projection}, layout='constrained')

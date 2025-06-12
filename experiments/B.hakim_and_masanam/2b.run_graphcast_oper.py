@@ -1,14 +1,14 @@
 import xarray as xr
 import numpy as np
 from earth2mip import networks # type: ignore
-from utils import inference_graphcast_small as inference # type: ignore
+from utils import inference_graphcast_oper as inference # type: ignore
 from pathlib import Path
 import numpy as np
 import yaml
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 
-print("\n\nRunning Graphcast_small model inference for an HM24 experiment.\n\n")
+print("\n\nRunning graphcast_oper model inference for an HM24 experiment.\n\n")
 
 ### General Setup ###
 
@@ -21,13 +21,13 @@ with open(config_path, 'r') as file:
 # set up directories
 exp_dir = Path(config["experiment_dir"]) / config["hm24_experiment"] / config["experiment_name"] # all data for experiment stored here
 tendency_dir = Path(config["experiment_dir"]) / "tendencies" # where to save tendencies
-output_path = exp_dir / "graphcast_output.nc" # where to save output from inference
+output_path = exp_dir / "graphcast_oper_output.nc" # where to save output from inference
 
 # load the model
 device : str = config["device"]
 assert device in ["cpu", "cuda", "cuda:0"], f"Device must be 'cpu' or 'cuda', got {device}."
 print(f"Loading model on {device}.")
-model = networks.get_model("e2mip://graphcast_small",device=device)
+model = networks.get_model("e2mip://graphcast_operational",device=device)
 print("Model loaded.")
 
 # unpack experiment config
@@ -43,8 +43,11 @@ assert hm24_exp_name in hm24_exp_name_options, \
 # load initial condition
 IC_dir = Path(config["time_mean_IC_dir"])
 IC_season = config["IC_season"]
-IC_path = IC_dir / f"{IC_season}_ERA5_time_mean_graphcast.nc"
+IC_path = IC_dir / f"{IC_season}_ERA5_time_mean_graphcast_oper.nc"
 IC_ds = xr.open_dataset(IC_path).sortby("latitude", ascending=False)
+
+# duplicate t=0 to position t=1 for IC_ds because graphcast_oper requires two initial conditions
+IC_ds = xr.concat([IC_ds, IC_ds.isel(time=0)], dim="time")
 
 ### Setup Specific Experiment ###
 
@@ -60,7 +63,7 @@ if hm24_exp_name == "tropical_heating":
     
     # make heating field
     heating = amp*inference.gen_elliptical_perturbation(IC_ds.latitude,IC_ds.longitude,k,ylat,xlon,locRad)
-    heating_ds = inference.create_empty_graphcast_ds()
+    heating_ds = inference.create_empty_graphcast_oper_ds()
     
     # find levels between 1000 and 200 hPa (inclusive)
     levs = IC_ds["level"].values
@@ -70,7 +73,7 @@ if hm24_exp_name == "tropical_heating":
     heating_ds["T"].loc[dict(level=levs)] = heating
 
     # set perturbation to zero for all other variables
-    zero_vars = ["U", "V", "Z", "R", "VAR_10U", "VAR_10V", "VAR_100U", "VAR_100V", "SP", "MSL", "TCW", "VAR_2T", "TP06"]
+    zero_vars = ["U", "V", "Z", "R", "VAR_10U", "VAR_10V", "VAR_100U", "VAR_100V", "SP", "MSL", "TCW", "VAR_2T"]
     for var in zero_vars:
         heating_ds[var][:] = 0.
         
@@ -84,7 +87,7 @@ if hm24_exp_name == "tropical_heating":
     f = heating_ds
     
 elif hm24_exp_name == "extratropical_cyclone":
-    etc_pert_path = list(Path(config["perturbation_dir"]).glob(f"cyclone_{IC_season}_*_regression_graphcast.nc"))[0]
+    etc_pert_path = list(Path(config["perturbation_dir"]).glob(f"cyclone_{IC_season}_*_regression_graphcast_oper.nc"))[0]
     etc_pert = xr.open_dataset(etc_pert_path)
     print(f"Loaded extratropical cyclone perturbation from {etc_pert_path}.")
     # pert scaled by user-defined amplitude, separate from HM24 file amp in supplementary/
@@ -94,7 +97,7 @@ elif hm24_exp_name == "extratropical_cyclone":
     f = 0 # no recurrent perturbation
 
 elif hm24_exp_name == "geostrophic_adjustment":
-    etc_pert_path = list(Path(config["perturbation_dir"]).glob(f"cyclone_{IC_season}_*_regression_graphcast.nc"))[0]
+    etc_pert_path = list(Path(config["perturbation_dir"]).glob(f"cyclone_{IC_season}_*_regression_graphcast_oper.nc"))[0]
     etc_pert = xr.open_dataset(etc_pert_path)
     print(f"Loaded ETC perturbation from {etc_pert_path}.")
     # for geostrophic adjustment test, only z500 is perturbed
@@ -107,7 +110,7 @@ elif hm24_exp_name == "geostrophic_adjustment":
     f = 0 # no recurrent perturbation
 
 elif hm24_exp_name == "tropical_cyclone":
-    tc_pert_path = list(Path(config["perturbation_dir"]).glob(f"hurricane_{IC_season}_*_regression_graphcast.nc"))[0]
+    tc_pert_path = list(Path(config["perturbation_dir"]).glob(f"hurricane_{IC_season}_*_regression_graphcast_oper.nc"))[0]
     tc_pert = xr.open_dataset(tc_pert_path)
     print(f"Loaded tropical cyclone perturbation from {tc_pert_path}.")
     # pert scaled by user-defined amplitude, separate from HM24 file amp in supplementary/
@@ -119,7 +122,7 @@ elif hm24_exp_name == "tropical_cyclone":
 # initial_perturbation might be a smaller region than IC_ds
 # so we add to an empty dataset with the same shape as IC_ds
 if initial_perturbation is not None:
-    zero_ds = IC_ds.copy(deep=True) * 0  # create a zero dataset with the same shape as IC_ds
+    zero_ds = IC_ds.isel(time=0, drop=False).copy(deep=True) * 0  # create a zero dataset with the same shape as IC_ds, but single-dimensional in time
     
     lat_coords = initial_perturbation.latitude.values
     lon_coords = initial_perturbation.longitude.values
@@ -133,8 +136,8 @@ if initial_perturbation is not None:
     # Add the smaller array to the larger array at the selected coordinates
     zero_ds.loc[selection] += initial_perturbation
     
-    initial_perturbation = zero_ds  # now initial_perturbation has the same shape as IC_ds
-    assert initial_perturbation.dims == IC_ds.dims, \
+    initial_perturbation = zero_ds  # now initial_perturbation has the same shape as IC_ds, 
+    assert initial_perturbation.dims == IC_ds.isel(time=0).dims, \
         f"Initial perturbation dimensions {initial_perturbation.dims} do not match IC dimensions {IC_ds.dims}. Check the perturbation shape."
     
 ### Compute Tendencies ###
@@ -142,7 +145,7 @@ if initial_perturbation is not None:
 # only need to compute tendencies if tendency reversion is enabled
 if tendency_reversion:
     # if file exists at tendency_path, load it
-    tendency_path = tendency_dir / f"{IC_season}_graphcast_tendency.nc"
+    tendency_path = tendency_dir / f"{IC_season}_graphcast_oper_tendency.nc"
     if tendency_path.exists():
         print(f"Loading cached tendencies from {tendency_path}.")
         tds = xr.open_dataset(tendency_path).sortby("latitude", ascending=False)
