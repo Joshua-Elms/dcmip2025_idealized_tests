@@ -93,6 +93,7 @@ def create_and_plot_variable_gif(
     cmap: str,
     titles: list[str],
     central_longitude: float = 180.,
+    extent: list = None,
     adjust: dict = None,
     dpi: int = 100,
     fps: int = 2,
@@ -125,6 +126,8 @@ def create_and_plot_variable_gif(
         List of titles for each frame of the animation. Must match the length of iter_vals.
     central_longitude : float, optional
         Central longitude for the map projection. Default is 180 °E
+    extent : list, optional
+        List of [lon_min, lon_max, lat_min, lat_max] to set the extent of the plot. If None, uses the full range of data.
     adjust : dict, optional
         Dictionary of subplot adjustment parameters for matplotlib
     fig_size : tuple, optional
@@ -171,7 +174,12 @@ def create_and_plot_variable_gif(
     fig, ax = plt.subplots(figsize=fig_size, subplot_kw={"projection": ccrs.PlateCarree(central_longitude=central_longitude)}) # , subplot_kw={"projection": ccrs.PlateCarree(central_longitude=180)}
 
     # set up first frame to be updated in later loop
-    extent = [lon.min(), lon.max(), lat.min(), lat.max()]
+    if extent is None:
+        extent = [lon.min(), lon.max(), lat.min(), lat.max()]
+    else:
+        assert len(extent) == 4, "Extent must be a list of [lon_min, lon_max, lat_min, lat_max]"
+        assert extent[0] <= extent[1], "Longitude min must be less than max"
+        assert extent[2] <= extent[3], "Latitude min must be less than max"
    
     im = ax.imshow(
         data.isel({iter_var:iter_vals[0]}), 
@@ -179,27 +187,22 @@ def create_and_plot_variable_gif(
         cmap=cmap, 
         origin="lower",
         extent=extent,
-        transform=ccrs.PlateCarree(central_longitude=central_longitude),
+        transform=ccrs.PlateCarree(),
     )   
+    print(f"plotting over extent: {extent}")
     ax.coastlines()
     ax.set_global()
 
     ### Set axis information
-    # labels
-    xax_label = "longitude [°E]"
-    yax_label = "latitude [°N]"
-    ax.set_xlabel(xax_label)
-    ax.set_ylabel(yax_label)
+    # # labels
+    # xax_label = "longitude [°E]"
+    # yax_label = "latitude [°N]"
+    # ax.set_xlabel(xax_label)
+    # ax.set_ylabel(yax_label)
 
     # ticks and ticklabels
-    # xticks = [-180, -120, -60, 0, 60, 120, 180]
-    # yticks = [-90, -60, -30, 0, 30, 60, 90]
-    # xticklabs = [str(x) for x in xticks[3:] + xticks[:3]]
-    # yticklabs = [str(y) for y in yticks[3:] + yticks[:3]]
-    # ax.set_xticks(xticks)
-    # ax.set_yticks(yticks)
-    # ax.set_xticklabels(xticklabs)
-    # ax.set_yticklabels(yticklabs)
+    ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True,)
+    ax.set_extent(extent, crs=ccrs.PlateCarree())
 
     ### Set other plot aesthetics
     # background color
