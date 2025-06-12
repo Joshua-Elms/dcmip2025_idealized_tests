@@ -315,8 +315,8 @@ locrad = 2000.
 # scaling amplitude for initial condition (1=climo variance at the base point)
 amp = -1.
 
-# compute_regression(ic, ylat, xlon, locrad, amp, dpath, opath, model="sfno")
-# compute_regression(ic, ylat, xlon, locrad, amp, dpath, opath, model="pangu")
+compute_regression(ic, ylat, xlon, locrad, amp, dpath, opath, model="sfno")
+compute_regression(ic, ylat, xlon, locrad, amp, dpath, opath, model="pangu")
 compute_regression(ic, ylat, xlon, locrad, amp, dpath, opath, model="graphcast_oper")
 
 ic = 'JAS'
@@ -327,8 +327,8 @@ locrad = 1000.
 # scaling amplitude for initial condition (1=climo variance at the base point)
 amp = -1.
 
-# compute_regression(ic, ylat, xlon, locrad, amp, dpath, opath, model="sfno")
-# compute_regression(ic, ylat, xlon, locrad, amp, dpath, opath, model="pangu")
+compute_regression(ic, ylat, xlon, locrad, amp, dpath, opath, model="sfno")
+compute_regression(ic, ylat, xlon, locrad, amp, dpath, opath, model="pangu")
 compute_regression(ic, ylat, xlon, locrad, amp, dpath, opath, model="graphcast_oper")
 
 #
