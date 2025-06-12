@@ -2,7 +2,7 @@
 #PBS -N A.mass_conservation
 #PBS -l select=1:ncpus=1:ngpus=1:mem=64GB
 #PBS -l gpu_type=h100
-#PBS -l walltime=00:40:00
+#PBS -l walltime=06:00:00
 #PBS -q casper
 #PBS -j oe
 #PBS -o job.log

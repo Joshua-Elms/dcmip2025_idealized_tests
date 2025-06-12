@@ -23,3 +23,7 @@ plot_dir.mkdir(parents=True, exist_ok=True) # make dir if it doesn't exist
 config_path_exp = exp_dir / "config.yaml"
 with open(config_path_exp, 'w') as file:
     yaml.dump(config, file)
+    
+# let user know where to find config
+print(f"Directory structure set up for experiment '{config['experiment_name']}'.")
+print(f"Configuration file saved to {config_path_exp}.")
