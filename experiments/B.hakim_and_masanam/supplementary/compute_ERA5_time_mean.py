@@ -131,7 +131,7 @@ model_variables = dict(
         "2m_temperature",
         "mean_sea_level_pressure",
         ],
-    graphcast_small=[
+    graphcast_oper=[
         "geopotential",
         "specific_humidity",
         "temperature",
@@ -153,7 +153,7 @@ DJF = ["12", "01", "02"]
 JAS = ["07", "08", "09"]
 
 seasons = ["DJF", "JAS"]
-models = ["sfno", "pangu", "graphcast_small"] # ["sfno", "pangu", "graphcast_small"]
+models = ["sfno", "pangu", "graphcast_oper"] # ["sfno", "pangu", "graphcast_small"]
 
 for model in models:
     all_vars = model_variables[model]

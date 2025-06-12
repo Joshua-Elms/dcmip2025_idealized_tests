@@ -1,6 +1,6 @@
 """
 This script downloads ERA5 at 10-day intervals from 1979-2019 DJF and JAS 0z mean of the necessary
-fields to run the SFNO 73 channel model, graphcast_small 83 channel model, and incidentally, the Pangu model.. 
+fields to run the SFNO 73 channel model, graphcast_oper 82 channel model, and incidentally, the Pangu model.. 
 
 For parallelization, the script uses the multiprocessing library to download
 the data in chunks. Each chunk is a time series from 1979-2019 for a single variable
