@@ -2,13 +2,13 @@ import xarray as xr
 import datetime as dt
 import torch
 from earth2mip import networks # type: ignore
-from utils import inference_graphcast_small as inference
+from utils import inference_graphcast_oper as inference
 from pathlib import Path
 import yaml
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 
-print("\n\nRunning Graphcast small model inference for mass conservation experiment.\n\n")
+print("\n\nRunning graphcast_operational model inference for mass conservation experiment.\n\n")
 
 # read configuration
 this_dir = Path(__file__).parent
@@ -19,13 +19,13 @@ with open(config_path, 'r') as file:
 # set up directories
 exp_dir = Path(config["experiment_dir"]) / config["experiment_name"] # all data for experiment stored here
 exp_dir.mkdir(parents=True, exist_ok=True) # make dir if it doesn't exist
-output_path = exp_dir / "graphcast_output.nc" # where to save output from inference
+output_path = exp_dir / "graphcast_oper_output.nc" # where to save output from inference
 
 # load the model
 device = config["device"]
 assert device in ["cpu", "cuda", "cuda:0"], "Device must be 'cpu' or 'cuda'."
 print(f"Loading model on {device}.")
-model = networks.get_model("e2mip://graphcast_small",device=device)
+model = networks.get_model("e2mip://graphcast_operational",device=device)
 print("Model loaded.")
 
 # load the initial condition times
@@ -41,7 +41,7 @@ for d, date in enumerate(ic_dates):
 
     # generate the initial condidtion
     print(f"Running IC {d+1}/{len(ic_dates)}: {init_time}.")
-    x = inference.rda_era5_to_graphcast_state(device=device, time = init_time)
+    x = inference.rda_era5_to_graphcast_oper_state(device=device, time = init_time)
 
     # run the model
     lead_times = []
@@ -63,7 +63,7 @@ for d, date in enumerate(ic_dates):
     data = torch.stack(data_list)
 
     # unpack the data into an xarray object
-    ds = inference.unpack_graphcast_state(data, time = lead_times)
+    ds = inference.unpack_graphcast_oper_state(data, time = lead_times)
     ds = ds.assign_coords({"lead_time": lead_times})
     da_stack.append(ds["MSL"])
 

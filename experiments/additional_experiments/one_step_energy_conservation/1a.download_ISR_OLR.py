@@ -4,7 +4,7 @@ import numpy as np
 import yaml
 import matplotlib.pyplot as plt
 import datetime as dt
-from utils import inference
+from utils import inference_sfno
 import cdsapi
 
 

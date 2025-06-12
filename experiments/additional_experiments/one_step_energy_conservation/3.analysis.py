@@ -4,7 +4,7 @@ import numpy as np
 import yaml
 import matplotlib.pyplot as plt
 import datetime as dt
-from utils import inference, vis
+from utils import inference_sfno, vis
 import scipy
 from time import perf_counter
 import torch
@@ -96,8 +96,8 @@ titles = [title_str.format(delta_T=delta_T) for delta_T in raw_output_ds["delta_
 ### Analysis ###
 
 # Step 1: Calculate the global mean ISR/OLR for each init time
-rad_ds["MEAN_ISR"] = inference.latitude_weighted_mean(rad_ds["VAR_ISR"], rad_ds["latitude"], device=device)
-rad_ds["MEAN_OLR"] = inference.latitude_weighted_mean(rad_ds["VAR_OLR"], rad_ds["latitude"], device=device)
+rad_ds["MEAN_ISR"] = inference_sfno.latitude_weighted_mean(rad_ds["VAR_ISR"], rad_ds["latitude"], device=device)
+rad_ds["MEAN_OLR"] = inference_sfno.latitude_weighted_mean(rad_ds["VAR_OLR"], rad_ds["latitude"], device=device)
 
 # Step 2: Calculate the effective radiative temperature of the Earth from the OLR
 rad_ds["ERT"] = (rad_ds["MEAN_OLR"] / sb_const) ** (1/4)
@@ -184,7 +184,7 @@ if not cached:
 
     ### Step 4e: Weight by latitude ####
     # get latitude weighted total energy (time, ensemble)
-    ds["LW_TE"] = inference.latitude_weighted_mean(ds["VAR_TE"], ds.latitude, device=device)
+    ds["LW_TE"] = inference_sfno.latitude_weighted_mean(ds["VAR_TE"], ds.latitude, device=device)
     ds["LW_TE"].assign_attrs(
         {"units": "J/m^2", "long_name": "Latitude-Weighted Total Energy"}
     )
@@ -346,7 +346,7 @@ if not saved:
         ds_inner = []
         for lead_time in lead_times_h.tolist():
             t = ic_date + dt.timedelta(hours=lead_time)
-            test_ds_slice = inference.read_sfno_vars_from_era5_rda(t)
+            test_ds_slice = inference_sfno.read_sfno_vars_from_era5_rda(t)
             
             ds_inner.append(test_ds_slice)
         ds_sub = xr.concat(ds_inner, dim="lead_time")
@@ -358,8 +358,8 @@ if not saved:
     long_rad_ds.close()
 
     # step 2: calculate the global mean ISR/OLR for each time
-    era5_ds["MEAN_ISR"] = inference.latitude_weighted_mean(era5_ds["VAR_ISR"], era5_ds["latitude"], device=device)
-    era5_ds["MEAN_OLR"] = inference.latitude_weighted_mean(era5_ds["VAR_OLR"], era5_ds["latitude"], device=device)
+    era5_ds["MEAN_ISR"] = inference_sfno.latitude_weighted_mean(era5_ds["VAR_ISR"], era5_ds["latitude"], device=device)
+    era5_ds["MEAN_OLR"] = inference_sfno.latitude_weighted_mean(era5_ds["VAR_OLR"], era5_ds["latitude"], device=device)
 
     # step 3: calculate the total energy of the atmosphere at each timestep
 
@@ -405,7 +405,7 @@ if not saved:
 
     ### Step 4e: Weight by latitude ####
     # get latitude weighted total energy (time, ensemble)
-    era5_ds["LW_TE"] = inference.latitude_weighted_mean(era5_ds["VAR_TE"], era5_ds.latitude, device=device)
+    era5_ds["LW_TE"] = inference_sfno.latitude_weighted_mean(era5_ds["VAR_TE"], era5_ds.latitude, device=device)
     era5_ds["LW_TE"].assign_attrs(
         {"units": "J/m^2", "long_name": "Latitude-Weighted Total Energy"}
     )

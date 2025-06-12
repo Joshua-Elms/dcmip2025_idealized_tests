@@ -1,6 +1,6 @@
 import xarray as xr
 from earth2mip import networks # type: ignore
-import utils.inference as inference
+import utils.inference_sfno as inference_sfno
 import initial_conditions.utils as bouvier_utils
 from pathlib import Path
 import numpy as np
@@ -79,7 +79,7 @@ for i, val in enumerate(iter_vals.tolist()): # whichever parameter is iterable
     # only need to compute tendencies if tendency reversion is enabled
     if tendency_reversion:
         print(f"Computing tendency.")
-        tendency_ds = inference.single_IC_inference(
+        tendency_ds = inference_sfno.single_IC_inference(
             model=model,
             n_timesteps=1,
             initial_condition=ic,
@@ -90,7 +90,7 @@ for i, val in enumerate(iter_vals.tolist()): # whichever parameter is iterable
         rpert = -tds
             
         # verify tendency reversion
-        vds = inference.single_IC_inference(
+        vds = inference_sfno.single_IC_inference(
             model=model,
             n_timesteps=1,
             initial_condition=ic,
@@ -116,10 +116,10 @@ for i, val in enumerate(iter_vals.tolist()): # whichever parameter is iterable
         u_pert_base = pert_params["u_wind_pert_base"]
         
         # set up the perturbation
-        upert = inference.gen_baroclinic_wave_perturbation(
+        upert = inference_sfno.gen_baroclinic_wave_perturbation(
             ic.latitude, ic.longitude, ylat, xlon, u_pert_base, locRad
         )
-        initial_perturbation = inference.create_empty_sfno_ds()
+        initial_perturbation = inference_sfno.create_empty_sfno_ds()
 
         # set perturbation u-wind profile to `upert` field
         initial_perturbation["U"][:] = upert
@@ -140,7 +140,7 @@ for i, val in enumerate(iter_vals.tolist()): # whichever parameter is iterable
         initial_perturbation = None
         
     print(f"Running inference for {iter_param}={val} ({i+1}/{len(iter_vals)})")
-    single_ds = inference.single_IC_inference(
+    single_ds = inference_sfno.single_IC_inference(
         model=model,
         n_timesteps=config["inference_parameters"]["n_timesteps"],
         initial_condition=ic,

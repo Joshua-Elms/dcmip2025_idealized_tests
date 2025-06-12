@@ -2,7 +2,7 @@ import xarray as xr
 import datetime as dt
 import torch
 from earth2mip import networks # type: ignore
-from utils import inference
+from utils import inference_sfno as inference
 from pathlib import Path
 import yaml
 import warnings

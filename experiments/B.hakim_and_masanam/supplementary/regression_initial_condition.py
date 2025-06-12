@@ -16,7 +16,7 @@ import numpy as np
 import xarray as xr
 import os
 from scipy.stats import linregress
-from utils import inference
+from utils import inference_sfno
 from pathlib import Path
 
 def compute_regression(
@@ -172,7 +172,7 @@ def compute_regression(
     bplat = int((90.-ylat)*4); bplon = int(xlon)*4
     print('lat, lon=',lat[bplat],lon[bplon])
 
-    locfunc = inference.gen_circular_perturbation(lat_2d,lon_2d,bplat,bplon,1.0,locRad=locrad)
+    locfunc = inference_sfno.gen_circular_perturbation(lat_2d,lon_2d,bplat,bplon,1.0,locRad=locrad)
     print('locfunc max:',np.max(locfunc))
 
     # indices where this function is greater than zero
