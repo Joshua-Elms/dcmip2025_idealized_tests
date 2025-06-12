@@ -19,13 +19,13 @@ import torch
 #    "w400", "w500", "w600", "w700", "w850", "w925", "w1000", "u10m", "v10m",
 #    "t2m", "msl" ;
 
-graphcast_levels = [50,100,150,200,250,300,400,500,600,700,850,925,1000]
-graphcast_3dvars = ["Z", "Q", "T", "U", "V", "W"]
-graphcast_2dvars = ["VAR_10U", "VAR_10V", "VAR_2T", "MSL"]
+graphcast_oper_levels = [50,100,150,200,250,300,400,500,600,700,850,925,1000]
+graphcast_oper_3dvars = ["Z", "Q", "T", "U", "V", "W"]
+graphcast_oper_2dvars = ["VAR_10U", "VAR_10V", "VAR_2T", "MSL"]
 nlat = 721
 nlon = 1440
 
-def pack_graphcast_state(
+def pack_graphcast_oper_state(
         ds : xr.Dataset,
         device : str = "cpu",
         is_rpert : bool = False,
@@ -84,8 +84,8 @@ def pack_graphcast_state(
     with dask.config.set(**{'array.slicing.split_large_chunks': False}):
         # concatenate the 3d variables along a new axis
         x3d = None
-        for var in graphcast_3dvars:
-            for lev in graphcast_levels:
+        for var in graphcast_oper_3dvars:
+            for lev in graphcast_oper_levels:
                 if x3d is None: 
                     x3d = ds[var].sel(level=lev).drop_vars('level').squeeze()
                 else:
@@ -112,7 +112,7 @@ def pack_graphcast_state(
     assert x.ndim < 5, f"Input data has too many dimensions: {x.ndim}. Expected 4 or less."
     
     # current shape is (n, time, lat, lon)
-    # graphcast expects (time, n, lat, lon)
+    # graphcast_oper expects (time, n, lat, lon)
     if x.ndim == 4:
         print("Permuting dimensions to match graphcast_operational input shape.")
         x = x.permute(1, 0, 2, 3)
@@ -123,7 +123,7 @@ def pack_graphcast_state(
 
     return x
 
-def read_graphcast_vars_from_era5_rda(
+def read_graphcast_oper_vars_from_era5_rda(
         time : dt.datetime,
         e5_base : str = "/glade/campaign/collections/rda/data/ds633.0/",
         ) -> xr.Dataset:
@@ -211,11 +211,11 @@ def read_graphcast_vars_from_era5_rda(
     combined_xr = xr.open_mfdataset(list(fileset), combine='by_coords')
 
     # select the specific time and the timestep 6 hours prior
-    combined_xr = combined_xr.sel(time=dates, level = graphcast_levels).squeeze()
+    combined_xr = combined_xr.sel(time=dates, level = graphcast_oper_levels).squeeze()
     
     return combined_xr
 
-def rda_era5_to_graphcast_state(
+def rda_era5_to_graphcast_oper_state(
         time : dt.datetime,
         device : str = "cpu",
         e5_base : str = "/glade/campaign/collections/rda/data/ds633.0/",
@@ -243,15 +243,15 @@ def rda_era5_to_graphcast_state(
     """
 
     # read the data
-    # unlike SFNO, graphcast expends latitude from -90 to 90
-    combined_xr = read_graphcast_vars_from_era5_rda(time, e5_base = e5_base).sortby("latitude", ascending=True)
+    # unlike SFNO, graphcast_oper expends latitude from -90 to 90
+    combined_xr = read_graphcast_oper_vars_from_era5_rda(time, e5_base = e5_base).sortby("latitude", ascending=True)
 
     # pack the data into a tensor
-    x = pack_graphcast_state(combined_xr, device=device)
+    x = pack_graphcast_oper_state(combined_xr, device=device)
 
     return x
 
-def initialize_graphcast_xarray_ds(time, n_ensemble : int) -> xr.Dataset:
+def initialize_graphcast_oper_xarray_ds(time, n_ensemble : int) -> xr.Dataset:
     """ Initializes an xarray dataset for output from the graphcast_operational model. 
     
     input:
@@ -281,7 +281,7 @@ def initialize_graphcast_xarray_ds(time, n_ensemble : int) -> xr.Dataset:
     
     # create the coordinates
     ds['time'] = xr.DataArray(time, dims='time')
-    ds['level'] = xr.DataArray(graphcast_levels, dims='level')
+    ds['level'] = xr.DataArray(graphcast_oper_levels, dims='level')
     ds['latitude'] = xr.DataArray(np.linspace(-90,90,nlat), dims='latitude')
     ds['longitude'] = xr.DataArray(np.linspace(0,359.75,nlon), dims='longitude')
     ds['ensemble'] = xr.DataArray(np.arange(n_ensemble), dims='ensemble')
@@ -298,7 +298,7 @@ def initialize_graphcast_xarray_ds(time, n_ensemble : int) -> xr.Dataset:
 
     return ds
 
-def set_graphcast_xarray_metadata(ds : xr.Dataset, copy : bool = False) -> xr.Dataset:
+def set_graphcast_oper_xarray_metadata(ds : xr.Dataset, copy : bool = False) -> xr.Dataset:
     """Sets the metadata for the graphcast_operational model xarray dataset.
     
     input:
@@ -319,7 +319,7 @@ def set_graphcast_xarray_metadata(ds : xr.Dataset, copy : bool = False) -> xr.Da
         ds = ds.copy()
 
     # set metadata
-    all_vars = graphcast_2dvars + graphcast_3dvars
+    all_vars = graphcast_oper_2dvars + graphcast_oper_3dvars
     md = { v : {} for v in all_vars }
     md['W']['long_name'] = 'vertical velocity'
     md['W']['units'] = 'Pa s**-1'
@@ -361,7 +361,7 @@ def set_graphcast_xarray_metadata(ds : xr.Dataset, copy : bool = False) -> xr.Da
 
     return ds
 
-def unpack_graphcast_state(
+def unpack_graphcast_oper_state(
         x : torch.tensor,
         time = None,
         ) -> xr.Dataset:
@@ -399,11 +399,11 @@ def unpack_graphcast_state(
         time = [dt.datetime(1850,1,1) + dt.timedelta(hours=i*6) for i in range(n_time)]
 
     # initialize the dataset
-    ds = initialize_graphcast_xarray_ds(time, n_ensemble)
+    ds = initialize_graphcast_oper_xarray_ds(time, n_ensemble)
 
-    nlev = len(graphcast_levels)
+    nlev = len(graphcast_oper_levels)
     # loop over the 3D variables and insert them into the dataset
-    for j, var in enumerate(graphcast_3dvars):
+    for j, var in enumerate(graphcast_oper_3dvars):
         # get the indices for the current 3D variable
         i1 = j*nlev
         i2 = (j+1)*nlev
@@ -412,14 +412,14 @@ def unpack_graphcast_state(
         ds[var] = xr.DataArray(x[:,:,i1:i2,:,:].cpu().numpy(), dims=('time', 'ensemble', 'level', 'latitude', 'longitude'))
         
     # loop over the 2D variables and insert them into the dataset
-    n3d = len(graphcast_3dvars)
-    for i, var in enumerate(graphcast_2dvars):
+    n3d = len(graphcast_oper_3dvars)
+    for i, var in enumerate(graphcast_oper_2dvars):
         i1 = i + n3d*nlev
         ds[var] = xr.DataArray(x[:,:,i1,:,:].cpu().numpy(), dims=('time', 'ensemble', 'latitude', 'longitude'))
 
     return ds
 
-def create_empty_graphcast_ds(
+def create_empty_graphcast_oper_ds(
         n_ensemble : int = 1,
         time : dt.datetime = dt.datetime(1850,1,1),
         ) -> xr.Dataset:
@@ -443,18 +443,18 @@ def create_empty_graphcast_ds(
     """
 
     # initialize the dataset
-    ds = initialize_graphcast_xarray_ds(time, n_ensemble)
+    ds = initialize_graphcast_oper_xarray_ds(time, n_ensemble)
 
     # loop over the 2D variables and insert empty arrays
-    for var in graphcast_2dvars:
+    for var in graphcast_oper_2dvars:
         ds[var] = xr.DataArray(np.empty((1, n_ensemble, nlat, nlon)), dims=('time', 'ensemble', 'latitude', 'longitude'))
 
     # loop over the 3D variables and insert empty arrays
-    for var in graphcast_3dvars:
-        ds[var] = xr.DataArray(np.empty((1, n_ensemble, len(graphcast_levels), nlat, nlon)), dims=('time', 'ensemble', 'level', 'latitude', 'longitude'))
+    for var in graphcast_oper_3dvars:
+        ds[var] = xr.DataArray(np.empty((1, n_ensemble, len(graphcast_oper_levels), nlat, nlon)), dims=('time', 'ensemble', 'level', 'latitude', 'longitude'))
 
     # set the metadata
-    ds = set_graphcast_xarray_metadata(ds)
+    ds = set_graphcast_oper_xarray_metadata(ds)
 
     return ds
 
@@ -531,7 +531,7 @@ def single_IC_inference(
         the time to initialize the model at. if providing initial_condition, this doesn't need to be set
 
     initial_condition (optional) : xr.Dataset
-        the initial condition to use for the model. If not provided, the model will be initialized using the rda_era5_to_graphcast_state function at init_time.
+        the initial condition to use for the model. If not provided, the model will be initialized using the rda_era5_to_graphcast_oper_state function at init_time.
 
     perturbation (optional) : xr.Dataset
         the perturbation to apply to the initial condition. This is added to the initial condition before running the model.
@@ -555,19 +555,19 @@ def single_IC_inference(
     end_time = init_time + dt.timedelta(hours=6*(n_timesteps))
     
     if initial_condition is not None:
-        # for graphcast, IC must have two timesteps: t=0 and t=-1 (0 and -6 hours)
+        # for graphcast_oper, IC must have two timesteps: t=0 and t=-1 (0 and -6 hours)
         assert initial_condition.dims['time'] == 2, f"Initial condition must have 2 timesteps: {initial_condition.dims['time']} found."
         # pack the initial condition into a tensor
-        x = pack_graphcast_state(initial_condition, device=device)
+        x = pack_graphcast_oper_state(initial_condition, device=device)
         
     else:
-        # just use rda_era5_to_graphcast_state to get the initial condition
-        x = rda_era5_to_graphcast_state(device=device, time = init_time)
+        # just use rda_era5_to_graphcast_oper_state to get the initial condition
+        x = rda_era5_to_graphcast_oper_state(device=device, time = init_time)
         
     # check if we need to apply a perturbation
     if initial_perturbation is not None:
         # pack the perturbation into a tensor
-        xpert = pack_graphcast_state(initial_perturbation, device=device)
+        xpert = pack_graphcast_oper_state(initial_perturbation, device=device)
         
         # add the perturbation to the initial condition
         x[0, 1] = x[:, 1:] + xpert
@@ -577,7 +577,7 @@ def single_IC_inference(
     # handle perturbation which will be added to the model output at every timestep
     if recurrent_perturbation is not None:
         # pack the perturbation into a tensor
-        rpert = pack_graphcast_state(recurrent_perturbation, device=device, is_rpert=True)
+        rpert = pack_graphcast_oper_state(recurrent_perturbation, device=device, is_rpert=True)
         
     else:
         rpert = None
@@ -598,7 +598,7 @@ def single_IC_inference(
     # stack the output data by time
     data = torch.stack(data_list)
     
-    return unpack_graphcast_state(data, time = timedeltas)
+    return unpack_graphcast_oper_state(data, time = timedeltas)
 
 def haversine(lon1, lat1, lon2, lat2):
     """
