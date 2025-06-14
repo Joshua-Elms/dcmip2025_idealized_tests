@@ -1,6 +1,6 @@
 experiment_dir: /glade/u/home/jmelms/projects/dcmip2025_idealized_tests/experiments/B.hakim_and_masanam/data
 experiment_name: canonical_run
-hm24_experiment: extratropical_cyclone
+hm24_experiment: tropical_heating
 time_mean_IC_dir: /glade/work/jmelms/dcmip/era5_time_means
 perturbation_dir: /glade/work/jmelms/dcmip/hm24_perts
 IC_season: DJF
@@ -8,4 +8,8 @@ tendency_reversion: true
 device: cuda:0
 n_timesteps: 80
 perturbation_params:
-  amp: 1
+  amp: 0.1
+  k: 6
+  ylat: 20
+  xlon: 120
+  locRadkm: 10000

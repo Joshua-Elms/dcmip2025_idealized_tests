@@ -568,7 +568,7 @@ def single_IC_inference(
     if initial_perturbation is not None:
         # pack the perturbation into a tensor
         xpert = pack_graphcast_oper_state(initial_perturbation, device=device)
-
+        
         # add the perturbation to the initial condition
         x[0, 1] = x[0:1, 1:2] + xpert
 
@@ -578,7 +578,7 @@ def single_IC_inference(
     if recurrent_perturbation is not None:
         # pack the perturbation into a tensor
         rpert = pack_graphcast_oper_state(recurrent_perturbation, device=device, is_rpert=True)
-        
+
     else:
         rpert = None
         

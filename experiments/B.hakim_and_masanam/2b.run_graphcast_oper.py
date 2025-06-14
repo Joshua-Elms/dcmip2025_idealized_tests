@@ -73,7 +73,7 @@ if hm24_exp_name == "tropical_heating":
     heating_ds["T"].loc[dict(level=levs)] = heating
 
     # set perturbation to zero for all other variables
-    zero_vars = ["U", "V", "Z", "R", "VAR_10U", "VAR_10V", "VAR_100U", "VAR_100V", "SP", "MSL", "TCW", "VAR_2T"]
+    zero_vars = ["U", "V", "Z", "Q", "W", "VAR_10U", "VAR_10V", "MSL", "VAR_2T"]
     for var in zero_vars:
         heating_ds[var][:] = 0.
         
