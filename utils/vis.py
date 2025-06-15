@@ -4,11 +4,29 @@ import numpy as np
 import imageio.v2 as imageio
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
+from matplotlib import colors
 from matplotlib import colormaps
 import cartopy.crs as ccrs
 import shutil
 import yaml
 
+class MidpointNormalize(colors.Normalize):
+    """
+    Code from Joe Kingston: https://chris35wills.github.io/matplotlib_diverging_colorbar/
+
+    Normalise the colorbar so that diverging bars work there way either side from a prescribed midpoint value)
+
+    e.g. im=ax1.imshow(array, norm=MidpointNormalize(midpoint=0.,vmin=-100, vmax=100))
+    """
+    def __init__(self, vmin=None, vmax=None, midpoint=None, clip=False):
+        self.midpoint = midpoint
+        colors.Normalize.__init__(self, vmin, vmax, clip)
+
+    def __call__(self, value, clip=None):
+        # I'm ignoring masked values and all kinds of edge cases to make a
+        # simple example...
+        x, y = ([self.vmin, self.midpoint, self.vmax], [0, 0.5, 1])
+        return np.ma.masked_array(np.interp(value, x, y), np.isnan(value))
 
 def dir2gif(img_dir, output_path, fps, loop: int = 0):
     """
@@ -102,7 +120,15 @@ def create_and_plot_variable_gif(
     nlat_ticks: int = 5,
     nlon_ticks: int = 7,
     vlims: tuple = None,
+    vmid: float = None,
     keep_images=True,
+    cbar_kwargs: dict = {
+        "rotation": "horizontal",
+        "y": -0.15,
+        "horizontalalignment": "right",
+        "labelpad": 0,
+        "fontsize": 9
+        },
 ):
     """Creates and saves an animated GIF of a variable's evolution over time or another dimension.
 
@@ -144,8 +170,12 @@ def create_and_plot_variable_gif(
         Number of longitude ticks to display on the plot. Default is 7.
     vlims : tuple, optional
         Tuple of (vmin, vmax) for color scaling. If None, calculated from data.
+    vmid : float, optional
+        Midpoint for the colormap normalization, vmin < vmid < vmax. If None, calculated as the average of vmin and vmax. Especially useful for diverging colormaps which have assymetric distances from the midpoint.
     keep_images : bool, optional
         Whether to keep temporary image files after creating GIF. Default is True.
+    cbar_kwargs : dict, optional
+        Additional keyword arguments for the colorbar, such as label and orientation.
 
     Returns
     -------
@@ -180,11 +210,20 @@ def create_and_plot_variable_gif(
         assert len(extent) == 4, "Extent must be a list of [lon_min, lon_max, lat_min, lat_max]"
         assert extent[0] <= extent[1], "Longitude min must be less than max"
         assert extent[2] <= extent[3], "Latitude min must be less than max"
-   
+
+    if vmid is None:
+        vmid = (vmin + vmax) / 2
+        
+    else:
+        assert vmin < vmid < vmax, "vmin must be less than vmid and vmid must be less than vmax for MidpointNormalize to work correctly"
+        
+    # norm = MidpointNormalize(vmin=vmin, vmax=vmax, midpoint=vmid, clip=True)
+    # sm = cm.ScalarMappable(norm=norm, cmap=cmap)
     im = ax.imshow(
         data.isel({iter_var:iter_vals[0]}), 
-        vmin=vmin, vmax=vmax, 
-        cmap=cmap, 
+        cmap=cmap,
+        vmin=vmin,
+        vmax=vmax,
         origin="lower",
         extent=extent,
         transform=ccrs.PlateCarree(),
@@ -237,14 +276,11 @@ def create_and_plot_variable_gif(
     # add colorbar
     cbar_label = f"[{units}]"
     cbar = fig.colorbar(im, cax=cax, orientation="vertical", fraction=0.1)
+    
     cbar.ax.set_ylabel(
         cbar_label,
-        rotation="horizontal",
-        y=-0.15,
-        horizontalalignment="right",
-        labelpad=0,
-        fontsize=9,
-    )
+        **cbar_kwargs
+        )
 
     ### define function to update plot at each timestep
     def plot_updater(fig, plot_obj, data, title):
