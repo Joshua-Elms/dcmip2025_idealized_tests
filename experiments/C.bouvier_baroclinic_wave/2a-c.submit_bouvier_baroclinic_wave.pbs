@@ -1,5 +1,5 @@
 #!/bin/bash -l
-#PBS -N hakim_and_masanam_expers
+#PBS -N bouvier_baroclinic_wave_exper
 #PBS -l select=1:ncpus=1:ngpus=1:mem=50GB
 #PBS -l gpu_type=h100
 #PBS -l walltime=00:30:00
