@@ -25,7 +25,7 @@ plot_var = "MSL" # choose either "MSL" or "SP", can only use "SP" if models = ["
 cmap_str = "Dark2" # options here: matplotlib.org/stable/tutorials/colors/colormaps.html
 day_interval_x_ticks = 15 # how many days between x-ticks on the plot
 standardized_ylims = (1010, 1020) # y-limits for the plot, set to None to use the model output min/max
-plot_ERA5_raw = True # whether to plot the raw ERA5 data (not averaged over initial conditions), in which case data must be re-downloaded instead of used from cache
+plot_ERA5_raw = False # whether to plot the raw ERA5 data (not averaged over initial conditions), in which case data must be re-downloaded instead of used from cache
 
 # set up directories
 exp_dir = Path(config["experiment_dir"]) / config["experiment_name"] # all data for experiment stored here
@@ -210,38 +210,41 @@ for model in models:
     )
     print(f"Made {gif_plot_var}.gif.")
     
-titles = [f"ERA5 MSLP @ {ic_dates[-1].strftime('%d-%m-%Y %Hz')} + {(t/4):.2f} days" for t in np.arange(0, n_timesteps+1)]
-data = (pds["MSL"] / 100).sortby(latitude="ascending") # select last init time because it's the last var that the for loop touched
-gif_plot_var = f"MSLP_ERA5"
-vis.create_and_plot_variable_gif(
-    data=data,
-    plot_var=gif_plot_var,
-    iter_var="time",
-    iter_vals=np.arange(0, n_timesteps+1),
-    plot_dir=plot_dir,
-    units="hPa",
-    cmap="bwr",
-    titles=titles,
-    keep_images=False,
-    dpi=300,
-    fps=8, 
-    fig_size=(8, 4),
-    vlims=(950, 1076),  # Set vlims for better visualization
-    central_longitude=180.0,
-    adjust = {
-        "top": 0.93,
-        "bottom": 0.03,
-        "left": 0.09,
-        "right": 0.87,
-        "hspace": 0.0,
-        "wspace": 0.0,
-    },
-    cbar_kwargs = {
-        "rotation": "horizontal",
-        "y": -0.015,
-        "horizontalalignment": "right",
-        "labelpad": -29,
-        "fontsize": 9
-    },
-)
-print(f"Made {gif_plot_var}.gif.")
+if plot_ERA5_raw:
+   
+    # create titles for the GIF
+    titles = [f"ERA5 MSLP @ {ic_dates[-1].strftime('%d-%m-%Y %Hz')} + {(t/4):.2f} days" for t in np.arange(0, n_timesteps+1)]
+    data = (pds["MSL"] / 100).sortby("latitude", ascending=True) # select last init time because it's the last var that the for loop touched
+    gif_plot_var = f"MSLP_ERA5"
+    vis.create_and_plot_variable_gif(
+        data=data,
+        plot_var=gif_plot_var,
+        iter_var="time",
+        iter_vals=np.arange(0, n_timesteps+1),
+        plot_dir=plot_dir,
+        units="hPa",
+        cmap="bwr",
+        titles=titles,
+        keep_images=False,
+        dpi=300,
+        fps=8, 
+        fig_size=(8, 4),
+        vlims=(950, 1076),  # Set vlims for better visualization
+        central_longitude=180.0,
+        adjust = {
+            "top": 0.93,
+            "bottom": 0.03,
+            "left": 0.09,
+            "right": 0.87,
+            "hspace": 0.0,
+            "wspace": 0.0,
+        },
+        cbar_kwargs = {
+            "rotation": "horizontal",
+            "y": -0.015,
+            "horizontalalignment": "right",
+            "labelpad": -29,
+            "fontsize": 9
+        },
+    )
+    print(f"Made {gif_plot_var}.gif.")

@@ -30,6 +30,7 @@ heating_ds_path = exp_dir / f"heating.nc"
     
 # convenience vars
 n_timesteps = config["n_timesteps"]
+n_timesteps = 40 # just for vis
 lead_times_h = np.arange(0, 6*n_timesteps+1, 6)
 g = 9.81 # m/s^2
 hm24_exp = config["hm24_experiment"]
@@ -47,6 +48,8 @@ for model in models:
         heating_ds = xr.open_dataset(heating_ds_path)
     tds = xr.open_dataset(tendency_path)
     mean_ds = xr.open_dataset(IC_path)
+    ds["Z"] = ds["Z"] / (g) # convert to geopot. height
+    mean_ds["Z"] = mean_ds["Z"] / (g) # convert to geopot. height
 
     print(f"Loaded data from {model}, beginning visualization.")
     
@@ -63,8 +66,6 @@ for model in models:
         panel_label = ['(A)','(B)','(C)']
         plot_vec = False
         axi = -1
-        ds["Z"] = ds["Z"] / (g) # convert to geopot. height
-        mean_ds["Z"] = mean_ds["Z"] / (g) # convert to geopot. height
         lat, lon = ds["latitude"].values, ds["longitude"].values
         for it in [120,240,480]:
             axi+=1
@@ -84,9 +85,8 @@ for model in models:
             udat  = u500_pert - u500_mean
             vdat  = v500_pert - v500_mean
             basefield = z500_mean
-            
+
             heating = heating_ds["T"].sel(level=500).squeeze().values
-            
             if it == 0:
                 dcint = .00001; ncint=5
             elif it == 120:
@@ -137,34 +137,52 @@ for model in models:
 
         fig.tight_layout()
         fname = f'heating_500z_{model}.pdf'
-        plt.savefig(plot_dir / fname,dpi=150,bbox_inches='tight')
+        plt.savefig(plot_dir / fname,dpi=100,bbox_inches='tight')
         print(f"Saved {fname} to {plot_dir}.")
-        
         ### end HM24 fig. 1
         
         ### plot gifs
-        titles = [f"{model}: $Z_{{500}}$ Anomalies from DJF Climatology at t={t*6} hours" for t in range(0, n_timesteps+1)]
-        data = ds["Z"].isel(ensemble=0).sel(level=500)/(g) - (mean_ds["Z"].sel(level=500)/(g)).squeeze()
-        plot_var = f"Z500_anom_{model}"
+        # T500 anomalies
+        titles = [f"{model.upper()}: $T_{{500}}$ Anomalies from {IC_season} Climatology at t={t*6} hours" for t in range(0, n_timesteps+1)]
+        data = ds["T"].isel(ensemble=0).sel(level=500) - (mean_ds["T"].sel(level=500)).squeeze()
+        plot_var = f"T500_anom_{model}"
         vis.create_and_plot_variable_gif(
             data=data,
             plot_var=plot_var,
             iter_var="lead_time",
             iter_vals=np.arange(0, n_timesteps+1),
             plot_dir=plot_dir,
-            units="m",
-            cmap="PRGn",
+            units="K",
+            cmap="bwr",
             titles=titles,
             keep_images=False,
-            dpi=150,
+            dpi=300,
             fps=2, 
-            vlims=(-20, 20),  # Set vlims for better visualization
+            vlims=(-15, 15),  # Set vlims for better visualization
             central_longitude=180.0,
+            fig_size = (7.5, 3.5),
+            adjust = {
+                "top": 0.97,
+                "bottom": 0.01,
+                "left": 0.09,
+                "right": 0.87,
+                "hspace": 0.0,
+                "wspace": 0.0,
+            },
+            cbar_kwargs = {
+                "rotation": "horizontal",
+                "y": -0.02,
+                "horizontalalignment": "right",
+                "labelpad": -26.5,
+                "fontsize": 9
+            },
         )
+
         print(f"Made {plot_var}.gif.")
         
+        # Z500
         titles = [f"{model}: $Z_{{500}}$ at t={t*6} hours" for t in range(0, n_timesteps+1)]
-        data = ds["Z"].isel(ensemble=0).sel(level=500)/(10*g)
+        data = ds["Z"].isel(ensemble=0).sel(level=500)/(10)
         plot_var = f"Z500_{model}"
         vis.create_and_plot_variable_gif(
             data=data,
@@ -214,12 +232,82 @@ for model in models:
     ### Begin Extratropical Cyclone Visualizations ###
     #
     elif hm24_exp == "extratropical_cyclone":
+        
+        ### begin HM24 Fig. 3
+        # 500Z plot
+        plot_vec = True
 
+        projection = ccrs.Robinson(central_longitude=-90.)
+        fig, ax = plt.subplots(nrows=4,ncols=1,figsize=(11*2,8.5*2),subplot_kw={'projection': projection}, layout='constrained')
 
-        # make gifs
+        panel_label = ['(A)','(B)','(C)','(D)']
 
-        titles = [f"{model}: $Z_{{500}}$ Anomalies from DJF Climatology at t={t*6} hours" for t in range(0, n_timesteps+1)]
-        data = ds["Z"].isel(ensemble=0).sel(level=500)/(g) - (mean_ds["Z"].sel(level=500)/(g)).squeeze()
+        axi = -1
+        
+        lat, lon = ds["latitude"].values, ds["longitude"].values
+        for it in [0,48,72,96]:
+            axi+=1
+
+            # h&m24 plot replication
+            # _mean indicates the mean state
+            # _pert indicates the perturbed run
+            # _anom indicates the anomaly (perturbated run - mean state)
+            ds500 = ds.sel(level=500, lead_time=it).squeeze()
+            z500_mean = mean_ds["Z"].sel(level=500).squeeze().values
+            z500_pert = ds500["Z"].values
+            u500_pert = ds500["U"].values
+            v500_pert = ds500["V"].values
+            u500_mean = mean_ds["U"].sel(level=500).squeeze().values
+            v500_mean = mean_ds["V"].sel(level=500).squeeze().values
+            pzdat = z500_pert - z500_mean
+            udat  = u500_pert - u500_mean
+            vdat  = v500_pert - v500_mean
+            basefield = z500_mean
+
+            dcint = 20; ncint=5
+            vscale = 250 # vector scaling (counterintuitive:smaller=larger arrows)
+
+            if plot_vec:
+                # Plot vectors on the map
+                latskip = 10
+                lonskip = 10
+                alpha = 1.0
+                col = 'g'
+                cs = ax[axi].quiver(lon[::lonskip],lat[::latskip],udat[::latskip,::lonskip],vdat[::latskip,::lonskip],transform=ccrs.PlateCarree(),scale=vscale,color=col,alpha=alpha)
+                qk = ax[axi].quiverkey(cs, 0.65, 0.01, 10., r'$10~ m/s$', labelpos='E',coordinates='figure',color=col)
+
+            # mean state or full field
+            alpha = 1.0
+            cints = np.arange(4800,6000,60.)
+            cs = ax[axi].contour(lon,lat,basefield,levels=cints,colors='0.5',transform=ccrs.PlateCarree(),alpha=alpha)
+            # perturbations
+            alpha = 1.0
+            cints = list(np.arange(-ncint*dcint,-dcint+.001,dcint))+list(np.arange(dcint,ncint*dcint+.001,dcint))
+            cints_neg = list(np.arange(-ncint*dcint,-dcint+.001,dcint))
+            cints_pos = list(np.arange(dcint,ncint*dcint+.001,dcint))
+            lw = 2.
+            cs = ax[axi].contour(lon,lat,pzdat,levels=cints_neg,colors='b',linestyles='solid',linewidths=lw,transform=ccrs.PlateCarree(),alpha=alpha)
+            cs = ax[axi].contour(lon,lat,pzdat,levels=cints_pos,colors='r',linestyles='solid',linewidths=lw,transform=ccrs.PlateCarree(),alpha=alpha)
+
+            # colorize land
+            ax[axi].add_feature(cfeature.LAND,edgecolor='0.5',linewidth=0.5,zorder=-1)
+
+            # gridlines
+            gl = ax[axi].gridlines(crs=ccrs.PlateCarree(),linewidth=1.0,color='gray', alpha=0.5,linestyle='--', draw_labels=True)
+
+            ax[axi].set_extent([140, 260, 20, 70],crs=ccrs.PlateCarree()) # Pacific
+
+            ax[axi].text(130,20,f"{panel_label[axi]}:{it}hrs",transform=ccrs.PlateCarree())
+
+        fig.tight_layout()
+        plt.savefig(plot_dir/f'IVP_500_{model}.pdf',dpi=300,bbox_inches='tight')
+        print(f"Saved IVP_500_{model}.pdf to {plot_dir}.")
+        ### end HM24 Fig. 3
+
+        ### make gifs
+        # Z500 anomalies
+        titles = [f"{model.upper()}: $Z_{{500}}$ Anomalies from {IC_season} Climatology at t={t*6} hours" for t in range(0, n_timesteps+1)]
+        data = ds["Z"].isel(ensemble=0).sel(level=500) - (mean_ds["Z"].sel(level=500)).squeeze()
         plot_var = f"Z500_anom_{model}"
         vis.create_and_plot_variable_gif(
             data=data,
@@ -231,16 +319,33 @@ for model in models:
             cmap="PRGn",
             titles=titles,
             keep_images=False,
-            dpi=150,
+            dpi=300,
             fps=2, 
             vlims=(-150, 150),  # Set vlims for better visualization
             central_longitude=180.0,
-            extent=[120, 280, 0, 70]
+            extent=[120, 280, 0, 70],
+            fig_size = (7.5, 3.5),
+            adjust = {
+                "top": 0.97,
+                "bottom": 0.01,
+                "left": 0.09,
+                "right": 0.87,
+                "hspace": 0.0,
+                "wspace": 0.0,
+            },
+            cbar_kwargs = {
+                "rotation": "horizontal",
+                "y": -0.02,
+                "horizontalalignment": "right",
+                "labelpad": -34.5,
+                "fontsize": 9
+            },
         )
 
         print(f"Made {plot_var}.gif.")
 
-        titles = [f"{model}: $T_{{500}}$ Anomalies from DJF Climatology at t={t*6} hours" for t in range(0, n_timesteps+1)]
+        # T500 anomalies
+        titles = [f"{model.upper()}: $T_{{500}}$ Anomalies from {IC_season} Climatology at t={t*6} hours" for t in range(0, n_timesteps+1)]
         data = ds["T"].isel(ensemble=0).sel(level=500) - (mean_ds["T"].sel(level=500)).squeeze()
         plot_var = f"T500_anom_{model}"
         vis.create_and_plot_variable_gif(
@@ -253,11 +358,27 @@ for model in models:
             cmap="bwr",
             titles=titles,
             keep_images=False,
-            dpi=150,
+            dpi=300,
             fps=2, 
             vlims=(-15, 15),  # Set vlims for better visualization
             central_longitude=180.0,
-            extent=[120, 280, 0, 70]
+            extent=[120, 280, 0, 70],
+            fig_size = (7.5, 3.5),
+            adjust = {
+                "top": 0.97,
+                "bottom": 0.01,
+                "left": 0.09,
+                "right": 0.87,
+                "hspace": 0.0,
+                "wspace": 0.0,
+            },
+            cbar_kwargs = {
+                "rotation": "horizontal",
+                "y": -0.02,
+                "horizontalalignment": "right",
+                "labelpad": -26.5,
+                "fontsize": 9
+            },
         )
 
         print(f"Made {plot_var}.gif.")
