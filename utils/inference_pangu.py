@@ -601,7 +601,6 @@ def gen_circular_perturbation(lat_2d,lon_2d,ilat,ilon,amp,locRad=1000.,Z500=Fals
     return perturb
 
 def gen_elliptical_perturbation(lat,lon,k,ylat,xlon,locRad):
-
     """
     center a localized ellipse at (xlat,xlon)
     
@@ -615,7 +614,10 @@ def gen_elliptical_perturbation(lat,lon,k,ylat,xlon,locRad):
     km = 1.e3
     nlat = len(lat)
     nlon = len(lon)
- 
+    # make sure lat is descending to start
+    if lat[0] < lat[-1]:
+        lat = lat[::-1]
+
     ilon = xlon*4. #lon index of center
     ilat = int((90.-ylat)*4.) #lat index of center
     yfunc = np.cos(np.deg2rad(k*(lat-ylat)))
@@ -665,7 +667,7 @@ def gen_elliptical_perturbation(lat,lon,k,ylat,xlon,locRad):
     [a,b] = np.meshgrid(covLoc,yfunc)
     perturb = a*b
 
-    return perturb
+    return np.flip(perturb, axis=0)  # flip the perturbation to match the latitudes
 
 def gen_baroclinic_wave_perturbation(lat,lon,ylat,xlon,u_pert_base,locRad,a=6.371e6):
     """

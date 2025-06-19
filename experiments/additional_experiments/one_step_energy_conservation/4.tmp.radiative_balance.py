@@ -4,7 +4,7 @@ import numpy as np
 import yaml
 import matplotlib.pyplot as plt
 import datetime as dt
-from utils import inference
+from utils import inference_sfno
 import cdsapi
 
 
@@ -47,8 +47,8 @@ ds["VAR_ISR"] = ds["tsr"] / 3600 # https://codes.ecmwf.int/grib/param-db/178
 ds = ds.reset_coords() # remove some extra coords from ECMWF data
 ds = ds[["VAR_ISR", "VAR_OLR"]] # remove all other variables
 
-ds["MEAN_OLR"] = inference.latitude_weighted_mean(ds["VAR_OLR"], ds["latitude"], device="cuda:0")
-ds["MEAN_ISR"] = inference.latitude_weighted_mean(ds["VAR_ISR"], ds["latitude"], device="cuda:0")
+ds["MEAN_OLR"] = inference_sfno.latitude_weighted_mean(ds["VAR_OLR"], ds["latitude"], device="cuda:0")
+ds["MEAN_ISR"] = inference_sfno.latitude_weighted_mean(ds["VAR_ISR"], ds["latitude"], device="cuda:0")
 ds["IMBALANCE"] = ds["MEAN_ISR"] - ds["MEAN_OLR"]
 ds.to_netcdf(save_path, mode="w", format="NETCDF4", engine="netcdf4") # save to disk
 

@@ -1,7 +1,7 @@
 import xarray as xr
 import numpy as np
 from earth2mip import networks # type: ignore
-from utils import inference
+from utils import inference_sfno as inference
 from pathlib import Path
 import numpy as np
 import yaml
@@ -112,8 +112,15 @@ elif hm24_exp_name == "tropical_cyclone":
     print(f"Loaded tropical cyclone perturbation from {tc_pert_path}.")
     # pert scaled by user-defined amplitude, separate from HM24 file amp in supplementary/
     amp = config["perturbation_params"]["amp"]
-    initial_perturbation = tc_pert * amp # to be added to initial condition before inference
-    print(f"Applying TC perturbation: {initial_perturbation}")
+    if isinstance(amp, [list, tuple, np.ndarray]):
+        print(f"Received iterable amplitude {amp}, running experiment for each value...")
+    elif isinstance(amp, (int, float)):
+        print(f"Received single amplitude {amp}, running experiment for single value...")
+        amp = [amp]  # convert to list for consistency in loop below
+    else:
+        raise ValueError(f"Amplitude must be a number or iterable, got {type(amp)}.")
+    initial_perturbations = [tc_pert * a for a in amp] # to be added to initial condition before inference
+    print(f"Applying TC perturbation (amp={amp[0]}): {initial_perturbations[0]}")
     f = 0 # no recurrent perturbation
     
 # initial_perturbation might be a smaller region than IC_ds

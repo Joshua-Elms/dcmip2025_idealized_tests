@@ -1,5 +1,6 @@
 """ This script prepares the output directory for an experiment. """
 from pathlib import Path
+import shutil
 import yaml
 
 # read configuration
@@ -21,5 +22,8 @@ plot_dir.mkdir(parents=True, exist_ok=True) # make dir if it doesn't exist
 
 # copy config to experiment directory
 config_path_exp = exp_dir / "config.yaml"
-with open(config_path_exp, 'w') as file:
-    yaml.dump(config, file)
+shutil.copy(config_path, config_path_exp)
+    
+# let user know where to find config
+print(f"Directory structure set up for experiment '{config['experiment_name']}'.")
+print(f"Configuration file saved to {config_path_exp}.")

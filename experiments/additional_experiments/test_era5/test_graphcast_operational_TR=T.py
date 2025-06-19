@@ -3,7 +3,7 @@ import dotenv
 import xarray as xr
 import datetime as dt
 from pathlib import Path
-from utils import inference_graphcast
+from utils import inference_graphcast_oper
 from earth2mip.networks import get_model # :ignore
 
 dotenv.load_dotenv()
@@ -20,7 +20,7 @@ if tendency_path.exists():
     
 else:
     print(f"Computing tendencies and saving to {tendency_path}.")
-    tds = inference_graphcast.single_IC_inference(
+    tds = inference_graphcast_oper.single_IC_inference(
         model=model, 
         n_timesteps=1, 
         init_time=date,
@@ -34,7 +34,7 @@ print(f"tendency: {tendency}")
 rpert = - tendency
 
 # run model with recurrent perturbation
-ds = inference_graphcast.single_IC_inference(
+ds = inference_graphcast_oper.single_IC_inference(
     model=model,
     n_timesteps=6,
     init_time=date,

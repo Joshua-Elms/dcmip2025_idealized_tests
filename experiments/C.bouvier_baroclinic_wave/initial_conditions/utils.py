@@ -381,10 +381,6 @@ def process_individual_fort_file_graphcast(
     # since the bouvier atmosphere is hydrostatically balanced, w = 0
     w = np.zeros_like(df["ZQ"].values.reshape(nlat, nlev)[:, keep_idxs])
     ds_83["w"] = xr.DataArray(w, dims=("lat", "level"))
-    
-    # add previous 6-hour accumulated precipitation
-    # this initial condition won't have any precipitation if balanced
-    ds_83["tp06"] = (["lat"], t[:, 0]*0)
 
     # rename to dcmip2025_helper_code standards
     # TODO: make conditional to rename vars depending on requested variables
@@ -393,7 +389,6 @@ def process_individual_fort_file_graphcast(
         "u10m": "VAR_10U",
         "v10m": "VAR_10V",
         "msl": "MSL",
-        "tp06": "TP06",
         "u": "U",
         "v": "V",
         "t": "T",

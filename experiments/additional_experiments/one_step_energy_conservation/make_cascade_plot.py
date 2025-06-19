@@ -4,7 +4,7 @@ import numpy as np
 import yaml
 import matplotlib.pyplot as plt
 import datetime as dt
-from utils import inference, vis
+from utils import inference_sfno, vis
 import scipy
 from time import perf_counter
 import torch

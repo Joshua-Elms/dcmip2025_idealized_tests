@@ -1,7 +1,7 @@
-n_timesteps: 20
-ic_dates: ["2018/01/01 12:00", "2018/07/01 12:00"]
-keep_vars: []
-experiment_dir: /glade/u/home/YOURUSERNAME/projects/dcmip2025_idealized_tests/experiments/A.mass_conservation/data
-experiment_name: test
+n_timesteps: 360
+ic_dates: ["2018/01/01 12:00", "2018/07/01 12:00", "2019/01/01 12:00", "2019/07/01 12:00"]
+keep_vars: None
+experiment_dir: /glade/u/home/jmelms/projects/dcmip2025_idealized_tests/experiments/A.mass_conservation/data
+experiment_name: canonical_run
 device: cuda:0
 

@@ -1,9 +1,9 @@
 #!/bin/bash -l
-#PBS -N dcmip_hakim_masanam
-#PBS -l select=1:ncpus=1:ngpus=1:mem=16GB
-#PBS -l gpu_type=l40
-#PBS -l walltime=00:20:00
-#PBS -q workshop
+#PBS -N hakim_and_masanam_expers
+#PBS -l select=1:ncpus=1:ngpus=1:mem=50GB
+#PBS -l gpu_type=h100
+#PBS -l walltime=00:30:00
+#PBS -q casper
 #PBS -j oe
 #PBS -o job.log
 #PBS -A UMIC0107
@@ -15,7 +15,7 @@ echo "---------- Job starting at $(date) ------------"
 conda activate /glade/work/jmelms/software/miniconda3/envs/inference
 export PYTHONPATH=/glade/u/home/jmelms/projects/dcmip2025_idealized_tests
 export WORLD_SIZE=1
-export MODEL_REGISTRY=/glade/work/tobrien/DCMIP2025/.cache
+export MODEL_REGISTRY=/glade/work/jmelms/.cache
 
 # step 1: create the directory structure (-u triggers the print buffer to clear immediately so one can follow the log file live)
 python -u 1.prep_output_dir.py
@@ -23,13 +23,11 @@ python -u 1.prep_output_dir.py
 # step 2a: run the SFNO model 
 python -u 2a.run_sfno.py
 
-# step 2b: run the small Graphcast model 
-# TAO: this is commented out because the tendency reversion approach is not yet working with GraphCast
-#python -u 2b.run_gc_small.py
+# step 2b: run the operational Graphcast model 
+python -u 2b.run_graphcast_oper.py
 
-# step 2c: run the pangu model 
-# TAO: this is commented out because the initial condition files are not yet recreated on /glade/work; 
-# will uncomment when the initial conditions are ready
-#python -u 2c.run_pangu.py
+# step 2c: run the pangu-weather model 
+python -u 2c.run_pangu.py
 
 echo "--------- Job finished at $(date) ------------"
+

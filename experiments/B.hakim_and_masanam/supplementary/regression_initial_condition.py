@@ -16,7 +16,7 @@ import numpy as np
 import xarray as xr
 import os
 from scipy.stats import linregress
-from utils import inference
+from utils import inference_sfno
 from pathlib import Path
 
 def compute_regression(
@@ -39,11 +39,8 @@ def compute_regression(
         amp (float): Scaling amplitude for the initial condition (1 = climo variance at the base point).
         dpath (Path): Path to the directory containing the ERA5 data files.
         opath (Path): Path to the directory where the regression results will be saved.
-        model (str): The model to use for regression, either 'sfno', 'pangu', or 'graphcast_small'.
+        model (str): The model to use for regression, either 'sfno', 'pangu', or 'graphcast_oper'.
     """
-    if model == "graphcast_small":
-        raise NotImplementedError("Graphcast small model is not supported in this script, it uses a different resolution (1 degree) than these models and will need some thoughtful work before it runs.")
-
     model_vars = {
         "sfno": {
             "param_level_pl": (
@@ -59,7 +56,7 @@ def compute_regression(
                 ),
             "param_sfc": ["msl", "u10", "v10", "t2m"],
         },
-        "graphcast_small": {
+        "graphcast_oper": {
             "param_level_pl": (
                     ["z", "q", "t", "u", "v", "w"],
                     [1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50],
@@ -172,7 +169,7 @@ def compute_regression(
     bplat = int((90.-ylat)*4); bplon = int(xlon)*4
     print('lat, lon=',lat[bplat],lon[bplon])
 
-    locfunc = inference.gen_circular_perturbation(lat_2d,lon_2d,bplat,bplon,1.0,locRad=locrad)
+    locfunc = inference_sfno.gen_circular_perturbation(lat_2d,lon_2d,bplat,bplon,1.0,locRad=locrad)
     print('locfunc max:',np.max(locfunc))
 
     # indices where this function is greater than zero
@@ -320,6 +317,7 @@ amp = -1.
 
 compute_regression(ic, ylat, xlon, locrad, amp, dpath, opath, model="sfno")
 compute_regression(ic, ylat, xlon, locrad, amp, dpath, opath, model="pangu")
+compute_regression(ic, ylat, xlon, locrad, amp, dpath, opath, model="graphcast_oper")
 
 ic = 'JAS'
 # set lat/lon of perturbation in degrees N, E
@@ -331,6 +329,7 @@ amp = -1.
 
 compute_regression(ic, ylat, xlon, locrad, amp, dpath, opath, model="sfno")
 compute_regression(ic, ylat, xlon, locrad, amp, dpath, opath, model="pangu")
+compute_regression(ic, ylat, xlon, locrad, amp, dpath, opath, model="graphcast_oper")
 
 #
 # END: parameters and call to compute_regression

@@ -4,7 +4,7 @@ import torch
 import numpy as np
 import logging
 from earth2mip import networks
-from utils import inference
+from utils import inference_sfno
 import dotenv
 
 # load the earth2mip environment variables
@@ -25,7 +25,7 @@ print("Model loaded.")
 # generate the initial condidtion
 print("Initializing model.")
 breakpoint()
-x = inference.rda_era5_to_sfno_state(device=device, time = init_time)
+x = inference_sfno.rda_era5_to_sfno_state(device=device, time = init_time)
 print("Model initialized.")
 
 # run the model
@@ -49,7 +49,7 @@ for k, (time, data, _) in enumerate(iterator):
 data = torch.stack(data_list)
 
 # unpack the data into an xarray object
-ds = inference.unpack_sfno_state(data, time = times)
+ds = inference_sfno.unpack_sfno_state(data, time = times)
 
 # save the data
 ds.squeeze().to_netcdf("harvey_test.nc")

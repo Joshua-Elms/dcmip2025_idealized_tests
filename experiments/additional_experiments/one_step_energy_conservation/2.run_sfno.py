@@ -4,7 +4,7 @@ import torch
 import numpy as np
 import logging
 from earth2mip import networks # type: ignore
-from utils import inference
+from utils import inference_sfno
 import dotenv
 from pathlib import Path
 import numpy as np
@@ -41,7 +41,7 @@ ds_stack_outer = []
 for d, date in enumerate(ic_dates):
     ds_stack_inner = []
     for T in delta_Ts:
-        delta_T_ds = inference.create_empty_sfno_ds()
+        delta_T_ds = inference_sfno.create_empty_sfno_ds()
 
         # set perturbation temp profile to T
         delta_T_ds["T"][:] = T
@@ -52,7 +52,7 @@ for d, date in enumerate(ic_dates):
         for var in zero_vars:
             delta_T_ds[var][:] = 0.
         
-        ds = inference.single_IC_inference(
+        ds = inference_sfno.single_IC_inference(
             model=model,
             n_timesteps=config["n_timesteps"],
             init_time=date,
