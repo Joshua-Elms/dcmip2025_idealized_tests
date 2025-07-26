@@ -1,6 +1,0 @@
-n_timesteps: 1 # 6 hours
-ic_dates: [
-  "2018/01/01 00:00",
-  "2018/07/01 00:00",]
-temp_deltas_degrees_kelvin: [-5, -4, -3, -2, -1, -0.5, 0, 0.5, 1, 2, 3, 4, 5]
-keep_extra_vars: []

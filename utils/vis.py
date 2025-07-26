@@ -4,10 +4,29 @@ import numpy as np
 import imageio.v2 as imageio
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
+from matplotlib import colors
 from matplotlib import colormaps
+import cartopy.crs as ccrs
 import shutil
 import yaml
 
+class MidpointNormalize(colors.Normalize):
+    """
+    Code from Joe Kingston: https://chris35wills.github.io/matplotlib_diverging_colorbar/
+
+    Normalise the colorbar so that diverging bars work there way either side from a prescribed midpoint value)
+
+    e.g. im=ax1.imshow(array, norm=MidpointNormalize(midpoint=0.,vmin=-100, vmax=100))
+    """
+    def __init__(self, vmin=None, vmax=None, midpoint=None, clip=False):
+        self.midpoint = midpoint
+        colors.Normalize.__init__(self, vmin, vmax, clip)
+
+    def __call__(self, value, clip=None):
+        # I'm ignoring masked values and all kinds of edge cases to make a
+        # simple example...
+        x, y = ([self.vmin, self.midpoint, self.vmax], [0, 0.5, 1])
+        return np.ma.masked_array(np.interp(value, x, y), np.isnan(value))
 
 def dir2gif(img_dir, output_path, fps, loop: int = 0):
     """
@@ -37,6 +56,7 @@ def plotting_loop(
     output_dir,
     fname_prefix,
     titles,
+    central_longitude,
     keep_images=False,
     fps=1,
     dpi=100,
@@ -52,6 +72,7 @@ def plotting_loop(
         output_dir (directory to save images)
         fname_prefix (prefix for image filenames)
         titles (list of titles for each image, must match length of iterable)
+        central_longitude (central longitude for the map projection)
         keep_images (if True, images will not be deleted after the loop)
         fps (frames per second for gif)
 
@@ -63,9 +84,13 @@ def plotting_loop(
     """
     save_dir = output_dir / fname_prefix
     save_dir.mkdir(exist_ok=True, parents=True)
+    # if user specifies a central longitude, roll the data
+    # away from default of 180 °E by specified amount
+    roll_by = round(180 - central_longitude) * 4
     for i, idx in enumerate(iterable):
         data_slice = data.isel({dim_name: idx}).values
-        update_func(fig, obj, data_slice, title=titles[i])
+        rolled_slice = np.roll(data_slice, shift=roll_by, axis=-1)
+        update_func(fig, obj, rolled_slice, title=titles[i])
         fig.savefig(save_dir / f"{fname_prefix}_{i:03}.png", dpi=dpi)
 
     dir2gif(save_dir, output_dir / f"{fname_prefix}.gif", fps=fps)
@@ -85,6 +110,8 @@ def create_and_plot_variable_gif(
     units: str,
     cmap: str,
     titles: list[str],
+    central_longitude: float = 180.,
+    extent: list = None,
     adjust: dict = None,
     dpi: int = 100,
     fps: int = 2,
@@ -93,7 +120,15 @@ def create_and_plot_variable_gif(
     nlat_ticks: int = 5,
     nlon_ticks: int = 7,
     vlims: tuple = None,
+    vmid: float = None,
     keep_images=True,
+    cbar_kwargs: dict = {
+        "rotation": "horizontal",
+        "y": -0.15,
+        "horizontalalignment": "right",
+        "labelpad": 0,
+        "fontsize": 9
+        },
 ):
     """Creates and saves an animated GIF of a variable's evolution over time or another dimension.
 
@@ -111,11 +146,14 @@ def create_and_plot_variable_gif(
         Directory path where to save the output GIF and temporary files
     units : str
         Units of the variable for labeling
-    title_str : str
-        Format of title string for the plot, e.g. "{var_name} [{units}] at {time}", with
-        valid placeholders {var_name}, {units}, and {time}
     cmap : str
         Colormap to use for plotting, e.g. 'viridis'
+    titles : str
+        List of titles for each frame of the animation. Must match the length of iter_vals.
+    central_longitude : float, optional
+        Central longitude for the map projection. Default is 180 °E
+    extent : list, optional
+        List of [lon_min, lon_max, lat_min, lat_max] to set the extent of the plot. If None, uses the full range of data.
     adjust : dict, optional
         Dictionary of subplot adjustment parameters for matplotlib
     fig_size : tuple, optional
@@ -132,8 +170,12 @@ def create_and_plot_variable_gif(
         Number of longitude ticks to display on the plot. Default is 7.
     vlims : tuple, optional
         Tuple of (vmin, vmax) for color scaling. If None, calculated from data.
+    vmid : float, optional
+        Midpoint for the colormap normalization, vmin < vmid < vmax. If None, calculated as the average of vmin and vmax. Especially useful for diverging colormaps which have assymetric distances from the midpoint.
     keep_images : bool, optional
         Whether to keep temporary image files after creating GIF. Default is True.
+    cbar_kwargs : dict, optional
+        Additional keyword arguments for the colorbar, such as label and orientation.
 
     Returns
     -------
@@ -144,6 +186,9 @@ def create_and_plot_variable_gif(
     # lat/lon info
     lat, lon = data.latitude.values, data.longitude.values
     nlat, nlon = len(lat), len(lon)
+    
+    # check titles
+    assert len(titles) == len(iter_vals), "Num. titles must match length of iter_vals"
 
     # vlims can be set for manual color scaling
     if vlims:
@@ -156,27 +201,47 @@ def create_and_plot_variable_gif(
 
     ### make plot
     # set up figure and axis
-    fig, ax = plt.subplots(figsize=fig_size)
+    fig, ax = plt.subplots(figsize=fig_size, subplot_kw={"projection": ccrs.PlateCarree(central_longitude=central_longitude)}) # , subplot_kw={"projection": ccrs.PlateCarree(central_longitude=180)}
 
     # set up first frame to be updated in later loop
-    im = ax.imshow(data.isel({iter_var:iter_vals[0]}), vmin=vmin, vmax=vmax, cmap=cmap, origin="lower")
+    if extent is None:
+        extent = [lon.min(), lon.max(), lat.min(), lat.max()]
+    else:
+        assert len(extent) == 4, "Extent must be a list of [lon_min, lon_max, lat_min, lat_max]"
+        assert extent[0] <= extent[1], "Longitude min must be less than max"
+        assert extent[2] <= extent[3], "Latitude min must be less than max"
+
+    if vmid is None:
+        vmid = (vmin + vmax) / 2
+        
+    else:
+        assert vmin < vmid < vmax, "vmin must be less than vmid and vmid must be less than vmax for MidpointNormalize to work correctly"
+        
+    # norm = MidpointNormalize(vmin=vmin, vmax=vmax, midpoint=vmid, clip=True)
+    # sm = cm.ScalarMappable(norm=norm, cmap=cmap)
+    im = ax.imshow(
+        data.isel({iter_var:iter_vals[0]}), 
+        cmap=cmap,
+        vmin=vmin,
+        vmax=vmax,
+        origin="lower",
+        extent=extent,
+        transform=ccrs.PlateCarree(),
+    )   
+    ax.coastlines()
+    ax.set_global()
 
     ### Set axis information
-    # labels
-    xax_label = "longitude [°E]"
-    yax_label = "latitude [°N]"
-    ax.set_xlabel(xax_label)
-    ax.set_ylabel(yax_label)
+    # # labels
+    # xax_label = "longitude [°E]"
+    # yax_label = "latitude [°N]"
+    # ax.set_xlabel(xax_label)
+    # ax.set_ylabel(yax_label)
 
     # ticks and ticklabels
-    xticks = np.linspace(0, nlon, nlon_ticks, dtype=int)[1:-1]
-    yticks = np.linspace(0, nlat - 1, nlat_ticks, dtype=int)
-    xticklabs = lon[xticks].astype(int)
-    yticklabs = lat[yticks].astype(int)
-    ax.set_xticks(xticks)
-    ax.set_yticks(yticks)
-    ax.set_xticklabels(xticklabs)
-    ax.set_yticklabels(yticklabs)
+    gl = ax.gridlines(crs=ccrs.PlateCarree(),linewidth=1.0,color='gray', alpha=0.5,linestyle='--', draw_labels=True)
+    gl.top_labels = False
+    ax.set_extent(extent, crs=ccrs.PlateCarree())
 
     ### Set other plot aesthetics
     # background color
@@ -212,14 +277,11 @@ def create_and_plot_variable_gif(
     # add colorbar
     cbar_label = f"[{units}]"
     cbar = fig.colorbar(im, cax=cax, orientation="vertical", fraction=0.1)
+    
     cbar.ax.set_ylabel(
         cbar_label,
-        rotation="horizontal",
-        y=-0.05,
-        horizontalalignment="right",
-        labelpad=0,
-        fontsize=9,
-    )
+        **cbar_kwargs
+        )
 
     ### define function to update plot at each timestep
     def plot_updater(fig, plot_obj, data, title):
@@ -237,6 +299,7 @@ def create_and_plot_variable_gif(
         plot_dir,
         f"{plot_var}",
         titles,
+        central_longitude,
         keep_images=keep_images,
         fps=fps,
         dpi=dpi,

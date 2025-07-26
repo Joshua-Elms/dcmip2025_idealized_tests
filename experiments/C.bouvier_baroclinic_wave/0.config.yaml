@@ -1,0 +1,50 @@
+experiment_dir: /glade/u/home/jmelms/projects/dcmip2025_idealized_tests/experiments/C.bouvier_baroclinic_wave/data
+experiment_name: canonical_run
+fort_executable_path: /glade/u/home/jmelms/projects/dcmip2025_idealized_tests/experiments/C.bouvier_baroclinic_wave/initial_conditions/gen_IC_FCN.out
+inference_parameters:
+  device: cuda:0
+  n_timesteps: 80
+  tendency_reversion: true
+initial_condition_parameters:
+  moisture:
+  - 42
+  - nondim
+  nlat:
+  - 721
+  - nondim
+  nlev:
+  - 102
+  - nondim
+  zb:
+  - 2.0
+  - nondim
+  zgamma:
+  - 0.005
+  - K m^-1
+  zn:
+  - 3
+  - nondim
+  zrh0:
+  - 0.8
+  - '%'
+  zt0:
+  - - 288
+  - K
+  zu0:
+  - 100
+  - m s^-1
+perturbation_parameters:
+  center_latitude: 40
+  center_longitude: 20
+  enabled: true
+  localization_radius: 637100
+  u_wind_pert_base: 1
+processor_parameters:
+  all_plevels_fname: levels_full.txt
+  include_dewpt: false
+  latitudes_fname: latitude.npy
+  longitudes_fname: longitude.npy
+  metadata_dir: /glade/u/home/jmelms/projects/dcmip2025_idealized_tests/experiments/C.bouvier_baroclinic_wave/initial_conditions/metadata
+  model_plevels_fname: levels_model.txt
+  standardize: false
+  write_data: true
