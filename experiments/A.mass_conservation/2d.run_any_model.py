@@ -18,7 +18,7 @@ load_dotenv();  # TODO: make common example prep function
 
 from earth2studio.io import XarrayBackend
 from earth2studio.data import CDS
-from earth2studio.models.px import SFNO
+from earth2studio.models.px import SFNO, Pangu6, GraphCastOperational, FuXi
 
 import earth2studio.run as run
 cache_loc = os.environ["EARTH2STUDIO_CACHE"]
@@ -45,6 +45,12 @@ print(f"Loading model on {device}.")
 # Load the default model package which downloads the check point from NGC
 package = SFNO.load_default_package()
 model = SFNO.load_model(package)
+package = Pangu6.load_default_package()
+model = Pangu6.load_model(package)
+package = GraphCastOperational.load_default_package()
+model = GraphCastOperational.load_model(package)
+# package = FuXi.load_default_package()
+# model = FuXi.load_model(package)
 print("Model loaded.")
 
 # load the initial condition times
@@ -77,8 +83,10 @@ for d, date in enumerate(ic_dates):
 
         
 # stack the output data by init time
-sp_da = xr.concat(sp_da_stack, dim="init_time")
-msl_da = xr.concat(msl_da_stack, dim="init_time")
+sp_da = xr.concat(sp_da_stack, dim="time")
+sp_da = sp_da.rename({"time": "init_time"})
+msl_da = xr.concat(msl_da_stack, dim="time")
+msl_da = msl_da.rename({"time": "init_time"})
 # create the output dataset
 ds_out = xr.Dataset({
     "SP": sp_da,
@@ -87,7 +95,6 @@ ds_out = xr.Dataset({
 
 # add initialization coords
 ds_out = ds_out.assign_coords({"init_time": ic_dates})
-breakpoint()
 
 # postprocess data
 ds_out["SP"] = ds_out["SP"] / 100 # convert from Pa to hPa

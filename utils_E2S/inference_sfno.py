@@ -451,7 +451,7 @@ def latitude_weighted_mean(da, latitudes, device="cpu"):
         The latitude-weighted mean
     """
     # Convert inputs to torch tensors if needed
-    coords = {dim: da[dim] for dim in da.dims if dim not in ['latitude', 'longitude']}
+    coords = {dim: da[dim] for dim in da.dims if dim not in ['latitude', 'longitude', 'lat', 'lon']}
     if isinstance(da, xr.DataArray):
         da = torch.from_numpy(da.values)
     if isinstance(latitudes, xr.DataArray):
