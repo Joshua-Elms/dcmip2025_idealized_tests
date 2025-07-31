@@ -3,7 +3,7 @@ import datetime as dt
 import torch
 # from earth2mip import networks # type: ignore
 from utils_E2S import inference_sfno as inference
-from utils_E2S.dataset import DataSet
+from utils_E2S.general import DataSet
 from pathlib import Path
 import yaml
 import numpy as np
@@ -49,8 +49,8 @@ package = Pangu6.load_default_package()
 model = Pangu6.load_model(package)
 package = GraphCastOperational.load_default_package()
 model = GraphCastOperational.load_model(package)
-# package = FuXi.load_default_package()
-# model = FuXi.load_model(package)
+package = FuXi.load_default_package()
+model = FuXi.load_model(package)
 print("Model loaded.")
 
 # load the initial condition times
