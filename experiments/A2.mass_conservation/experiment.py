@@ -53,6 +53,9 @@ def run_experiment(model_name: str, config_path: str) -> str:
     for var in keep_vars:
         ds[f"MEAN_{var}"] = inference.latitude_weighted_mean(ds[var], ds.lat)
         ds[f"IC_MEAN_{var}"] = ds[f"MEAN_{var}"].mean(dim="init_time")
+        
+    # add model dimension to enable opening with open_mfdataset
+    ds = ds.assign_coords(model=model_name)
 
     # save data
     ds.to_netcdf(nc_output_file)

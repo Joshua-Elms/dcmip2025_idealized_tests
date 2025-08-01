@@ -184,7 +184,7 @@ def create_and_plot_variable_gif(
     """
     ### prepare helper variables for plotting
     # lat/lon info
-    lat, lon = data.latitude.values, data.longitude.values
+    lat, lon = data.lat.values, data.lon.values
     nlat, nlon = len(lat), len(lon)
     
     # check titles
