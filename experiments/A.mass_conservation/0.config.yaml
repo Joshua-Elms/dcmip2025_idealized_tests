@@ -10,3 +10,6 @@ keep_vars_dict:
   Pangu6: ["msl"]
   GraphCastOperational: ["msl"]
   FuXi: ["msl"]
+experiment_subdirectories: 
+  - "plots"
+  

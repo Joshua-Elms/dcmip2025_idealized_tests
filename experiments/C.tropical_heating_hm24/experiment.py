@@ -3,39 +3,9 @@ import numpy as np
 from utils import inference_sfno as inference
 from pathlib import Path
 import numpy as np
-import yaml
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 
-### General Setup ###
-
-# read configuration
-this_dir = Path(__file__).parent
-config_path = this_dir / "0.config.yaml"
-with open(config_path, 'r') as file:
-    config = yaml.safe_load(file)
-    
-# set up directories
-exp_dir = Path(config["experiment_dir"]) / config["hm24_experiment"] / config["experiment_name"] # all data for experiment stored here
-tendency_dir = Path(config["experiment_dir"]) / "tendencies" # where to save tendencies
-output_path = exp_dir / "sfno_output.nc" # where to save output from inference
-
-# load the model
-device : str = config["device"]
-assert device in ["cpu", "cuda", "cuda:0"], f"Device must be 'cpu' or 'cuda', got {device}."
-print(f"Loading model on {device}.")
-model = networks.get_model("fcnv2_sm").to(device)
-print("Model loaded.")
-
-# unpack experiment config
-n_timesteps : int = config["n_timesteps"]
-lead_times_h = np.arange(0, 6*n_timesteps+1, 6)
-tendency_reversion : bool = config["tendency_reversion"] 
-hm24_exp_name : str = config["hm24_experiment"]
-hm24_exp_name_options = ["tropical_heating", "extratropical_cyclone", 
-                         "geostrophic_adjustment", "tropical_cyclone"]
-assert hm24_exp_name in hm24_exp_name_options, \
-    f"Experiment name must be one of {hm24_exp_name_options}, got {hm24_exp_name}."
     
 # load initial condition
 IC_dir = Path(config["time_mean_IC_dir"])
@@ -79,46 +49,6 @@ if hm24_exp_name == "tropical_heating":
     # these two get passed to inference.single_IC_inference (via rpert for f)
     initial_perturbation = None
     f = heating_ds
-    
-elif hm24_exp_name == "extratropical_cyclone":
-    etc_pert_path = list(Path(config["perturbation_dir"]).glob(f"cyclone_{IC_season}_*_regression_sfno.nc"))[0]
-    etc_pert = xr.open_dataset(etc_pert_path)
-    print(f"Loaded extratropical cyclone perturbation from {etc_pert_path}.")
-    # pert scaled by user-defined amplitude, separate from HM24 file amp in supplementary/
-    amp = config["perturbation_params"]["amp"]
-    initial_perturbation = etc_pert * amp # to be added to initial condition before inference
-    print(f"Applying ETC perturbation: {initial_perturbation}")
-    f = 0 # no recurrent perturbation
-
-elif hm24_exp_name == "geostrophic_adjustment":
-    etc_pert_path = list(Path(config["perturbation_dir"]).glob(f"cyclone_{IC_season}_*_regression_sfno.nc"))[0]
-    etc_pert = xr.open_dataset(etc_pert_path)
-    print(f"Loaded ETC perturbation from {etc_pert_path}.")
-    # for geostrophic adjustment test, only z500 is perturbed
-    ga_pert = etc_pert * 0
-    # pert scaled by user-defined amplitude, separate from HM24 file amp in supplementary/
-    amp = config["perturbation_params"]["amp"]
-    ga_pert["Z"].loc[{"level": 500}] = etc_pert["Z"].sel(level=500) * amp
-    initial_perturbation = ga_pert # to be added to initial condition before inference
-    print(f"Applying GA perturbation: {initial_perturbation}")
-    f = 0 # no recurrent perturbation
-
-elif hm24_exp_name == "tropical_cyclone":
-    tc_pert_path = list(Path(config["perturbation_dir"]).glob(f"hurricane_{IC_season}_*_regression_sfno.nc"))[0]
-    tc_pert = xr.open_dataset(tc_pert_path)
-    print(f"Loaded tropical cyclone perturbation from {tc_pert_path}.")
-    # pert scaled by user-defined amplitude, separate from HM24 file amp in supplementary/
-    amp = config["perturbation_params"]["amp"]
-    if isinstance(amp, [list, tuple, np.ndarray]):
-        print(f"Received iterable amplitude {amp}, running experiment for each value...")
-    elif isinstance(amp, (int, float)):
-        print(f"Received single amplitude {amp}, running experiment for single value...")
-        amp = [amp]  # convert to list for consistency in loop below
-    else:
-        raise ValueError(f"Amplitude must be a number or iterable, got {type(amp)}.")
-    initial_perturbations = [tc_pert * a for a in amp] # to be added to initial condition before inference
-    print(f"Applying TC perturbation (amp={amp[0]}): {initial_perturbations[0]}")
-    f = 0 # no recurrent perturbation
     
 # initial_perturbation might be a smaller region than IC_ds
 # so we add to an empty dataset with the same shape as IC_ds
@@ -216,3 +146,75 @@ if output_path.exists():
     print(f"Output file already exists. Overwriting.")
     output_path.unlink()
 ds.to_netcdf(output_path)
+
+
+
+"""
+NEW
+"""
+
+
+
+import datetime as dt
+from torch.cuda import mem_get_info
+from utils_E2S import general
+from pathlib import Path
+import numpy as np
+from earth2studio.io import XarrayBackend
+from earth2studio.data import CDS
+import earth2studio.run as run
+
+
+def run_experiment(model_name: str, config_path: str) -> str:
+    # read config file
+    config = general.read_config(config_path)
+    
+    print(f"Running experiment for model: {model_name}")
+    print(f"GPU memory: {mem_get_info()[0] / 1e9:.2f} GB available out of {mem_get_info()[1] / 1e9:.2f} GB")
+    
+    # set output paths
+    output_dir = Path(config["experiment_dir"]) / config["experiment_name"]
+    nc_output_file = output_dir / f"{model_name}_output.nc"
+    tendency_file = output_dir / "tendencies" / f"{model_name}_tendency.nc"
+
+    # load the model
+    model = general.load_model(model_name)
+
+    # load the initial condition times
+    ic_dates = [dt.datetime.strptime(str_date, "%Y/%m/%d %H:%M") for str_date in config["ic_dates"]]
+
+    # interface between model and data
+    xr_io = XarrayBackend()
+
+    # get ERA5 data from the ECMWF CDS
+    data_source = general.DataSet(
+        "<path_to_your_era5_data>"
+    )
+
+    # run the model for all initial conditions at once
+    ds = run.deterministic(
+        time=np.atleast_1d(ic_dates), 
+        nsteps=config["n_timesteps"],
+        prognostic=model,
+        data=data_source,
+        io=xr_io,
+        device=config["device"],
+    ).root
+
+    # for clarity
+    ds = ds.rename({"time": "init_time"}) 
+
+    # only keep surface pressure variables
+    keep_vars = config["keep_vars_dict"][model_name]
+    ds = ds[keep_vars]
+
+    # postprocess data
+    for var in keep_vars:
+        ds[f"MEAN_{var}"] = general.latitude_weighted_mean(ds[var], ds.lat)
+        ds[f"IC_MEAN_{var}"] = ds[f"MEAN_{var}"].mean(dim="init_time")
+        
+    # add model dimension to enable opening with open_mfdataset
+    ds = ds.assign_coords(model=model_name)
+
+    # save data
+    ds.to_netcdf(nc_output_file)

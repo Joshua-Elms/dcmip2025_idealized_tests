@@ -8,3 +8,7 @@ device: cuda:0
 n_timesteps: 40
 perturbation_params:
   amp: 1
+experiment_subdirectories: 
+  - "plots"
+  - "tendencies"
+  

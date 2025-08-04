@@ -77,8 +77,9 @@ def prepare_output_directory(config: dict) -> Path:
         raise FileExistsError(f"Experiment directory '{exp_dir}' already exists. Please delete it or change experiment_name.")
 
     exp_dir.mkdir(parents=True, exist_ok=False) # make dir if it doesn't exist
-    plot_dir = exp_dir / "plots" # save figures here
-    plot_dir.mkdir()
+    if "experiment_subdirectories" in config:
+        for subdir in config["experiment_subdirectories"]:
+            (exp_dir / subdir).mkdir()  # create subdirectories if specified in config, e.g. "plots", "tendencies"
 
     # copy config to experiment directory
     config_path_exp = exp_dir / "config.yaml"
