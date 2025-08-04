@@ -1,7 +1,12 @@
-n_timesteps: 8
+experiment_dir: /N/slate/jmelms/projects/dcmip2025_idealized_tests/experiments/A2.mass_conservation/data
+experiment_name: full_test
 ic_dates: ["2018/01/01 12:00", "2018/07/01 12:00"]
-keep_vars: None
-experiment_dir: /N/slate/jmelms/projects/dcmip2025_idealized_tests/experiments/A.mass_conservation/data
-experiment_name: test_E2S
+models: ["SFNO", "Pangu6"]
+n_timesteps: 40
 device: cuda:0
-
+debug_run: false
+keep_vars_dict: 
+  SFNO: ["sp", "msl"]
+  Pangu6: ["msl"]
+  GraphCastOperational: ["msl"]
+  FuXi: ["msl"]

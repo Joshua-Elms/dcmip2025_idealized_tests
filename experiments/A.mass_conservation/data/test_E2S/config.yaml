@@ -1,7 +1,0 @@
-n_timesteps: 8
-ic_dates: ["2018/01/01 12:00", "2018/07/01 12:00"]
-keep_vars: None
-experiment_dir: /N/slate/jmelms/projects/dcmip2025_idealized_tests/experiments/A.mass_conservation/data
-experiment_name: test_E2S
-device: cuda:0
-
