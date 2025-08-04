@@ -1,6 +1,5 @@
 import datetime as dt
 from torch.cuda import mem_get_info
-from utils_E2S import inference_sfno as inference
 from utils_E2S import general
 from pathlib import Path
 import numpy as np
@@ -51,7 +50,7 @@ def run_experiment(model_name: str, config_path: str) -> str:
 
     # postprocess data
     for var in keep_vars:
-        ds[f"MEAN_{var}"] = inference.latitude_weighted_mean(ds[var], ds.lat)
+        ds[f"MEAN_{var}"] = general.latitude_weighted_mean(ds[var], ds.lat)
         ds[f"IC_MEAN_{var}"] = ds[f"MEAN_{var}"].mean(dim="init_time")
         
     # add model dimension to enable opening with open_mfdataset

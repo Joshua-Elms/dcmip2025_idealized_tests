@@ -9,6 +9,7 @@ import yaml
 import shutil
 from dotenv import load_dotenv
 from time import perf_counter
+import torch
 
 class DataSet:
     """An in-memory xarray dataset data source.
@@ -102,6 +103,45 @@ def load_model(model_name: str) -> PrognosticModel:
     end = perf_counter()
     print(f"Model '{model_name}' loaded in {end - start:.2f} seconds.")
     return model
+
+def latitude_weighted_mean(da, latitudes, device="cpu"):
+    """
+    Calculate the latitude weighted mean of a variable using torch operations on GPU.
+    Needs tests to ensure it works correctly.
+    
+    Parameters:
+    -----------
+    da : xarray.DataArray or torch.Tensor
+        The data to average
+    latitudes : xarray.DataArray or numpy.ndarray
+        The latitude values
+        
+    Returns:
+    --------
+    torch.Tensor
+        The latitude-weighted mean
+    """
+    # Convert inputs to torch tensors if needed
+    coords = {dim: da[dim] for dim in da.dims if dim not in ['latitude', 'longitude', 'lat', 'lon']}
+    if isinstance(da, xr.DataArray):
+        da = torch.from_numpy(da.values)
+    if isinstance(latitudes, xr.DataArray):
+        latitudes = latitudes.values
+    
+    # Move to GPU if available
+    da = da.to(device)
+    
+    # Calculate weights
+    lat_radians = torch.from_numpy(np.deg2rad(latitudes)).to(device)
+    weights = torch.cos(lat_radians) / (torch.sum(torch.cos(lat_radians)) * da.shape[-1])
+    
+    # Expand weights to match data dimensions
+    weights = weights.view(1, -1, 1)  # Add dims for broadcasting
+    
+    # Calculate weighted mean
+    weighted_data = da * weights
+    averaged = weighted_data.nansum(dim=(-2, -1))  # Average over lat, lon dimensions
+    return xr.DataArray(averaged.cpu().numpy(), coords=coords)
 
 if __name__ == "__main__":
     print(load_model("SFNO"))  # Example usage
