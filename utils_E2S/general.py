@@ -4,12 +4,21 @@ import numpy as np
 from earth2studio.utils.type import TimeArray, VariableArray
 from earth2studio.models.px.base import PrognosticModel
 import earth2studio.models.px
+from earth2studio.io import XarrayBackend
+import earth2studio.run as run
 from pathlib import Path
+import datetime as dt
 import yaml
 import shutil
 from dotenv import load_dotenv
 from time import perf_counter
 import torch
+
+model_levels = dict(
+    SFNO=np.array([50,100,150,200,250,300,400,500,600,700,850,925,1000]),
+    Pangu6=np.array([50,100,150,200,250,300,400,500,600,700,850,925,1000]),
+    GraphCastOperational=np.array([50,100,150,200,250,300,400,500,600,700,850,925,1000]),
+)
 
 class DataSet:
     """An in-memory xarray dataset data source.
@@ -42,6 +51,18 @@ class DataSet:
         xr.DataArray
             Loaded data array
         """
+        # check to make sure requested times and variables are in dataset
+        if isinstance(time, datetime):
+            time = [time]
+        for t in time:
+            if t not in self.ds["time"]:
+                raise ValueError(f"Requested time {t} not in dataset time coordinate.")
+        if isinstance(variable, str):
+            variable = [variable]
+        for v in variable:
+            if v not in self.ds:
+                raise ValueError(f"Requested variable {v} not in dataset variables.")
+        
         # loop over variables and concatenate the data arrays
         da_list = [self.ds[v].sel(time=np.atleast_1d(time)) for v in variable]
         da = xr.concat(da_list, dim="variable")
@@ -57,7 +78,7 @@ def read_config(config_path: Path) -> dict:
         config = yaml.safe_load(file)
         
     # Check for required keys
-    required_keys = ["experiment_dir", "experiment_name", "device", "n_timesteps", "models"]
+    required_keys = ["experiment_dir", "experiment_name", "device", "n_timesteps", "models", "experiment_subdirectories", "debug_run"]
     for key in required_keys:
         if key not in config:
             raise KeyError(f"Missing required key in config: {key}\nPlease set it and try again.")
@@ -105,6 +126,97 @@ def load_model(model_name: str) -> PrognosticModel:
     print(f"Model '{model_name}' loaded in {end - start:.2f} seconds.")
     return model
 
+def run_deterministic_w_perturbations(run_kwargs: dict, tendency_reversion: bool, tendency_file: Path, initial_perturbation: xr.Dataset = None, recurrent_perturbation: xr.Dataset = None) -> xr.Dataset:
+    """Run a deterministic forecast with tendency reversion.
+    Code modified from Travis O'Brien."""
+    if tendency_reversion:
+        print("Running deterministic forecast with tendency reversion.")
+        dummy_io = XarrayBackend()
+        model = run_kwargs["prognostic"]
+
+        # set up a hook function that appends the model state to a list
+        states = []
+        def append_state(x, coords):
+            """ Appends the states to a list"""
+            states.append(x)
+            return x, coords
+
+        model.rear_hook = append_state
+        model.front_hook = append_state
+
+        # run the model for one step; this will populate the states[] list above
+        keep_kwargs = {k:v for k, v in run_kwargs.items() if k not in ("nsteps", "io")}
+        run.deterministic(**keep_kwargs, nsteps=1, io=dummy_io)
+
+        # get the recurrent perturbation
+        rpert = states[0] - states[1]
+        rpert_ds = dummy_io.root.isel(lead_time=0) - dummy_io.root.isel(lead_time=1) 
+        
+        # save the tendency to a file
+        if tendency_file.exists():
+            print(f"Tendency file {tendency_file} already exists. Overwriting.")
+        rpert_ds.to_netcdf(tendency_file)
+
+        # set up a post-model hook function that reverts the tendency
+        def tendency_reversion(x, coords):
+            """ Reverts the tendency to the first state """
+            return x + rpert, coords
+
+        # set up a hook function that returns the input as is
+        def identity(x, coords):
+            """ Returns the input as is """
+            return x, coords
+
+        # reset the model hooks
+        model.front_hook = identity
+        model.rear_hook = tendency_reversion
+        test_TR_io = XarrayBackend()
+        test_TR_ds = run.deterministic(**keep_kwargs, nsteps=1, io=test_TR_io).root
+        
+        # print diagnostic information for tendency
+        ds_diff = test_TR_ds.diff(dim = "lead_time")
+        print(f"Tendency reversion applied. Difference between 0th and 1st lead time should be close to zero:")
+
+        summary = []
+        line = []
+        for i, (var_name, var_val) in enumerate(ds_diff.data_vars.items()):
+            formatted = f"{var_name:<5} - {var_val.max().item():.1e}"
+            line.append(formatted)
+            if (i % 4 == 3) or (i == len(ds_diff.data_vars) - 1):
+                line_str = " :: ".join(line)
+                line = []
+                summary.append(line_str)
+        print("\n".join(summary))
+
+        
+        # run the model for the full number of steps with tendency reversion
+        model.front_hook = identity
+        model.rear_hook = tendency_reversion
+        
+    ds = run.deterministic(**run_kwargs).root
+    
+    return ds
+
+def create_initial_condition(model: PrognosticModel, fill_value: float = 0.0, init_time: dt.datetime = dt.datetime(2000, 1, 1, 0, 0)) -> xr.Dataset:
+    """Create a dataset with the correct coordinates and variables for a given model."""
+    coords = model.input_coords()
+    real_coords = {
+        "time": np.atleast_1d(init_time),
+        "lead_time": coords["lead_time"],
+        "lat": coords["lat"],
+        "lon": coords["lon"],
+    }
+    ds = xr.Dataset(coords=real_coords)
+    for var in coords["variable"]:
+        da = xr.DataArray(
+            data=fill_value,
+            coords=real_coords,
+            dims=["time", "lead_time", "lat", "lon"],
+        )
+        ds[var] = da
+
+    return ds
+
 def latitude_weighted_mean(da, latitudes, device="cpu"):
     """
     Calculate the latitude weighted mean of a variable using torch operations on GPU.
@@ -144,5 +256,181 @@ def latitude_weighted_mean(da, latitudes, device="cpu"):
     averaged = weighted_data.nansum(dim=(-2, -1))  # Average over lat, lon dimensions
     return xr.DataArray(averaged.cpu().numpy(), coords=coords)
 
-if __name__ == "__main__":
-    print(load_model("SFNO"))  # Example usage
+def haversine(lon1, lat1, lon2, lat2):
+    """
+    Calculate the great circle distance between two points
+    on the earth (specified in decimal degrees)
+    
+    Adapted from Hakim and Masanam (2024) repository: https://github.com/modons/DL-weather-dynamics/blob/main/panguweather_utils.py#L145
+    """
+
+    # convert decimal degrees to radians
+    lon1, lat1, lon2, lat2 = list(map(np.radians, [lon1, lat1, lon2, lat2]))
+    # haversine formula
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+    a = np.sin(dlat/2.)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon/2.)**2
+    c = 2 * np.arcsin(np.sqrt(a))
+    km = 6367.0 * c
+    return km
+
+def gen_circular_perturbation(lat_2d,lon_2d,ilat,ilon,amp,locRad=1000.,Z500=False):
+    """
+    Adapted from Hakim and Masanam (2024) repository: https://github.com/modons/DL-weather-dynamics/blob/main/panguweather_utils.py#L162
+    """
+    grav = 9.81
+    nlat = lat_2d.shape[0]
+    nlon = lon_2d.shape[1]
+    site_lat = lat_2d[ilat,0]
+    site_lon = lon_2d[0,ilon]
+    lat_vec = np.reshape(lat_2d,[nlat*nlon])
+    lon_vec = np.reshape(lon_2d,[nlat*nlon])
+    dists = np.zeros(shape=[nlat*nlon])
+    dists = np.array(haversine(site_lon,site_lat,lon_vec,lat_vec),dtype=np.float64)
+
+    hlr = 0.5*locRad # work with half the localization radius
+    r = dists/hlr
+
+    # indexing w.r.t. distances
+    ind_inner = np.where(dists <= hlr)    # closest
+    ind_outer = np.where(dists >  hlr)    # close
+    ind_out   = np.where(dists >  2.*hlr) # out
+
+    # Gaspari-Cohn function
+    covLoc = np.ones(shape=[nlat*nlon],dtype=np.float64)
+
+    # for pts within 1/2 of localization radius
+    covLoc[ind_inner] = (((-0.25*r[ind_inner]+0.5)*r[ind_inner]+0.625)* \
+                         r[ind_inner]-(5.0/3.0))*(r[ind_inner]**2)+1.0
+    # for pts between 1/2 and one localization radius
+    covLoc[ind_outer] = ((((r[ind_outer]/12. - 0.5) * r[ind_outer] + 0.625) * \
+                          r[ind_outer] + 5.0/3.0) * r[ind_outer] - 5.0) * \
+                          r[ind_outer] + 4.0 - 2.0/(3.0*r[ind_outer])
+    # Impose zero for pts outside of localization radius
+    covLoc[ind_out] = 0.0
+    
+    # prevent negative values: calc. above may produce tiny negative
+    covLoc[covLoc < 0.0] = 0.0
+    
+    if Z500:
+        # 500Z:
+        print('500Z perturbation...')
+        perturb = np.reshape(covLoc*grav*amp,[nlat,nlon])
+    else:
+        # heating:
+        print('heating perturbation...')
+        perturb = np.reshape(covLoc*amp,[nlat,nlon])
+
+    return perturb
+
+def gen_elliptical_perturbation(lat,lon,k,ylat,xlon,locRad):
+
+    """
+    center a localized ellipse at (xlat,xlon)
+    
+    Adapted from Hakim and Masanam (2024) repository: https://github.com/modons/DL-weather-dynamics/blob/main/panguweather_utils.py#L208
+    
+    k: meridional wavenumber; disturbance is non-zero up to first zero crossing in cos
+    xlat: latitude, in degrees to center the function
+    xlon: longitude, in degrees to center the function
+    locRad: zonal GC distance, in km
+    """
+    km = 1.e3
+    nlat = len(lat)
+    nlon = len(lon)
+ 
+    ilon = xlon*4. #lon index of center
+    ilat = int((90.-ylat)*4.) #lat index of center
+    yfunc = np.cos(np.deg2rad(k*(lat-ylat)))
+
+    # first zero-crossing
+    crit = np.cos(np.deg2rad(k*(lat[ilat]-ylat)))
+    ll = np.copy(ilat)
+    while crit>0:
+        ll-=1
+        crit = yfunc[ll]
+
+    yfunc[:ll+1] = 0.
+    yfunc[2*ilat-ll:] = 0.
+
+    # gaspari-cohn in logitude only, at the equator
+    dx = 6380.*km*2*np.pi/(360.) #1 degree longitude at the equator
+    dists = np.zeros_like(lon)
+    for k in range(len(lon)):
+        dists[k] = dx*np.min([np.abs(lon[k]-xlon),np.abs(lon[k]-360.-xlon)])
+
+    #locRad = 10000.*km
+    hlr = 0.5*locRad # work with half the localization radius
+    r = dists/hlr
+
+    # indexing w.r.t. distances
+    ind_inner = np.where(dists <= hlr)    # closest
+    ind_outer = np.where(dists >  hlr)    # close
+    ind_out   = np.where(dists >  2.*hlr) # out
+
+    # Gaspari-Cohn function
+    covLoc = np.ones(nlon)
+
+    # for pts within 1/2 of localization radius
+    covLoc[ind_inner] = (((-0.25*r[ind_inner]+0.5)*r[ind_inner]+0.625)* \
+                         r[ind_inner]-(5.0/3.0))*(r[ind_inner]**2)+1.0
+    # for pts between 1/2 and one localization radius
+    covLoc[ind_outer] = ((((r[ind_outer]/12. - 0.5) * r[ind_outer] + 0.625) * \
+                          r[ind_outer] + 5.0/3.0) * r[ind_outer] - 5.0) * \
+                          r[ind_outer] + 4.0 - 2.0/(3.0*r[ind_outer])
+    # Impose zero for pts outside of localization radius
+    covLoc[ind_out] = 0.0
+
+    # prevent negative values: calc. above may produce tiny negative
+    covLoc[covLoc < 0.0] = 0.0
+
+    # make the function
+    [a,b] = np.meshgrid(covLoc,yfunc)
+    perturb = a*b
+
+    return perturb
+
+def gen_baroclinic_wave_perturbation(lat,lon,ylat,xlon,u_pert_base,locRad,a=6.371e6):
+    """
+    Implementation of baroclinic wave perturbation from Bouvier et al. (2024). 
+    
+    Produces a "localised unbalanced [u-]wind perturbation" to be added to a "baroclinically unstable background state".
+    
+    input:
+    ------
+    lat : numpy.ndarray
+        the latitude values
+    lon : numpy.ndarray
+        the longitude values
+    ylat : float
+        the latitude of the center of the perturbation
+    xlon : float
+        the longitude of the center of the perturbation
+    u_pert_base : float
+        the base amplitude of the u-wind perturbation
+    locRad : float
+        the localization radius (approximate size of perturbation) in km 
+    a (optional) : float
+        the radius of the earth in m (default is 6.371e6 m)
+        
+    output:
+    -------
+    perturb : numpy.ndarray
+        the perturbation array with shape (nlat, nlon)
+    """
+    radlat = np.deg2rad(lat)
+    radlon = np.deg2rad(lon)
+    radylat = np.deg2rad(ylat)
+    radxlon = np.deg2rad(xlon)
+    
+    # make the grid
+    lon_2d, lat_2d = np.meshgrid(radlon, radlat)
+
+    # calculate distance from center of perturbation for each grid point
+    great_circle_dist = a*np.arccos(
+        np.sin(radylat) * np.sin(lat_2d) + 
+        np.cos(radylat) * np.cos(lat_2d) * np.cos(lon_2d - radxlon)
+    )
+    perturb = u_pert_base * np.exp(-(great_circle_dist / locRad)**2)
+    
+    return perturb

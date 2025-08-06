@@ -1,14 +1,20 @@
-experiment_dir: /glade/u/home/jmelms/projects/dcmip2025_idealized_tests/experiments/B.hakim_and_masanam/data
-experiment_name: canonical_run
-time_mean_IC_dir: /glade/work/jmelms/dcmip/era5_time_means
+experiment_dir: /N/slate/jmelms/projects/dcmip2025_idealized_tests/experiments/C.tropical_heating_hm24/data
+experiment_name: test
+HM24_IC_dir: /N/slate/jmelms/projects/HM24_initial_conditions/IC_files
 perturbation_dir: /glade/work/jmelms/dcmip/hm24_perts
 IC_season: DJF
 tendency_reversion: true
 device: cuda:0
-n_timesteps: 40
+n_timesteps: 2
+debug_run: True
+models: ["Pangu6"]
 perturbation_params:
-  amp: 1
+  amp: 0.1
+  k: 6
+  ylat: 0
+  xlon: 120
+  locRadkm: 10000
 experiment_subdirectories: 
   - "plots"
-  - "tendencies"
+  - "auxiliary"
   

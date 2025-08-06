@@ -10,11 +10,11 @@ import multiprocessing as mp
 import xarray as xr
 from time import perf_counter
 
-raw_data_dir = Path("/N/slate/jmelms/projects/HM24_initial_conditions/raw_data")
+raw_data_dir = Path("/N/slate/jmelms/projects/HM24_initial_conditions2/raw_data")
 raw_data_dir.mkdir(parents=True, exist_ok=True)
-time_mean_dir = Path("/N/slate/jmelms/projects/HM24_initial_conditions/time_means")
+time_mean_dir = Path("/N/slate/jmelms/projects/HM24_initial_conditions2/time_means")
 time_mean_dir.mkdir(parents=True, exist_ok=True)
-IC_files_dir = Path("/N/slate/jmelms/projects/HM24_initial_conditions/IC_files")
+IC_files_dir = Path("/N/slate/jmelms/projects/HM24_initial_conditions2/IC_files")
 IC_files_dir.mkdir(parents=True, exist_ok=True)
 ncpus=6 # number of CPUs to use for parallelization, don't exceed ncpus from job request
 
