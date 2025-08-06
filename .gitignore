@@ -1,7 +1,8 @@
 *__pycache__*
 *.nc
-*.o*
+*.out
 .DS_Store
 .cache.pkl
 logs/
 E2S/*
+*.err

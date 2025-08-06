@@ -10,13 +10,13 @@ import multiprocessing as mp
 import xarray as xr
 from time import perf_counter
 
-raw_data_dir = Path("/N/slate/jmelms/projects/HM24_initial_conditions/raw_data")
+raw_data_dir = Path("/N/slate/jmelms/projects/HM24_initial_conditions2/raw_data")
 raw_data_dir.mkdir(parents=True, exist_ok=True)
-time_mean_dir = Path("/N/slate/jmelms/projects/HM24_initial_conditions/time_means")
+time_mean_dir = Path("/N/slate/jmelms/projects/HM24_initial_conditions2/time_means")
 time_mean_dir.mkdir(parents=True, exist_ok=True)
-IC_files_dir = Path("/N/slate/jmelms/projects/HM24_initial_conditions/IC_files")
+IC_files_dir = Path("/N/slate/jmelms/projects/HM24_initial_conditions2/IC_files")
 IC_files_dir.mkdir(parents=True, exist_ok=True)
-ncpus=4 # number of CPUs to use for parallelization, don't exceed ncpus from job request
+ncpus=6 # number of CPUs to use for parallelization, don't exceed ncpus from job request
 
 pl_variables = [ 
     "geopotential",
@@ -42,7 +42,7 @@ p_levels =  [
     400, 500, 600, 700, 850, 925, 
     1000
     ]
-years = [str(year) for year in np.arange(2018, 2020)] # str years 1979-2019
+years = [str(year) for year in np.arange(1979, 2020)] # str years 1979-2019
 months = ["12", "01", "02", "07", "08", "09"] # str months DJF and JAS
 
 # days are at 10-day intervals DJF and JAS
@@ -63,7 +63,6 @@ def download_time_chunk(variable, years, month, days, hours_utc, level, dataset,
     """
     Downloads a time chunk of data from the CDS API.
     """
-    client = cdsapi.Client()
     request = {
         "product_type": ["reanalysis"],
         "variable": [variable],
@@ -92,6 +91,7 @@ def download_time_chunk(variable, years, month, days, hours_utc, level, dataset,
     # Download the data
     print(f"DOWNLOADING: {fname} ({years[0]}-{years[-1]})")
     start_time = perf_counter()
+    client = cdsapi.Client()
     try:
         client.retrieve(dataset, request, download_dir / fname)
         
@@ -174,7 +174,7 @@ CDS_to_E2S = dict(
         longitude="lon",
     )
 
-def compute_time_mean_from_files(sl_variables: list, pl_variables: list, months: list, download_dir: Path, pressure_levels: list|None = None) -> xr.Dataset:
+def compute_time_mean_from_files(sl_variables: list, pl_variables: list, season: str, download_dir: Path, save_dir: Path, pressure_levels: list|None = None) -> xr.Dataset:
     """
     Computes the time mean for a list of variables and months.
     """
@@ -183,9 +183,19 @@ def compute_time_mean_from_files(sl_variables: list, pl_variables: list, months:
     if len(pl_variables) > 0 and pressure_levels is None:
         raise ValueError("If pl_variables are provided, pressure_levels must also be provided.")
     
+    months_to_season = {
+        "DJF": ["12", "01", "02"],
+        "JAS": ["07", "08", "09"],
+    }
+    months = months_to_season[season]
+    
     nvar = len(sl_variables) + len(pl_variables) * len(pressure_levels)
     # single level variables
     for i, variable in enumerate(sl_variables): 
+        savepath = save_dir / f"{variable}_{season}_time_mean.nc"
+        if savepath.exists():
+            print(f"File {savepath} already exists, skipping.")
+            continue
         print(f"  -> {variable} ({i+1}/{nvar})")
         month_paths = [download_dir / f"v={variable}_m={month}.nc" for month in months]
         for month_path in month_paths:
@@ -205,10 +215,15 @@ def compute_time_mean_from_files(sl_variables: list, pl_variables: list, months:
         time_mean_var_ds = var_ds.mean(dim="valid_time").compute()
         time_mean_var_ds = time_mean_var_ds.sortby("latitude") # flip latitude index
         time_mean_var_ds = time_mean_var_ds.drop_vars("number") # extra coord from ecmwf, unneeded
-        
+        time_mean_var_ds.to_netcdf(savepath)
+
     # pressure levels variables
     for i, variable in enumerate(pl_variables): 
         for j, pressure_level in enumerate(pressure_levels):
+            savepath = save_dir / f"{variable}_{pressure_level}_hPa_{season}_time_mean.nc"
+            if savepath.exists():
+                print(f"File {savepath} already exists, skipping.")
+                continue
             # print expression len(single_levels) + len(pressure_levels) * i + j + 1
             print(f"  -> {variable} at {pressure_level} hPa ({len(sl_variables) + len(pressure_levels) * i + j + 1}/{nvar})")
             month_paths = [download_dir / f"v={variable}_p={pressure_level}_m={month}.nc" for month in months]
@@ -230,6 +245,7 @@ def compute_time_mean_from_files(sl_variables: list, pl_variables: list, months:
             time_mean_var_ds = var_ds.mean(dim="valid_time").compute()
             time_mean_var_ds = time_mean_var_ds.sortby("latitude") # flip latitude index
             time_mean_var_ds = time_mean_var_ds.drop_vars("number") # extra coord from ecmwf, unneeded
+            time_mean_var_ds.to_netcdf(savepath)
 
 
 
@@ -256,18 +272,53 @@ all_variables = [
     "vertical_velocity",
     ]
 
-DJF_time_mean_ds = compute_time_mean_from_files(sfc_variables, pl_variables, DJF, raw_data_dir, p_levels=p_levels)
-JAS_time_mean_ds = compute_time_mean_from_files(sfc_variables, pl_variables, JAS, raw_data_dir, p_levels=p_levels)
+DJF_time_mean_ds = compute_time_mean_from_files(sfc_variables, pl_variables, "DJF", raw_data_dir, time_mean_dir, pressure_levels=p_levels)
+JAS_time_mean_ds = compute_time_mean_from_files(sfc_variables, pl_variables, "JAS", raw_data_dir, time_mean_dir, pressure_levels=p_levels)
 
 
+def create_ICs_from_time_means(season: str, time_mean_dir: Path, IC_files_dir: Path, model: str, p_levels: list) -> xr.Dataset:
+    """Creates initial conditions from the time means for a given season and model.
+    """
+    models = ["sfno", "pangu", "graphcast_oper"]
+    if model not in models:
+        raise ValueError(f"Model {model} not recognized. Must be one of {models}.")
+    
+    pl_variables, sl_variables = model_variables[model]
+    print(f"Creating ICs for {model} for season {season} with {len(pl_variables)} pressure level variables and {len(sl_variables)} single level variables.")
+    # open all time mean files and concatenate them into a single dataset
+    # where each variable is a separate DataArray
+    ds = xr.Dataset()
+    for variable in pl_variables:
+        for pressure_level in p_levels:
+            file_path = time_mean_dir / f"{variable}_{pressure_level}_hPa_{season}_time_mean.nc"
+            new_var_name = f"{lexicon[variable]}{pressure_level}"
+            ds[new_var_name] = xr.open_dataarray(file_path).squeeze(drop=True) # drop pressure_level dim since it's a single level
+            
+    for variable in sl_variables:
+        file_path = time_mean_dir / f"{variable}_{season}_time_mean.nc"
+        ds[lexicon[variable]] = xr.open_dataarray(file_path).squeeze(drop=True)
+        
+    # make it match the E2S format
+    ds = ds.rename({
+        "latitude": "lat",
+        "longitude": "lon",
+    })
+    if ds.lat[0] < ds.lat[-1]: # should be in descending order
+        ds = ds.sortby("lat", ascending=False)  # flip latitude index if needed
+        
+    if "time" not in ds.dims:  # if time is not a dimension, add it
+        ds = ds.expand_dims({"time": [np.datetime64("2000-01-01")]})  # add a dummy time dimension
+        
+    return ds
 
 model_variables = dict(
     sfno=[
-        "geopotential",
-        "relative_humidity",
+        ["geopotential",
+        "specific_humidity",
         "temperature",
         "u_component_of_wind",
-        "v_component_of_wind",
+        "v_component_of_wind",],
+        [
         "10m_u_component_of_wind",
         "10m_v_component_of_wind",
         "2m_temperature",
@@ -276,63 +327,57 @@ model_variables = dict(
         "100m_u_component_of_wind",
         "100m_v_component_of_wind",
         "total_column_water_vapour",
-        ],
+        ]],
     pangu=[
-        "geopotential",
+        ["geopotential",
         "specific_humidity",
         "temperature",
         "u_component_of_wind",
-        "v_component_of_wind",
-        "10m_u_component_of_wind",
+        "v_component_of_wind"],
+        ["10m_u_component_of_wind",
         "10m_v_component_of_wind",
         "2m_temperature",
         "mean_sea_level_pressure",
-        ],
+        ]],
     graphcast_oper=[
-        "geopotential",
+        ["geopotential",
         "specific_humidity",
         "temperature",
         "u_component_of_wind",
         "v_component_of_wind",
-        "vertical_velocity",
-        "10m_u_component_of_wind",
+        "vertical_velocity"],
+        ["10m_u_component_of_wind",
         "10m_v_component_of_wind",
         "2m_temperature",
         "mean_sea_level_pressure"
-        ],
+        ]],
 )
 
-download_dir = Path("/N/slate/jmelms/projects/HM24_initial_conditions/raw_data")
-save_dir = Path("/N/slate/jmelms/projects/HM24_initial_conditions/time_means")
-save_dir.mkdir(parents=True, exist_ok=True)
-DJF = ["12", "01", "02"]
-JAS = ["07", "08", "09"]
+lexicon = {
+    "geopotential": "z",
+    "relative_humidity": "r",
+    "specific_humidity": "q",
+    "temperature": "t",
+    "u_component_of_wind": "u",
+    "v_component_of_wind": "v",
+    "vertical_velocity": "w",
+    "10m_u_component_of_wind": "u10m",
+    "10m_v_component_of_wind": "v10m",
+    "2m_temperature": "t2m",
+    "mean_sea_level_pressure": "msl",
+    "surface_pressure": "sp",
+    "100m_u_component_of_wind": "u100m",
+    "100m_v_component_of_wind": "v100m",
+    "total_column_water_vapour": "tcwv",
+}
 
-seasons = ["DJF", "JAS"]
-models = ["sfno", "pangu", "graphcast_oper", "fuxi"] # ["sfno", "pangu", "graphcast_small"]
-
+models = ["sfno", "pangu", "graphcast_oper"] # ["sfno", "pangu", "graphcast_small"]
 for model in models:
-    all_vars = model_variables[model]
-    print(f"Starting {model} with variables: \n{all_vars}\n\n")
-    if "DJF" in seasons:
-        print("Computing time mean for DJF 0z 1979-2019 at 10 day intervals...")
-        start = perf_counter()
-        DJF_time_mean_ds = compute_time_mean_from_files(all_vars, DJF, download_dir, model)
-        print(f"Saving DJF time mean to {save_dir / f'DJF_ERA5_time_mean_{model}.nc'}")
-        DJF_time_mean_ds.to_netcdf(save_dir / f"DJF_ERA5_time_mean_{model}.nc")
-        DJF_time_mean_ds.close()
-        del DJF_time_mean_ds
-        end = perf_counter()
-        print(f"DJF ran for: {(end - start)/60:.1f} minutes")
-
-    if "JAS" in seasons:
-        print("Computing time mean for JAS 0z 1979-2019 at 10 day intervals...")
-        start = perf_counter()
-        JAS_time_mean_ds = compute_time_mean_from_files(all_vars, JAS, download_dir, model)    
-            
-        print(f"Saving JAS time mean to {save_dir / f'JAS_ERA5_time_mean_{model}.nc'}")
-        JAS_time_mean_ds.to_netcdf(save_dir / f"JAS_ERA5_time_mean_{model}.nc")
-        JAS_time_mean_ds.close()
-        del JAS_time_mean_ds
-        end = perf_counter()
-        print(f"JAS ran for: {(end - start)/60:.1f} minutes")
+    for season in seasons:
+        IC_ds = create_ICs_from_time_means(season, time_mean_dir, IC_files_dir, model, p_levels)
+        save_path = IC_files_dir / f"{model}_{season}_IC.nc"
+        if save_path.exists():
+            print(f"File {save_path} already exists, skipping.")
+            continue
+        print(f"Saving ICs to {save_path}")
+        IC_ds.to_netcdf(save_path)
