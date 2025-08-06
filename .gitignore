@@ -6,3 +6,4 @@
 logs/
 E2S/*
 *.err
+initial_conditions/make_HM24_ICs/outputs/*.png
