@@ -10,11 +10,11 @@ import multiprocessing as mp
 import xarray as xr
 from time import perf_counter
 
-raw_data_dir = Path("/N/slate/jmelms/projects/HM24_initial_conditions2/raw_data")
+raw_data_dir = Path("/N/slate/jmelms/projects/HM24_initial_conditions/raw_data")
 raw_data_dir.mkdir(parents=True, exist_ok=True)
-time_mean_dir = Path("/N/slate/jmelms/projects/HM24_initial_conditions2/time_means")
+time_mean_dir = Path("/N/slate/jmelms/projects/HM24_initial_conditions/time_means")
 time_mean_dir.mkdir(parents=True, exist_ok=True)
-IC_files_dir = Path("/N/slate/jmelms/projects/HM24_initial_conditions2/IC_files")
+IC_files_dir = Path("/N/slate/jmelms/projects/HM24_initial_conditions/IC_files")
 IC_files_dir.mkdir(parents=True, exist_ok=True)
 ncpus=6 # number of CPUs to use for parallelization, don't exceed ncpus from job request
 
@@ -276,10 +276,10 @@ DJF_time_mean_ds = compute_time_mean_from_files(sfc_variables, pl_variables, "DJ
 JAS_time_mean_ds = compute_time_mean_from_files(sfc_variables, pl_variables, "JAS", raw_data_dir, time_mean_dir, pressure_levels=p_levels)
 
 
-def create_ICs_from_time_means(season: str, time_mean_dir: Path, IC_files_dir: Path, model: str, p_levels: list) -> xr.Dataset:
+def create_ICs_from_time_means(season: str, time_mean_dir: Path, model: str, p_levels: list) -> xr.Dataset:
     """Creates initial conditions from the time means for a given season and model.
     """
-    models = ["sfno", "pangu", "graphcast_oper"]
+    models = ["SFNO", "Pangu6", "GraphCastOperational"]
     if model not in models:
         raise ValueError(f"Model {model} not recognized. Must be one of {models}.")
     
@@ -312,7 +312,7 @@ def create_ICs_from_time_means(season: str, time_mean_dir: Path, IC_files_dir: P
     return ds
 
 model_variables = dict(
-    sfno=[
+    SFNO=[
         ["geopotential",
         "specific_humidity",
         "temperature",
@@ -328,7 +328,7 @@ model_variables = dict(
         "100m_v_component_of_wind",
         "total_column_water_vapour",
         ]],
-    pangu=[
+    Pangu6=[
         ["geopotential",
         "specific_humidity",
         "temperature",
@@ -339,7 +339,7 @@ model_variables = dict(
         "2m_temperature",
         "mean_sea_level_pressure",
         ]],
-    graphcast_oper=[
+    GraphCastOperational=[
         ["geopotential",
         "specific_humidity",
         "temperature",
@@ -371,10 +371,10 @@ lexicon = {
     "total_column_water_vapour": "tcwv",
 }
 
-models = ["sfno", "pangu", "graphcast_oper"] # ["sfno", "pangu", "graphcast_small"]
+models = ["SFNO", "Pangu6", "GraphCastOperational"]
 for model in models:
     for season in seasons:
-        IC_ds = create_ICs_from_time_means(season, time_mean_dir, IC_files_dir, model, p_levels)
+        IC_ds = create_ICs_from_time_means(season, time_mean_dir, model, p_levels)
         save_path = IC_files_dir / f"{model}_{season}_IC.nc"
         if save_path.exists():
             print(f"File {save_path} already exists, skipping.")
