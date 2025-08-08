@@ -8,9 +8,9 @@
 #SBATCH --mail-user=jmelms@iu.edu
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=6
-#SBATCH --time=12:00:00
-#SBATCH --mem=128GB
+#SBATCH --cpus-per-task=1
+#SBATCH --time=02:00:00
+#SBATCH --mem=250GB
 #SBATCH -A r00389
 
 source se2s
