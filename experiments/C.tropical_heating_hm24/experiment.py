@@ -106,21 +106,21 @@ def run_experiment(model_name: str, config_path: str) -> str:
     xlon = pert_params["xlon"]
     locRad = pert_params["locRadkm"] * 1.e3 # convert km to m
     heating = amp * general.gen_elliptical_perturbation(IC_ds.lat,IC_ds.lon,k,ylat,xlon,locRad)
-    heating = heating[np.newaxis, np.newaxis, :]  # init_time and lead_time
-    heating_ds = general.create_initial_condition(model)
+    heating = heating[np.newaxis, :]  # init_time and lead_time
+    heating_ds = general.create_initial_condition(model).squeeze("lead_time")
     model_levels = general.model_levels[model_name]
-    model_coords = {k:v for k, v in model.input_coords().items() if k in ["lat", "lon", "lead_time"]}
-    model_coords["time"] = np.atleast_1d(dt.datetime(2000, 1, 1))  # add time coordinate
+    model_coords = {k:v for k, v in model.input_coords().items() if k in ["lat", "lon"]}
+    model_coords["time"] = np.atleast_1d(np.datetime64("2000-01-01"))  # add time coordinate
     perturb_levels = model_levels[(model_levels <= 1000) & (model_levels >= 200)]
     perturb_variables = [f"t{lev}" for lev in perturb_levels]
     for var in perturb_variables:
-        heating_ds[var] = xr.DataArray(heating, model_coords, dims=["time", "lead_time", "lat", "lon"])
+        heating_ds[var] = xr.DataArray(heating, model_coords, dims=["time", "lat", "lon"])
     print(f"Applying tropical heating perturbation: {heating_ds}")
     heating_ds.to_netcdf(recurrent_perturbation_file)
     
     # run experiment
     run_kwargs = {
-        "time": np.atleast_1d(dt.datetime(2000, 1, 1)),
+        "time": np.atleast_1d(np.datetime64("2000-01-01")),
         "nsteps": config["n_timesteps"],
         "prognostic": model,
         "data": data_source,
@@ -128,10 +128,12 @@ def run_experiment(model_name: str, config_path: str) -> str:
         "device": config["device"],
     }
     
-    if config["tendency_reversion"]:
-        ds = general.run_deterministic_w_perturbations(run_kwargs, tendency_file, recurrent_perturbation=heating_ds)
-    else:
-        ds = run.deterministic(**run_kwargs).root
+    ds = general.run_deterministic_w_perturbations(
+        run_kwargs, 
+        config["tendency_reversion"], 
+        tendency_file, 
+        recurrent_perturbation=heating_ds
+        )
 
     # for clarity
     ds = ds.rename({"time": "init_time"}) 

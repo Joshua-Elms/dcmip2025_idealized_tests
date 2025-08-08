@@ -2,6 +2,7 @@ import xarray as xr
 from datetime import datetime
 import numpy as np
 from earth2studio.utils.type import TimeArray, VariableArray
+from earth2studio.data.utils import prep_data_array
 from earth2studio.models.px.base import PrognosticModel
 import earth2studio.models.px
 from earth2studio.io import XarrayBackend
@@ -149,18 +150,26 @@ def run_deterministic_w_perturbations(run_kwargs: dict, tendency_reversion: bool
         run.deterministic(**keep_kwargs, nsteps=1, io=dummy_io)
 
         # get the recurrent perturbation
-        rpert = states[0] - states[1]
-        rpert_ds = dummy_io.root.isel(lead_time=0) - dummy_io.root.isel(lead_time=1) 
-        
+        tend = states[0] - states[1]
+        if recurrent_perturbation is not None:
+            if not isinstance(recurrent_perturbation, xr.Dataset):
+                raise TypeError(f"Expected xr.Dataset for recurrent_perturbation, got {type(recurrent_perturbation)}")
+            recurrent_pert_source = DataSet(recurrent_perturbation)
+            variables = model.input_coords()["variable"]
+            da = recurrent_pert_source(run_kwargs["time"], variables)
+            rpert_from_user, rpert_coords = prep_data_array(da)
+            
+        tendency_ds = dummy_io.root.isel(lead_time=0) - dummy_io.root.isel(lead_time=1)
+
         # save the tendency to a file
         if tendency_file.exists():
             print(f"Tendency file {tendency_file} already exists. Overwriting.")
-        rpert_ds.to_netcdf(tendency_file)
+        tendency_ds.to_netcdf(tendency_file)
 
         # set up a post-model hook function that reverts the tendency
         def tendency_reversion(x, coords):
             """ Reverts the tendency to the first state """
-            return x + rpert, coords
+            return x + tend.to(run_kwargs["device"]) + rpert_from_user.to(run_kwargs["device"]), coords
 
         # set up a hook function that returns the input as is
         def identity(x, coords):
