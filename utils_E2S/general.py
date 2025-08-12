@@ -18,6 +18,7 @@ import torch
 model_levels = dict(
     SFNO=np.array([50,100,150,200,250,300,400,500,600,700,850,925,1000]),
     Pangu6=np.array([50,100,150,200,250,300,400,500,600,700,850,925,1000]),
+    Pangu6x=np.array([50,100,150,200,250,300,400,500,600,700,850,925,1000]),
     GraphCastOperational=np.array([50,100,150,200,250,300,400,500,600,700,850,925,1000]),
 )
 
@@ -30,8 +31,9 @@ class DataSet:
         The xarray dataset to use as data source.
     """
 
-    def __init__(self, dataset: xr.Dataset):
+    def __init__(self, dataset: xr.Dataset, model_name: str):
         self.ds = dataset
+        self.model_name = model_name
 
     def __call__(
         self,
@@ -71,7 +73,7 @@ class DataSet:
         # reorder to time variable lat lon
         da = da.transpose("time", "variable", "lat", "lon")
         return da
-    
+
 def read_config(config_path: Path) -> dict: 
     """Read the configuration file."""
 
@@ -79,7 +81,7 @@ def read_config(config_path: Path) -> dict:
         config = yaml.safe_load(file)
         
     # Check for required keys
-    required_keys = ["experiment_dir", "experiment_name", "device", "n_timesteps", "models", "experiment_subdirectories", "debug_run"]
+    required_keys = ["experiment_dir", "experiment_name", "device", "n_timesteps", "models", "experiment_subdirectories", "debug_run", "overwrite"]
     for key in required_keys:
         if key not in config:
             raise KeyError(f"Missing required key in config: {key}\nPlease set it and try again.")
@@ -96,7 +98,11 @@ def prepare_output_directory(config: dict) -> Path:
     exp_dir = Path(config["experiment_dir"]) / config["experiment_name"] # all data for experiment stored here
     
     if exp_dir.exists():
-        raise FileExistsError(f"Experiment directory '{exp_dir}' already exists. Please delete it or change experiment_name.")
+        if config["overwrite"]:
+            print(f"Experiment directory '{exp_dir}' already exists. Overwriting.")
+            shutil.rmtree(exp_dir)
+        else:
+            raise FileExistsError(f"Experiment directory '{exp_dir}' already exists. 'overwrite' set to False, so please delete it or change experiment_name.")
 
     exp_dir.mkdir(parents=True, exist_ok=False) # make dir if it doesn't exist
     if "experiment_subdirectories" in config:
@@ -115,7 +121,7 @@ def prepare_output_directory(config: dict) -> Path:
 def load_model(model_name: str) -> PrognosticModel:
     """Load a model by name. Currently loads default model weights from cache, or downloads them to cache if not present."""
     load_dotenv()
-    models = {"SFNO", "Pangu6", "GraphCastOperational", "FuXi"}
+    models = {"SFNO", "Pangu6", "Pangu6x", "GraphCastOperational", "FuXi"}
     if model_name not in models:
         raise ValueError(f"Model '{model_name}' is not supported. Supported models are: {models}.")
     model_class = getattr(earth2studio.models.px, model_name)
@@ -127,7 +133,7 @@ def load_model(model_name: str) -> PrognosticModel:
     print(f"Model '{model_name}' loaded in {end - start:.2f} seconds.")
     return model
 
-def run_deterministic_w_perturbations(run_kwargs: dict, tendency_reversion: bool, tendency_file: Path, initial_perturbation: xr.Dataset = None, recurrent_perturbation: xr.Dataset = None) -> xr.Dataset:
+def run_deterministic_w_perturbations(run_kwargs: dict, tendency_reversion: bool, model_name: str, tendency_file: Path, initial_perturbation: xr.Dataset = None, recurrent_perturbation: xr.Dataset = None) -> xr.Dataset:
     """Run a deterministic forecast with tendency reversion.
     Code modified from Travis O'Brien."""
     if tendency_reversion:
@@ -139,7 +145,7 @@ def run_deterministic_w_perturbations(run_kwargs: dict, tendency_reversion: bool
         states = []
         def append_state(x, coords):
             """ Appends the states to a list"""
-            states.append(x)
+            states.append(x.clone())
             return x, coords
 
         model.rear_hook = append_state
@@ -154,21 +160,22 @@ def run_deterministic_w_perturbations(run_kwargs: dict, tendency_reversion: bool
         if recurrent_perturbation is not None:
             if not isinstance(recurrent_perturbation, xr.Dataset):
                 raise TypeError(f"Expected xr.Dataset for recurrent_perturbation, got {type(recurrent_perturbation)}")
-            recurrent_pert_source = DataSet(recurrent_perturbation)
+            recurrent_pert_source = DataSet(recurrent_perturbation, model_name)
             variables = model.input_coords()["variable"]
             da = recurrent_pert_source(run_kwargs["time"], variables)
             rpert_from_user, rpert_coords = prep_data_array(da)
             
         tendency_ds = dummy_io.root.isel(lead_time=0) - dummy_io.root.isel(lead_time=1)
-
-        # save the tendency to a file
-        if tendency_file.exists():
-            print(f"Tendency file {tendency_file} already exists. Overwriting.")
         tendency_ds.to_netcdf(tendency_file)
 
         # set up a post-model hook function that reverts the tendency
-        def tendency_reversion(x, coords):
+        def tendency_reversion_without_rpert(x, coords):
             """ Reverts the tendency to the first state """
+            return x + tend.to(run_kwargs["device"]), coords
+        
+        # set up a post-model hook function that reverts the tendency & adds a recurrent perturbation
+        def tendency_reversion_with_rpert(x, coords):
+            """ Reverts the tendency to the first state & add perturbation"""
             return x + tend.to(run_kwargs["device"]) + rpert_from_user.to(run_kwargs["device"]), coords
 
         # set up a hook function that returns the input as is
@@ -178,7 +185,9 @@ def run_deterministic_w_perturbations(run_kwargs: dict, tendency_reversion: bool
 
         # reset the model hooks
         model.front_hook = identity
-        model.rear_hook = tendency_reversion
+        model.rear_hook = tendency_reversion_without_rpert
+        
+        # run validation step
         test_TR_io = XarrayBackend()
         test_TR_ds = run.deterministic(**keep_kwargs, nsteps=1, io=test_TR_io).root
         
@@ -197,10 +206,9 @@ def run_deterministic_w_perturbations(run_kwargs: dict, tendency_reversion: bool
                 summary.append(line_str)
         print("\n".join(summary))
 
-        
         # run the model for the full number of steps with tendency reversion
         model.front_hook = identity
-        model.rear_hook = tendency_reversion
+        model.rear_hook = tendency_reversion_with_rpert
         
     ds = run.deterministic(**run_kwargs).root
     
@@ -443,3 +451,34 @@ def gen_baroclinic_wave_perturbation(lat,lon,ylat,xlon,u_pert_base,locRad,a=6.37
     perturb = u_pert_base * np.exp(-(great_circle_dist / locRad)**2)
     
     return perturb
+
+def sort_latitudes(ds: xr.Dataset, model_name: str, input: bool):
+    lat_ascending_by_model_input = {
+        "SFNO": True,
+        "Pangu6": False,
+        "Pangu6x": False,
+        "FuXi": False,
+        "GraphCastOperational": False
+    }
+    lat_ascending_by_model_output = {
+        "SFNO": True,
+        "Pangu6": True,
+        "Pangu6x": True,
+        "FuXi": True,
+        "GraphCastOperational": True
+    }
+    if input:
+        lat_should_be_ascending = lat_ascending_by_model_input[model_name]
+    else:
+        lat_should_be_ascending = lat_ascending_by_model_output[model_name]
+    lat = ds["lat"]
+    if lat_should_be_ascending:
+        if lat[0] > lat[-1]:
+            print(f"Latitude coordinates should be ascending for {model_name}, reversing.")
+            ds = ds.sortby("lat", ascending=True)
+    else:
+        if lat[0] < lat[-1]:
+            print(f"Latitude coordinates should be descending for {model_name}, reversing.")
+            ds = ds.sortby("lat", ascending=False)
+            
+    return ds

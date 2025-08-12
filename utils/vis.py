@@ -241,6 +241,7 @@ def create_and_plot_variable_gif(
     # ticks and ticklabels
     gl = ax.gridlines(crs=ccrs.PlateCarree(),linewidth=1.0,color='gray', alpha=0.5,linestyle='--', draw_labels=True)
     gl.top_labels = False
+    gl.right_labels = False
     ax.set_extent(extent, crs=ccrs.PlateCarree())
 
     ### Set other plot aesthetics

@@ -92,10 +92,12 @@ def run_experiment(model_name: str, config_path: str) -> str:
     
     # load the time-mean initial condition from HM24
     IC_ds = xr.open_dataset(IC_path)
+    IC_ds = general.sort_latitudes(IC_ds, model_name, input=True)
 
     # get ERA5 data from the ECMWF CDS
     data_source = general.DataSet(
         IC_ds,
+        model_name
     )
     
     # create recurrent perturbation
@@ -129,17 +131,20 @@ def run_experiment(model_name: str, config_path: str) -> str:
     }
     
     ds = general.run_deterministic_w_perturbations(
-        run_kwargs, 
-        config["tendency_reversion"], 
-        tendency_file, 
+        run_kwargs,
+        config["tendency_reversion"],
+        model_name,
+        tendency_file,
         recurrent_perturbation=heating_ds
         )
-
     # for clarity
     ds = ds.rename({"time": "init_time"}) 
         
     # add model dimension to enable opening with open_mfdataset
     ds = ds.assign_coords(model=model_name)
+    
+    # sort output
+    ds = general.sort_latitudes(ds, model_name, input=False)
 
     # save data
     ds.to_netcdf(nc_output_file)
