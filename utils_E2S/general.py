@@ -133,7 +133,7 @@ def load_model(model_name: str) -> PrognosticModel:
     print(f"Model '{model_name}' loaded in {end - start:.2f} seconds.")
     return model
 
-def run_deterministic_w_perturbations(run_kwargs: dict, tendency_reversion: bool, model_name: str, tendency_file: Path, initial_perturbation: xr.Dataset = None, recurrent_perturbation: xr.Dataset = None) -> xr.Dataset:
+def run_deterministic_w_perturbations(run_kwargs: dict, tendency_reversion: bool, model_name: str, tendency_file: Path = None, initial_perturbation: xr.Dataset = None, recurrent_perturbation: xr.Dataset = None) -> xr.Dataset:
     """Run a deterministic forecast with tendency reversion.
     Code modified from Travis O'Brien."""
     if tendency_reversion:
@@ -155,8 +155,15 @@ def run_deterministic_w_perturbations(run_kwargs: dict, tendency_reversion: bool
         keep_kwargs = {k:v for k, v in run_kwargs.items() if k not in ("nsteps", "io")}
         run.deterministic(**keep_kwargs, nsteps=1, io=dummy_io)
 
-        # get the recurrent perturbation
+        if tendency_file:
+            print(f"Saving tendency to {tendency_file}.")
+            tendency_ds = dummy_io.root.isel(lead_time=0) - dummy_io.root.isel(lead_time=1)
+            tendency_ds.to_netcdf(tendency_file)
+            
+        # tendencies that will be used
         tend = states[0] - states[1]
+        
+        # get the recurrent perturbation
         if recurrent_perturbation is not None:
             if not isinstance(recurrent_perturbation, xr.Dataset):
                 raise TypeError(f"Expected xr.Dataset for recurrent_perturbation, got {type(recurrent_perturbation)}")
@@ -164,10 +171,9 @@ def run_deterministic_w_perturbations(run_kwargs: dict, tendency_reversion: bool
             variables = model.input_coords()["variable"]
             da = recurrent_pert_source(run_kwargs["time"], variables)
             rpert_from_user, rpert_coords = prep_data_array(da)
+        else:
+            rpert_from_user = 0
             
-        tendency_ds = dummy_io.root.isel(lead_time=0) - dummy_io.root.isel(lead_time=1)
-        tendency_ds.to_netcdf(tendency_file)
-
         # set up a post-model hook function that reverts the tendency
         def tendency_reversion_without_rpert(x, coords):
             """ Reverts the tendency to the first state """
