@@ -5,12 +5,12 @@ perturbation_dir: /glade/work/jmelms/dcmip/hm24_perts
 IC_season: DJF
 tendency_reversion: True
 device: cuda:0
-n_timesteps: 6
-debug_run: True
-models: ["SFNO"]
-overwrite: True
+n_timesteps: 60
+debug_run: False
+models: ["SFNO", "Pangu6x"]
+overwrite: False
 perturbation_params:
-  amp: 0.
+  amp: 0.1
   k: 6
   ylat: 0
   xlon: 120
