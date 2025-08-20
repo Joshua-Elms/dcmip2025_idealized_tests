@@ -1,0 +1,17 @@
+#!/bin/bash
+
+#SBATCH -J new_CDS_downloader
+#SBATCH -p general
+#SBATCH -o output.out
+#SBATCH -e log.err
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=jmelms@iu.edu
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=1
+#SBATCH --time=12:00:00
+#SBATCH --mem=250GB
+#SBATCH -A r00389
+
+e2s
+python /N/slate/jmelms/projects/dcmip2025_idealized_tests/initial_conditions/make_HM24_ICs/all_in_one_v2.py

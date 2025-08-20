@@ -35,7 +35,8 @@ sfc_variables = [
     "surface_pressure",
     "100m_u_component_of_wind",
     "100m_v_component_of_wind",
-    "total_column_water_vapour"
+    "total_column_water_vapour",
+    "total_precipitation"
     ]
 p_levels =  [
     50, 100, 150, 200, 250, 300, 
@@ -55,6 +56,20 @@ days_by_month = {
     "09": ["9", "19", "29"],
 }
 hours_utc = ["00:00"] # str hours 0z
+
+# special days_by_month and hours_utc only for total_precipitation, to get previous 6 hours of precip
+tp06_months = ["11", "12", "01", "02", "06", "07", "08", "09"] # need download for one day prior to dec and july
+tp06_days_by_month = {
+    "11": ["30"],
+    "12": ["10", "20", "30"],
+    "01": ["9", "19", "29"],
+    "02": ["8", "18"],
+    "06": ["30"],
+    "07": ["10", "20", "30"],
+    "08": ["9", "19", "29"],
+    "09": ["8", "18", "28"],
+}
+tp06_hours_utc = ["19:00", "20:00", "21:00", "22:00", "23:00"]
 
 pl_dataset = "reanalysis-era5-pressure-levels"
 sfc_dataset = "reanalysis-era5-single-levels"
@@ -116,7 +131,13 @@ for month in months:
     for variable in sfc_variables:
         args = (variable, years, month, days, hours_utc, "sfc", sfc_dataset, raw_data_dir)
         args_list.append(args)
-        
+
+if "total_precipitation" in sfc_variables:
+    for month in tp06_months:
+        days = tp06_days_by_month[month]
+        args = ("total_precipitation", years, month, days, tp06_hours_utc, "sfc", sfc_dataset, raw_data_dir)
+        args_list.append(args)
+
 ### download the data in parallel
 print(f"mp.Pool using ncpus={ncpus}")
 print(f"downloading {len(args_list)} files in parallel")
@@ -134,15 +155,32 @@ print(f"Average download time for {len(successful_downloads)} files: {avg_times:
 print(f"Downloads failed for {len(failed_downloads)} files: \n\t{failed_downloads_str}")
 
 
+def aggregate_tp_downloads(download_dir: Path, months: list, days_by_month: dict, hours_utc: list) -> None:
+    """
+    Aggregates the downloaded total precipitation files into a single tp06 file for each season
+    
+    Steps: 
+    1. 
+    
+    Make sure you are not asking for contiguous seasons; for example, trying to download tp06 for JAS and OND won't work because 
+    October 1 00z has precipitation accumulated from September, which will have unexpected behavior, skipping one of the Sept downloads. 
+    """
+    tp_files = []
+    for month in months:
+        days = days_by_month[month]
+        for hour in hours_utc:
+            fname = download_dir / f"v=total_precipitation_m={month}.nc"
+            if fname.exists():
+                tp_files.append(fname)
 
+    if not tp_files:
+        print("No total precipitation files found.")
+        return
 
-
-
-
-
-
-
-
+    print(f"Aggregating {len(tp_files)} total precipitation files...")
+    combined_ds = xr.open_mfdataset(tp_files, combine="nested", parallel=True)
+    combined_ds = combined_ds.mean(dim="valid_time").compute()
+    combined_ds.to_netcdf(download_dir / "v=total_precipitation_aggregated.nc")
 
 
 
@@ -162,6 +200,7 @@ CDS_to_E2S = dict(
         sp="sp",
         msl="msl",
         tcwv="tcwv",
+        tp06="tp06",
         t="t",
         z="z",
         r="r",
@@ -270,6 +309,7 @@ all_variables = [
     "total_column_water_vapour",
     "specific_humidity",
     "vertical_velocity",
+    "total_precipitation"
     ]
 
 DJF_time_mean_ds = compute_time_mean_from_files(sfc_variables, pl_variables, "DJF", raw_data_dir, time_mean_dir, pressure_levels=p_levels)
@@ -279,7 +319,7 @@ JAS_time_mean_ds = compute_time_mean_from_files(sfc_variables, pl_variables, "JA
 def create_ICs_from_time_means(season: str, time_mean_dir: Path, model: str, p_levels: list) -> xr.Dataset:
     """Creates initial conditions from the time means for a given season and model.
     """
-    models = ["SFNO", "Pangu6", "GraphCastOperational"]
+    models = ["SFNO", "Pangu6", "GraphCastOperational", "FuXi"]
     if model not in models:
         raise ValueError(f"Model {model} not recognized. Must be one of {models}.")
     
@@ -297,7 +337,10 @@ def create_ICs_from_time_means(season: str, time_mean_dir: Path, model: str, p_l
     for variable in sl_variables:
         file_path = time_mean_dir / f"{variable}_{season}_time_mean.nc"
         ds[lexicon[variable]] = xr.open_dataarray(file_path).squeeze(drop=True)
-        
+        # multiply total precipitation (hourly) by six to get tp06
+        if variable == "total_precipitation":
+            ds[lexicon[variable]] *= 6
+
     # make it match the E2S format
     ds = ds.rename({
         "latitude": "lat",
@@ -349,7 +392,20 @@ model_variables = dict(
         ["10m_u_component_of_wind",
         "10m_v_component_of_wind",
         "2m_temperature",
-        "mean_sea_level_pressure"
+        "mean_sea_level_pressure",
+        "total_precipitation",
+        ]],
+    FuXi=[
+        ["geopotential",
+        "relative_humidity",
+        "temperature",
+        "u_component_of_wind",
+        "v_component_of_wind"],
+        ["10m_u_component_of_wind",
+        "10m_v_component_of_wind",
+        "2m_temperature",
+        "mean_sea_level_pressure",
+        "total_precipitation",
         ]],
 )
 
@@ -369,15 +425,16 @@ lexicon = {
     "100m_u_component_of_wind": "u100m",
     "100m_v_component_of_wind": "v100m",
     "total_column_water_vapour": "tcwv",
+    "total_precipitation": "tp06",
 }
 
-models = ["SFNO", "Pangu6", "GraphCastOperational"]
+models = ["SFNO", "Pangu6", "GraphCastOperational", "FuXi"]
 for model in models:
     for season in seasons:
-        IC_ds = create_ICs_from_time_means(season, time_mean_dir, model, p_levels)
         save_path = IC_files_dir / f"{model}_{season}_IC.nc"
         if save_path.exists():
             print(f"File {save_path} already exists, skipping.")
             continue
+        IC_ds = create_ICs_from_time_means(season, time_mean_dir, model, p_levels)
         print(f"Saving ICs to {save_path}")
         IC_ds.to_netcdf(save_path)
