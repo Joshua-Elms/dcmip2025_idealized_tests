@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH -J new_CDS_downloader
+#SBATCH -J 2018-2019_CDS_download
 #SBATCH -p general
 #SBATCH -o output.out
 #SBATCH -e log.err
@@ -9,9 +9,10 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=1
-#SBATCH --time=12:00:00
+#SBATCH --time=24:00:00
 #SBATCH --mem=250GB
 #SBATCH -A r00389
 
-e2s
+source /N/slate/jmelms/projects/earth2studio-cu126/.venv/bin/activate
 python /N/slate/jmelms/projects/dcmip2025_idealized_tests/initial_conditions/make_HM24_ICs/all_in_one_v2.py
+python /N/slate/jmelms/projects/dcmip2025_idealized_tests/experiments/C.tropical_heating_hm24/1.experiment_controller.py

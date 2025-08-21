@@ -78,7 +78,7 @@ def run_experiment(model_name: str, config_path: str) -> str:
     print(f"GPU memory: {mem_get_info()[0] / 1e9:.2f} GB available out of {mem_get_info()[1] / 1e9:.2f} GB")
     
     # unpack config & set paths
-    IC_path = Path(config["HM24_IC_dir"]) / f"{model_name}_{config["IC_season"]}_IC.nc"
+    IC_path = Path(config["HM24_IC_dir"]) / f"{model_name}.nc"
     output_dir = Path(config["experiment_dir"]) / config["experiment_name"]
     nc_output_file = output_dir / f"output_{model_name}.nc"
     tendency_file = output_dir  / "auxiliary" / f"tendency_{model_name}.nc"
