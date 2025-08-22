@@ -255,9 +255,12 @@ def create_ICs_from_time_means(
         }
     )
     t = [np.datetime64("2000-01-01 00:00")]
-    if model == "GraphCastOperational":
+    if model in ["GraphCastOperational", "FuXi"]: # TODO: parametrize this and automatically adjust
         t = [np.datetime64("1999-12-31 18:00")] + t
     ds = ds.expand_dims({"time": t})
+    ds = ds.drop_vars(
+            ["number", "expver"], errors="ignore"
+        )
 
     return ds
 
@@ -383,7 +386,7 @@ if __name__ == "__main__":
     year_range = range(
         start_end_years_inc[0], start_end_years_inc[1] + 1
     )  # inclusive range
-    seasons = {"DJF": [12, 1, 2], "JAS": [7, 8, 9]}
+    seasons = {"DJF": [12, 1, 2]}
     models = ["SFNO", "Pangu6", "GraphCastOperational", "FuXi"]
     static_fields = {
         "geopotential": "https://confluence.ecmwf.int/download/attachments/140385202/geo_1279l4_0.1x0.1.grib2_v4_unpack.nc?version=1&modificationDate=1591983422003&api=v2",

@@ -1,3 +1,4 @@
+from matplotlib.pyplot import axis
 import xarray as xr
 from datetime import datetime
 import numpy as np
@@ -16,11 +17,15 @@ from time import perf_counter
 import torch
 
 model_levels = dict(
-    SFNO=np.array([50,100,150,200,250,300,400,500,600,700,850,925,1000]),
-    Pangu6=np.array([50,100,150,200,250,300,400,500,600,700,850,925,1000]),
-    Pangu6x=np.array([50,100,150,200,250,300,400,500,600,700,850,925,1000]),
-    GraphCastOperational=np.array([50,100,150,200,250,300,400,500,600,700,850,925,1000]),
+    SFNO=np.array([50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]),
+    Pangu6=np.array([50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]),
+    Pangu6x=np.array([50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]),
+    GraphCastOperational=np.array(
+        [50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]
+    ),
+    FuXi=np.array([50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]),
 )
+
 
 class DataSet:
     """An in-memory xarray dataset data source.
@@ -65,65 +70,86 @@ class DataSet:
         for v in variable:
             if v not in self.ds:
                 raise ValueError(f"Requested variable {v} not in dataset variables.")
-        
+
         # loop over variables and concatenate the data arrays
         da_list = [self.ds[v].sel(time=np.atleast_1d(time)) for v in variable]
         da = xr.concat(da_list, dim="variable")
         da = da.assign_coords(variable=variable)
-        # reorder to time variable lat lon
         da = da.transpose("time", "variable", "lat", "lon")
         return da
 
-def read_config(config_path: Path) -> dict: 
+
+def read_config(config_path: Path) -> dict:
     """Read the configuration file."""
 
-    with open(config_path, 'r') as file:
+    with open(config_path, "r") as file:
         config = yaml.safe_load(file)
-        
+
     # Check for required keys
-    required_keys = ["experiment_dir", "experiment_name", "device", "n_timesteps", "models", "experiment_subdirectories", "debug_run", "overwrite"]
+    required_keys = [
+        "experiment_dir",
+        "experiment_name",
+        "device",
+        "n_timesteps",
+        "models",
+        "experiment_subdirectories",
+        "debug_run",
+        "overwrite",
+    ]
     for key in required_keys:
         if key not in config:
-            raise KeyError(f"Missing required key in config: {key}\nPlease set it and try again.")
-    
+            raise KeyError(
+                f"Missing required key in config: {key}\nPlease set it and try again."
+            )
+
     # add config path to config object for reference in downstream functions
     if "config_path" not in config:
         config["config_path"] = config_path
-        
+
     return config
+
 
 def prepare_output_directory(config: dict) -> Path:
     """Prepare the output directory for an experiment."""
     # set up directories
-    exp_dir = Path(config["experiment_dir"]) / config["experiment_name"] # all data for experiment stored here
-    
+    exp_dir = (
+        Path(config["experiment_dir"]) / config["experiment_name"]
+    )  # all data for experiment stored here
+
     if exp_dir.exists():
         if config["overwrite"]:
             print(f"Experiment directory '{exp_dir}' already exists. Overwriting.")
             shutil.rmtree(exp_dir)
         else:
-            raise FileExistsError(f"Experiment directory '{exp_dir}' already exists. 'overwrite' set to False, so please delete it or change experiment_name.")
+            raise FileExistsError(
+                f"Experiment directory '{exp_dir}' already exists. 'overwrite' set to False, so please delete it or change experiment_name."
+            )
 
-    exp_dir.mkdir(parents=True, exist_ok=False) # make dir if it doesn't exist
+    exp_dir.mkdir(parents=True, exist_ok=False)  # make dir if it doesn't exist
     if "experiment_subdirectories" in config:
         for subdir in config["experiment_subdirectories"]:
-            (exp_dir / subdir).mkdir()  # create subdirectories if specified in config, e.g. "plots", "tendencies"
+            (
+                exp_dir / subdir
+            ).mkdir()  # create subdirectories if specified in config, e.g. "plots", "tendencies"
 
     # copy config to experiment directory
     config_path_exp = exp_dir / "config.yaml"
     shutil.copy(config["config_path"], config_path_exp)
-        
+
     # let user know where to find config
     print(f"Ready for experiment output at '{exp_dir}'.")
-    
+
     return exp_dir
+
 
 def load_model(model_name: str) -> PrognosticModel:
     """Load a model by name. Currently loads default model weights from cache, or downloads them to cache if not present."""
     load_dotenv()
     models = {"SFNO", "Pangu6", "Pangu6x", "GraphCastOperational", "FuXi"}
     if model_name not in models:
-        raise ValueError(f"Model '{model_name}' is not supported. Supported models are: {models}.")
+        raise ValueError(
+            f"Model '{model_name}' is not supported. Supported models are: {models}."
+        )
     model_class = getattr(earth2studio.models.px, model_name)
     start = perf_counter()
     print(f"Loading model '{model_name}'...")
@@ -133,7 +159,15 @@ def load_model(model_name: str) -> PrognosticModel:
     print(f"Model '{model_name}' loaded in {end - start:.2f} seconds.")
     return model
 
-def run_deterministic_w_perturbations(run_kwargs: dict, tendency_reversion: bool, model_name: str, tendency_file: Path = None, initial_perturbation: xr.Dataset = None, recurrent_perturbation: xr.Dataset = None) -> xr.Dataset:
+
+def run_deterministic_w_perturbations(
+    run_kwargs: dict,
+    tendency_reversion: bool,
+    model_name: str,
+    tendency_file: Path = None,
+    initial_perturbation: xr.Dataset = None,
+    recurrent_perturbation: xr.Dataset = None,
+) -> xr.Dataset:
     """Run a deterministic forecast with tendency reversion.
     Code modified from Travis O'Brien."""
     if tendency_reversion:
@@ -143,63 +177,78 @@ def run_deterministic_w_perturbations(run_kwargs: dict, tendency_reversion: bool
 
         # set up a hook function that appends the model state to a list
         states = []
+
         def append_state(x, coords):
-            """ Appends the states to a list"""
+            """Appends the states to a list"""
             states.append(x.clone())
+            breakpoint()
             return x, coords
 
         model.rear_hook = append_state
         model.front_hook = append_state
 
         # run the model for one step; this will populate the states[] list above
-        keep_kwargs = {k:v for k, v in run_kwargs.items() if k not in ("nsteps", "io")}
+        keep_kwargs = {k: v for k, v in run_kwargs.items() if k not in ("nsteps", "io")}
         run.deterministic(**keep_kwargs, nsteps=1, io=dummy_io)
 
         if tendency_file:
             print(f"Saving tendency to {tendency_file}.")
-            tendency_ds = dummy_io.root.isel(lead_time=0) - dummy_io.root.isel(lead_time=1)
+            tendency_ds = dummy_io.root.isel(lead_time=0) - dummy_io.root.isel(
+                lead_time=1
+            )
             tendency_ds.to_netcdf(tendency_file)
-            
+
         # tendencies that will be used
+        breakpoint()
         tend = states[0] - states[1]
-        
+
         # get the recurrent perturbation
         if recurrent_perturbation is not None:
             if not isinstance(recurrent_perturbation, xr.Dataset):
-                raise TypeError(f"Expected xr.Dataset for recurrent_perturbation, got {type(recurrent_perturbation)}")
+                raise TypeError(
+                    f"Expected xr.Dataset for recurrent_perturbation, got {type(recurrent_perturbation)}"
+                )
             recurrent_pert_source = DataSet(recurrent_perturbation, model_name)
             variables = model.input_coords()["variable"]
+            print(f"I'm gonna try to pull {len(run_kwargs["time"])} time steps: {run_kwargs["time"]}, and if that number was '2', I'm guessing you're stopped at an error message.")
             da = recurrent_pert_source(run_kwargs["time"], variables)
             rpert_from_user, rpert_coords = prep_data_array(da)
         else:
             rpert_from_user = 0
-            
+
         # set up a post-model hook function that reverts the tendency
         def tendency_reversion_without_rpert(x, coords):
-            """ Reverts the tendency to the first state """
+            """Reverts the tendency to the first state"""
             return x + tend.to(run_kwargs["device"]), coords
-        
+
         # set up a post-model hook function that reverts the tendency & adds a recurrent perturbation
         def tendency_reversion_with_rpert(x, coords):
-            """ Reverts the tendency to the first state & add perturbation"""
-            return x + tend.to(run_kwargs["device"]) + rpert_from_user.to(run_kwargs["device"]), coords
+            """Reverts the tendency to the first state & add perturbation"""
+            return (
+                x
+                + tend.to(run_kwargs["device"])
+                + rpert_from_user.to(run_kwargs["device"]),
+                coords,
+            )
 
         # set up a hook function that returns the input as is
         def identity(x, coords):
-            """ Returns the input as is """
+            """Returns the input as is"""
             return x, coords
 
         # reset the model hooks
         model.front_hook = identity
         model.rear_hook = tendency_reversion_without_rpert
-        
+
         # run validation step
         test_TR_io = XarrayBackend()
         test_TR_ds = run.deterministic(**keep_kwargs, nsteps=1, io=test_TR_io).root
-        
+
         # print diagnostic information for tendency
-        ds_diff = test_TR_ds.diff(dim = "lead_time")
-        print(f"Tendency reversion applied. Difference between 0th and 1st lead time should be close to zero:")
+        ds_diff = test_TR_ds.diff(dim="lead_time")
+        print(
+            f"Tendency reversion applied. Difference between 0th and 1st lead time should be close to zero:"
+        )
 
         summary = []
         line = []
@@ -215,17 +264,21 @@ def run_deterministic_w_perturbations(run_kwargs: dict, tendency_reversion: bool
         # run the model for the full number of steps with tendency reversion
         model.front_hook = identity
         model.rear_hook = tendency_reversion_with_rpert
-        
+
     ds = run.deterministic(**run_kwargs).root
-    
+
     return ds
 
-def create_initial_condition(model: PrognosticModel, fill_value: float = 0.0, init_time: dt.datetime = dt.datetime(2000, 1, 1, 0, 0)) -> xr.Dataset:
+
+def create_initial_condition(
+    model: PrognosticModel,
+    fill_value: float = 0.0,
+    init_time: dt.datetime = dt.datetime(2000, 1, 1, 0, 0),
+) -> xr.Dataset:
     """Create a dataset with the correct coordinates and variables for a given model."""
     coords = model.input_coords()
     real_coords = {
-        "time": np.atleast_1d(init_time),
-        "lead_time": coords["lead_time"],
+        "time": [init_time + t for t in coords["lead_time"]],
         "lat": coords["lat"],
         "lon": coords["lon"],
     }
@@ -234,56 +287,64 @@ def create_initial_condition(model: PrognosticModel, fill_value: float = 0.0, in
         da = xr.DataArray(
             data=fill_value,
             coords=real_coords,
-            dims=["time", "lead_time", "lat", "lon"],
+            dims=["time", "lat", "lon"],
         )
         ds[var] = da
 
     return ds
 
+
 def latitude_weighted_mean(da, latitudes, device="cpu"):
     """
     Calculate the latitude weighted mean of a variable using torch operations on GPU.
     Needs tests to ensure it works correctly.
-    
+
     Parameters:
     -----------
     da : xarray.DataArray or torch.Tensor
         The data to average
     latitudes : xarray.DataArray or numpy.ndarray
         The latitude values
-        
+
     Returns:
     --------
     torch.Tensor
         The latitude-weighted mean
     """
     # Convert inputs to torch tensors if needed
-    coords = {dim: da[dim] for dim in da.dims if dim not in ['latitude', 'longitude', 'lat', 'lon']}
+    coords = {
+        dim: da[dim]
+        for dim in da.dims
+        if dim not in ["latitude", "longitude", "lat", "lon"]
+    }
     if isinstance(da, xr.DataArray):
         da = torch.from_numpy(da.values)
     if isinstance(latitudes, xr.DataArray):
         latitudes = latitudes.values
-    
+
     # Move to GPU if available
     da = da.to(device)
-    
+
     # Calculate weights
     lat_radians = torch.from_numpy(np.deg2rad(latitudes)).to(device)
-    weights = torch.cos(lat_radians) / (torch.sum(torch.cos(lat_radians)) * da.shape[-1])
-    
+    weights = torch.cos(lat_radians) / (
+        torch.sum(torch.cos(lat_radians)) * da.shape[-1]
+    )
+
     # Expand weights to match data dimensions
     weights = weights.view(1, -1, 1)  # Add dims for broadcasting
-    
+
     # Calculate weighted mean
     weighted_data = da * weights
     averaged = weighted_data.nansum(dim=(-2, -1))  # Average over lat, lon dimensions
     return xr.DataArray(averaged.cpu().numpy(), coords=coords)
 
+
 def haversine(lon1, lat1, lon2, lat2):
     """
     Calculate the great circle distance between two points
     on the earth (specified in decimal degrees)
-    
+
     Adapted from Hakim and Masanam (2024) repository: https://github.com/modons/DL-weather-dynamics/blob/main/panguweather_utils.py#L145
     """
 
@@ -292,115 +353,142 @@ def haversine(lon1, lat1, lon2, lat2):
     # haversine formula
     dlon = lon2 - lon1
     dlat = lat2 - lat1
-    a = np.sin(dlat/2.)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon/2.)**2
+    a = np.sin(dlat / 2.0) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2.0) ** 2
     c = 2 * np.arcsin(np.sqrt(a))
     km = 6367.0 * c
     return km
 
-def gen_circular_perturbation(lat_2d,lon_2d,ilat,ilon,amp,locRad=1000.,Z500=False):
+
+def gen_circular_perturbation(
+    lat_2d, lon_2d, ilat, ilon, amp, locRad=1000.0, Z500=False
+):
     """
     Adapted from Hakim and Masanam (2024) repository: https://github.com/modons/DL-weather-dynamics/blob/main/panguweather_utils.py#L162
     """
     grav = 9.81
     nlat = lat_2d.shape[0]
     nlon = lon_2d.shape[1]
-    site_lat = lat_2d[ilat,0]
-    site_lon = lon_2d[0,ilon]
-    lat_vec = np.reshape(lat_2d,[nlat*nlon])
-    lon_vec = np.reshape(lon_2d,[nlat*nlon])
-    dists = np.zeros(shape=[nlat*nlon])
-    dists = np.array(haversine(site_lon,site_lat,lon_vec,lat_vec),dtype=np.float64)
+    site_lat = lat_2d[ilat, 0]
+    site_lon = lon_2d[0, ilon]
+    lat_vec = np.reshape(lat_2d, [nlat * nlon])
+    lon_vec = np.reshape(lon_2d, [nlat * nlon])
+    dists = np.zeros(shape=[nlat * nlon])
+    dists = np.array(haversine(site_lon, site_lat, lon_vec, lat_vec), dtype=np.float64)
 
-    hlr = 0.5*locRad # work with half the localization radius
-    r = dists/hlr
+    hlr = 0.5 * locRad  # work with half the localization radius
+    r = dists / hlr
 
     # indexing w.r.t. distances
-    ind_inner = np.where(dists <= hlr)    # closest
-    ind_outer = np.where(dists >  hlr)    # close
-    ind_out   = np.where(dists >  2.*hlr) # out
+    ind_inner = np.where(dists <= hlr)  # closest
+    ind_outer = np.where(dists > hlr)  # close
+    ind_out = np.where(dists > 2.0 * hlr)  # out
 
     # Gaspari-Cohn function
-    covLoc = np.ones(shape=[nlat*nlon],dtype=np.float64)
+    covLoc = np.ones(shape=[nlat * nlon], dtype=np.float64)
 
     # for pts within 1/2 of localization radius
-    covLoc[ind_inner] = (((-0.25*r[ind_inner]+0.5)*r[ind_inner]+0.625)* \
-                         r[ind_inner]-(5.0/3.0))*(r[ind_inner]**2)+1.0
+    covLoc[ind_inner] = (
+        ((-0.25 * r[ind_inner] + 0.5) * r[ind_inner] + 0.625) * r[ind_inner]
+        - (5.0 / 3.0)
+    ) * (r[ind_inner] ** 2) + 1.0
     # for pts between 1/2 and one localization radius
-    covLoc[ind_outer] = ((((r[ind_outer]/12. - 0.5) * r[ind_outer] + 0.625) * \
-                          r[ind_outer] + 5.0/3.0) * r[ind_outer] - 5.0) * \
-                          r[ind_outer] + 4.0 - 2.0/(3.0*r[ind_outer])
+    covLoc[ind_outer] = (
+        (
+            (
+                ((r[ind_outer] / 12.0 - 0.5) * r[ind_outer] + 0.625) * r[ind_outer]
+                + 5.0 / 3.0
+            )
+            * r[ind_outer]
+            - 5.0
+        )
+        * r[ind_outer]
+        + 4.0
+        - 2.0 / (3.0 * r[ind_outer])
+    )
     # Impose zero for pts outside of localization radius
     covLoc[ind_out] = 0.0
-    
+
     # prevent negative values: calc. above may produce tiny negative
     covLoc[covLoc < 0.0] = 0.0
-    
+
     if Z500:
         # 500Z:
-        print('500Z perturbation...')
-        perturb = np.reshape(covLoc*grav*amp,[nlat,nlon])
+        print("500Z perturbation...")
+        perturb = np.reshape(covLoc * grav * amp, [nlat, nlon])
     else:
         # heating:
-        print('heating perturbation...')
-        perturb = np.reshape(covLoc*amp,[nlat,nlon])
+        print("heating perturbation...")
+        perturb = np.reshape(covLoc * amp, [nlat, nlon])
 
     return perturb
 
-def gen_elliptical_perturbation(lat,lon,k,ylat,xlon,locRad):
 
+def gen_elliptical_perturbation(lat, lon, k, ylat, xlon, locRad):
     """
     center a localized ellipse at (xlat,xlon)
-    
+
     Adapted from Hakim and Masanam (2024) repository: https://github.com/modons/DL-weather-dynamics/blob/main/panguweather_utils.py#L208
-    
+
     k: meridional wavenumber; disturbance is non-zero up to first zero crossing in cos
     xlat: latitude, in degrees to center the function
     xlon: longitude, in degrees to center the function
     locRad: zonal GC distance, in km
     """
-    km = 1.e3
+    km = 1.0e3
     nlat = len(lat)
     nlon = len(lon)
- 
-    ilon = xlon*4. #lon index of center
-    ilat = int((90.-ylat)*4.) #lat index of center
-    yfunc = np.cos(np.deg2rad(k*(lat-ylat)))
+
+    ilon = xlon * 4.0  # lon index of center
+    ilat = int((90.0 - ylat) * 4.0)  # lat index of center
+    yfunc = np.cos(np.deg2rad(k * (lat - ylat)))
 
     # first zero-crossing
-    crit = np.cos(np.deg2rad(k*(lat[ilat]-ylat)))
+    crit = np.cos(np.deg2rad(k * (lat[ilat] - ylat)))
     ll = np.copy(ilat)
-    while crit>0:
-        ll-=1
+    while crit > 0:
+        ll -= 1
         crit = yfunc[ll]
 
-    yfunc[:ll+1] = 0.
-    yfunc[2*ilat-ll:] = 0.
+    yfunc[: ll + 1] = 0.0
+    yfunc[2 * ilat - ll :] = 0.0
 
     # gaspari-cohn in logitude only, at the equator
-    dx = 6380.*km*2*np.pi/(360.) #1 degree longitude at the equator
+    dx = 6380.0 * km * 2 * np.pi / (360.0)  # 1 degree longitude at the equator
     dists = np.zeros_like(lon)
     for k in range(len(lon)):
-        dists[k] = dx*np.min([np.abs(lon[k]-xlon),np.abs(lon[k]-360.-xlon)])
+        dists[k] = dx * np.min([np.abs(lon[k] - xlon), np.abs(lon[k] - 360.0 - xlon)])
 
-    #locRad = 10000.*km
-    hlr = 0.5*locRad # work with half the localization radius
-    r = dists/hlr
+    # locRad = 10000.*km
+    hlr = 0.5 * locRad  # work with half the localization radius
+    r = dists / hlr
 
     # indexing w.r.t. distances
-    ind_inner = np.where(dists <= hlr)    # closest
-    ind_outer = np.where(dists >  hlr)    # close
-    ind_out   = np.where(dists >  2.*hlr) # out
+    ind_inner = np.where(dists <= hlr)  # closest
+    ind_outer = np.where(dists > hlr)  # close
+    ind_out = np.where(dists > 2.0 * hlr)  # out
 
     # Gaspari-Cohn function
     covLoc = np.ones(nlon)
 
     # for pts within 1/2 of localization radius
-    covLoc[ind_inner] = (((-0.25*r[ind_inner]+0.5)*r[ind_inner]+0.625)* \
-                         r[ind_inner]-(5.0/3.0))*(r[ind_inner]**2)+1.0
+    covLoc[ind_inner] = (
+        ((-0.25 * r[ind_inner] + 0.5) * r[ind_inner] + 0.625) * r[ind_inner]
+        - (5.0 / 3.0)
+    ) * (r[ind_inner] ** 2) + 1.0
     # for pts between 1/2 and one localization radius
-    covLoc[ind_outer] = ((((r[ind_outer]/12. - 0.5) * r[ind_outer] + 0.625) * \
-                          r[ind_outer] + 5.0/3.0) * r[ind_outer] - 5.0) * \
-                          r[ind_outer] + 4.0 - 2.0/(3.0*r[ind_outer])
+    covLoc[ind_outer] = (
+        (
+            (
+                ((r[ind_outer] / 12.0 - 0.5) * r[ind_outer] + 0.625) * r[ind_outer]
+                + 5.0 / 3.0
+            )
+            * r[ind_outer]
+            - 5.0
+        )
+        * r[ind_outer]
+        + 4.0
+        - 2.0 / (3.0 * r[ind_outer])
+    )
     # Impose zero for pts outside of localization radius
     covLoc[ind_out] = 0.0
 
@@ -408,17 +496,20 @@ def gen_elliptical_perturbation(lat,lon,k,ylat,xlon,locRad):
     covLoc[covLoc < 0.0] = 0.0
 
     # make the function
-    [a,b] = np.meshgrid(covLoc,yfunc)
-    perturb = a*b
+    [a, b] = np.meshgrid(covLoc, yfunc)
+    perturb = a * b
 
     return perturb
 
-def gen_baroclinic_wave_perturbation(lat,lon,ylat,xlon,u_pert_base,locRad,a=6.371e6):
+
+def gen_baroclinic_wave_perturbation(
+    lat, lon, ylat, xlon, u_pert_base, locRad, a=6.371e6
+):
     """
-    Implementation of baroclinic wave perturbation from Bouvier et al. (2024). 
-    
+    Implementation of baroclinic wave perturbation from Bouvier et al. (2024).
+
     Produces a "localised unbalanced [u-]wind perturbation" to be added to a "baroclinically unstable background state".
-    
+
     input:
     ------
     lat : numpy.ndarray
@@ -432,10 +523,10 @@ def gen_baroclinic_wave_perturbation(lat,lon,ylat,xlon,u_pert_base,locRad,a=6.37
     u_pert_base : float
         the base amplitude of the u-wind perturbation
     locRad : float
-        the localization radius (approximate size of perturbation) in km 
+        the localization radius (approximate size of perturbation) in km
     a (optional) : float
         the radius of the earth in m (default is 6.371e6 m)
-        
+
     output:
     -------
     perturb : numpy.ndarray
@@ -445,18 +536,19 @@ def gen_baroclinic_wave_perturbation(lat,lon,ylat,xlon,u_pert_base,locRad,a=6.37
     radlon = np.deg2rad(lon)
     radylat = np.deg2rad(ylat)
     radxlon = np.deg2rad(xlon)
-    
+
     # make the grid
     lon_2d, lat_2d = np.meshgrid(radlon, radlat)
 
     # calculate distance from center of perturbation for each grid point
-    great_circle_dist = a*np.arccos(
-        np.sin(radylat) * np.sin(lat_2d) + 
-        np.cos(radylat) * np.cos(lat_2d) * np.cos(lon_2d - radxlon)
+    great_circle_dist = a * np.arccos(
+        np.sin(radylat) * np.sin(lat_2d)
+        + np.cos(radylat) * np.cos(lat_2d) * np.cos(lon_2d - radxlon)
     )
-    perturb = u_pert_base * np.exp(-(great_circle_dist / locRad)**2)
-    
+    perturb = u_pert_base * np.exp(-((great_circle_dist / locRad) ** 2))
+
     return perturb
+
 
 def sort_latitudes(ds: xr.Dataset, model_name: str, input: bool):
     lat_ascending_by_model_input = {
@@ -464,14 +556,14 @@ def sort_latitudes(ds: xr.Dataset, model_name: str, input: bool):
         "Pangu6": False,
         "Pangu6x": False,
         "FuXi": False,
-        "GraphCastOperational": False
+        "GraphCastOperational": False,
     }
     lat_ascending_by_model_output = {
         "SFNO": True,
         "Pangu6": True,
         "Pangu6x": True,
         "FuXi": True,
-        "GraphCastOperational": True
+        "GraphCastOperational": True,
     }
     if input:
         lat_should_be_ascending = lat_ascending_by_model_input[model_name]
@@ -480,11 +572,15 @@ def sort_latitudes(ds: xr.Dataset, model_name: str, input: bool):
     lat = ds["lat"]
     if lat_should_be_ascending:
         if lat[0] > lat[-1]:
-            print(f"Latitude coordinates should be ascending for {model_name}, reversing.")
+            print(
+                f"Latitude coordinates should be ascending for {model_name}, reversing."
+            )
             ds = ds.sortby("lat", ascending=True)
     else:
         if lat[0] < lat[-1]:
-            print(f"Latitude coordinates should be descending for {model_name}, reversing.")
+            print(
+                f"Latitude coordinates should be descending for {model_name}, reversing."
+            )
             ds = ds.sortby("lat", ascending=False)
-            
+
     return ds

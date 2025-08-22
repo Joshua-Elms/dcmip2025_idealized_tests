@@ -21,58 +21,58 @@ for model in config["models"]:
     heating_path = exp_dir / "auxiliary" / f"heating_{model}.nc"
     heating_ds = xr.open_dataset(heating_path)
 
-    # # Z500
-    # nt = config["n_timesteps"]
-    # titles = [f"{model}: $Z_{{500}}$ at t={t*6} hours" for t in range(0, nt+1)]
-    # data = ds["z500"] / (9.8*10)
-    # plot_var = f"Z500_{model}"
-    # vis.create_and_plot_variable_gif(
-    #     data=data,
-    #     plot_var=plot_var,
-    #     iter_var="lead_time",
-    #     iter_vals=np.arange(0, nt+1),
-    #     plot_dir=plot_dir,
-    #     units="dam",
-    #     cmap="PRGn",
-    #     titles=titles,
-    #     keep_images=False,
-    #     dpi=300,
-    #     fps=2, 
-    #     vlims=(450, 600),  # Set vlims for better visualization
-    #     central_longitude=180.0,
-    # )
-    # print(f"Made {plot_var}.gif.")
+    # Z500
+    nt = config["n_timesteps"]
+    titles = [f"{model}: $Z_{{500}}$ at t={t*6} hours" for t in range(0, nt+1)]
+    data = ds["z500"] / (9.8*10)
+    plot_var = f"Z500_{model}"
+    vis.create_and_plot_variable_gif(
+        data=data,
+        plot_var=plot_var,
+        iter_var="lead_time",
+        iter_vals=np.arange(0, nt+1),
+        plot_dir=plot_dir,
+        units="dam",
+        cmap="PRGn",
+        titles=titles,
+        keep_images=False,
+        dpi=300,
+        fps=2, 
+        vlims=(450, 600),  # Set vlims for better visualization
+        central_longitude=180.0,
+    )
+    print(f"Made {plot_var}.gif.")
     
-    # # Z500_anom
-    # nt = config["n_timesteps"]
-    # plot_var = f"Z500_anom_{model}"
-    # titles = [f"{model}: {plot_var} at t={t*6} hours" for t in range(0, nt+1)]
-    # data = (ds["z500"] - ds["z500"].isel(lead_time=0)) / (9.8*10)
-    # vis.create_and_plot_variable_gif(
-    #     data=data,
-    #     plot_var=plot_var,
-    #     iter_var="lead_time",
-    #     iter_vals=np.arange(0, nt+1),
-    #     plot_dir=plot_dir,
-    #     units="dam",
-    #     cmap="PRGn",
-    #     titles=titles,
-    #     keep_images=False,
-    #     dpi=300,
-    #     fps=2, 
-    #     vlims=(-5, 5),  # Set vlims for better visualization
-    #     central_longitude=180.0,
-    # )
-    # print(f"Made {plot_var}.gif.")
+    # Z500_anom
+    nt = config["n_timesteps"]
+    plot_var = f"Z500_anom_{model}"
+    titles = [f"{model}: {plot_var} at t={t*6} hours" for t in range(0, nt+1)]
+    data = (ds["z500"] - ds["z500"].isel(lead_time=0)) / (9.8*10)
+    vis.create_and_plot_variable_gif(
+        data=data,
+        plot_var=plot_var,
+        iter_var="lead_time",
+        iter_vals=np.arange(0, nt+1),
+        plot_dir=plot_dir,
+        units="dam",
+        cmap="PRGn",
+        titles=titles,
+        keep_images=False,
+        dpi=300,
+        fps=2, 
+        vlims=(-5, 5),  # Set vlims for better visualization
+        central_longitude=180.0,
+    )
+    print(f"Made {plot_var}.gif.")
     
-    # # heating w/ cartopy borders
-    # fig, ax = plt.subplots(figsize=(10, 5), subplot_kw={"projection": ccrs.PlateCarree()})
-    # heating_ds["t1000"].isel(time=0).plot(ax=ax, cmap="RdBu", cbar_kwargs={"label": "Heating (K/day)"})
-    # ax.coastlines()
-    # ax.set_title(f"{model}: Heating")
-    # plt.savefig(plot_dir / f"heating_{model}.png", dpi=200)
-    # plt.close(fig)
-    # print(f"Made heating_{model}.png")
+    # heating w/ cartopy borders
+    fig, ax = plt.subplots(figsize=(10, 5), subplot_kw={"projection": ccrs.PlateCarree()})
+    heating_ds["t1000"].isel(time=0).plot(ax=ax, cmap="RdBu", cbar_kwargs={"label": "Heating (K/day)"})
+    ax.coastlines()
+    ax.set_title(f"{model}: Heating")
+    plt.savefig(plot_dir / f"heating_{model}.png", dpi=200)
+    plt.close(fig)
+    print(f"Made heating_{model}.png")
     
     # plot from paper
     ### begin HM24 fig. 1
