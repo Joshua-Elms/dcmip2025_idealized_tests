@@ -15,4 +15,3 @@
 
 source /N/slate/jmelms/projects/earth2studio-cu126/.venv/bin/activate
 python /N/slate/jmelms/projects/dcmip2025_idealized_tests/initial_conditions/make_HM24_ICs/all_in_one_v2.py
-python /N/slate/jmelms/projects/dcmip2025_idealized_tests/experiments/C.tropical_heating_hm24/1.experiment_controller.py
