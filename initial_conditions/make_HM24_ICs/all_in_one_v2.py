@@ -11,6 +11,7 @@ import numpy as np
 from pathlib import Path
 import multiprocessing as mp
 import xarray as xr
+import requests
 
 
 def generate_dates(years: range, months: list[int]):
@@ -196,8 +197,6 @@ def compute_time_mean_from_files(
             print(f"File {savepath} already exists, skipping.")
             continue
         # Open the dataset and compute the time mean
-        if sl_var == "total_precipitation_06":
-            breakpoint()
         var_ds = xr.open_mfdataset(fpaths, combine="by_coords", parallel=True)
         time_mean_var_ds = var_ds.mean(dim="valid_time").compute()
         time_mean_var_ds = time_mean_var_ds.drop_vars(
@@ -255,11 +254,10 @@ def create_ICs_from_time_means(
             "longitude": "lon",
         }
     )
-    # if time is not a dimension, add it
-    if "time" not in ds.dims:  
-        ds = ds.expand_dims(
-            {"time": [np.datetime64("2000-01-01")]}
-        )  # add a dummy time dimension
+    t = [np.datetime64("2000-01-01 00:00")]
+    if model == "GraphCastOperational":
+        t = [np.datetime64("1999-12-31 18:00")] + t
+    ds = ds.expand_dims({"time": t})
 
     return ds
 
@@ -335,6 +333,8 @@ if __name__ == "__main__":
                 "2m_temperature",
                 "mean_sea_level_pressure",
                 "total_precipitation_06",
+                "geopotential",  # static, at surface, see https://confluence.ecmwf.int/display/CKB/ERA5-Land%3A+data+documentation#heading-Table1surfaceparametersinvariantsintime
+                "land_sea_mask",  # static
             ],
         ],
         FuXi=[
@@ -371,11 +371,13 @@ if __name__ == "__main__":
         "100m_v_component_of_wind": "v100m",
         "total_column_water_vapour": "tcwv",
         "total_precipitation_06": "tp06",
+        "land_sea_mask": "lsm"
     }
     p_levels = [50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]
     # p_levels = [50, 1000]  # debug only
     pl_dataset = "reanalysis-era5-pressure-levels"
     sfc_dataset = "reanalysis-era5-single-levels"
+    land_dataset = "reanalysis-era5-land"
     start_end_years_inc = [2018, 2019]
     year_range_name = f"{start_end_years_inc[0]}-{start_end_years_inc[1]}"
     year_range = range(
@@ -383,9 +385,12 @@ if __name__ == "__main__":
     )  # inclusive range
     seasons = {"DJF": [12, 1, 2], "JAS": [7, 8, 9]}
     models = ["SFNO", "Pangu6", "GraphCastOperational", "FuXi"]
+    static_fields = {
+        "geopotential": "https://confluence.ecmwf.int/download/attachments/140385202/geo_1279l4_0.1x0.1.grib2_v4_unpack.nc?version=1&modificationDate=1591983422003&api=v2",
+        "land_sea_mask": "https://confluence.ecmwf.int/download/attachments/140385202/lsm_1279l4_0.1x0.1.grb_v4_unpack.nc?version=1&modificationDate=1591983422208&api=v2"
+        }
     base_data_dir = Path("/N/slate/jmelms/projects/HM24_ICs")
     raw_data_dir = base_data_dir / "raw"
-    IC_files_dir = base_data_dir / "IC_files"
     for season, months in seasons.items():
         print(f"Processing season {season}")
         dates = generate_dates(year_range, months)
@@ -421,6 +426,25 @@ if __name__ == "__main__":
                         raw_data_dir,
                         time_mean_dir,
                     )
+            # static fields are weird
+            # because they are always single level
+            # and only one of them needs to be downloaded
+            # so we download them to raw and then stick them
+            # in the time_means 
+            if static_fields: # check whether any need to be downloaded
+                for field, link in static_fields.items():
+                    raw_path = raw_data_dir / f"{field}.nc"
+                    if not raw_path.exists():
+                        with open(raw_path, "wb") as f:
+                            try:
+                                f.write(requests.get(link).content)
+                            except Exception as e:
+                                print(f"Error downloading {field}: {e}")        
+                    # copy to time_means if needed
+                    fpath = time_mean_dir / f"{field}_tm.nc"
+                    if fpath.exists():
+                        fpath.unlink()
+                    fpath.symlink_to(raw_path)
             save_path = IC_output_dir / f"{model}.nc"
             if save_path.exists():
                 print(f"File {save_path} already exists, skipping.")
