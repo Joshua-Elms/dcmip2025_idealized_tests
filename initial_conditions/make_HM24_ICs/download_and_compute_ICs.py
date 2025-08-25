@@ -386,7 +386,7 @@ if __name__ == "__main__":
     year_range = range(
         start_end_years_inc[0], start_end_years_inc[1] + 1
     )  # inclusive range
-    seasons = {"DJF": [12, 1, 2]}
+    seasons = {"DJF": [12, 1, 2], "JAS": [7, 8, 9]}
     models = ["SFNO", "Pangu6", "GraphCastOperational", "FuXi"]
     static_fields = {
         "geopotential": "https://confluence.ecmwf.int/download/attachments/140385202/geo_1279l4_0.1x0.1.grib2_v4_unpack.nc?version=1&modificationDate=1591983422003&api=v2",
@@ -438,11 +438,7 @@ if __name__ == "__main__":
                 for field, link in static_fields.items():
                     raw_path = raw_data_dir / f"{field}.nc"
                     if not raw_path.exists():
-                        with open(raw_path, "wb") as f:
-                            try:
-                                f.write(requests.get(link).content)
-                            except Exception as e:
-                                print(f"Error downloading {field}: {e}")        
+                        print(FileNotFoundError(f"Field {field} not found at {raw_path}, see extract_static_graphcast_fields.py"))
                     # copy to time_means if needed
                     fpath = time_mean_dir / f"{field}_tm.nc"
                     if fpath.exists():
