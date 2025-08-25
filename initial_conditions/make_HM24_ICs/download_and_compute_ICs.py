@@ -381,7 +381,7 @@ if __name__ == "__main__":
     pl_dataset = "reanalysis-era5-pressure-levels"
     sfc_dataset = "reanalysis-era5-single-levels"
     land_dataset = "reanalysis-era5-land"
-    start_end_years_inc = [2018, 2019]
+    start_end_years_inc = [1979, 2019]
     year_range_name = f"{start_end_years_inc[0]}-{start_end_years_inc[1]}"
     year_range = range(
         start_end_years_inc[0], start_end_years_inc[1] + 1

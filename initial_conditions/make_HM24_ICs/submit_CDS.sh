@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH -J 2018-2019_CDS_download
+#SBATCH -J 1979-2019_CDS_download
 #SBATCH -p general
 #SBATCH -o output.out
 #SBATCH -e log.err
@@ -14,4 +14,4 @@
 #SBATCH -A r00389
 
 source /N/slate/jmelms/projects/earth2studio-cu126/.venv/bin/activate
-python /N/slate/jmelms/projects/dcmip2025_idealized_tests/initial_conditions/make_HM24_ICs/all_in_one_v2.py
+python /N/slate/jmelms/projects/dcmip2025_idealized_tests/initial_conditions/make_HM24_ICs/download_and_compute_ICs.py
