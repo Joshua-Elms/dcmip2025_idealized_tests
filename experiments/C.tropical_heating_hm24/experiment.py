@@ -27,7 +27,7 @@ def run_experiment(model_name: str, config_path: str) -> str:
 
     # load the model
     model = general.load_model(model_name)
-    if model_name == "SFNO":
+    if model_name in ["SFNO", "GraphCastOperational"]:
         model.const_sza = True
 
     # interface between model and data
