@@ -25,6 +25,13 @@ model_levels = dict(
     ),
     FuXi=np.array([50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]),
 )
+model_static_var_indices = dict(
+    SFNO=np.array([]),
+    Pangu6=np.array([]),
+    Pangu6x=np.array([]),
+    GraphCastOperational=np.array([83, 84]),
+    FuXi=np.array([]),
+)
 
 
 class DataSet:
@@ -179,9 +186,8 @@ def run_deterministic_w_perturbations(
         states = []
 
         def append_state(x, coords):
-            """Appends the states to a list"""
-            states.append(x.clone())
-            breakpoint()
+            """Appends the states to a list. Only add final lead_time if more than one."""
+            states.append(x.clone().cpu()[:, :, -1:])
             return x, coords
 
         model.rear_hook = append_state
@@ -199,8 +205,11 @@ def run_deterministic_w_perturbations(
             tendency_ds.to_netcdf(tendency_file)
 
         # tendencies that will be used
-        breakpoint()
         tend = states[0] - states[1]
+
+        # set the tendency of static variables to 0
+        idx = model_static_var_indices[model_name]
+        tend[:, :, :, idx, :, :] = 0
 
         # get the recurrent perturbation
         if recurrent_perturbation is not None:
@@ -210,7 +219,6 @@ def run_deterministic_w_perturbations(
                 )
             recurrent_pert_source = DataSet(recurrent_perturbation, model_name)
             variables = model.input_coords()["variable"]
-            print(f"I'm gonna try to pull {len(run_kwargs["time"])} time steps: {run_kwargs["time"]}, and if that number was '2', I'm guessing you're stopped at an error message.")
             da = recurrent_pert_source(run_kwargs["time"], variables)
             rpert_from_user, rpert_coords = prep_data_array(da)
         else:
@@ -219,13 +227,13 @@ def run_deterministic_w_perturbations(
         # set up a post-model hook function that reverts the tendency
         def tendency_reversion_without_rpert(x, coords):
             """Reverts the tendency to the first state"""
-            return x + tend.to(run_kwargs["device"]), coords
+            return x.to(run_kwargs["device"]) + tend.to(run_kwargs["device"]), coords
 
         # set up a post-model hook function that reverts the tendency & adds a recurrent perturbation
         def tendency_reversion_with_rpert(x, coords):
             """Reverts the tendency to the first state & add perturbation"""
             return (
-                x
+                x.to(run_kwargs["device"])
                 + tend.to(run_kwargs["device"])
                 + rpert_from_user.to(run_kwargs["device"]),
                 coords,
