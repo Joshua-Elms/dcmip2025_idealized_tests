@@ -177,6 +177,27 @@ def run_deterministic_w_perturbations(
 ) -> xr.Dataset:
     """Run a deterministic forecast with tendency reversion.
     Code modified from Travis O'Brien."""
+
+    # set up a hook function that returns the input as is
+    def identity(x, coords):
+        """Returns the input as is"""
+        return x, coords
+
+    # set up a post-model hook function that reverts the tendency
+    def tendency_reversion_without_user_rpert(x, coords):
+        """Reverts the tendency to the first state"""
+        return x.to(run_kwargs["device"]) + tend.to(run_kwargs["device"]), coords
+
+    # set up a post-model hook function that reverts the tendency & adds a recurrent perturbation
+    def tendency_reversion_with_user_rpert(x, coords):
+        """Reverts the tendency to the first state & add perturbation"""
+        return (
+            x.to(run_kwargs["device"])
+            + tend.to(run_kwargs["device"])
+            + rpert_from_user.to(run_kwargs["device"]),
+            coords,
+        )
+
     if tendency_reversion:
         print("Running deterministic forecast with tendency reversion.")
         dummy_io = XarrayBackend()
@@ -211,33 +232,27 @@ def run_deterministic_w_perturbations(
         idx = model_static_var_indices[model_name]
         tend[:, :, :, idx, :, :] = 0
 
-        # get the recurrent perturbation
-        if recurrent_perturbation is not None:
-            if not isinstance(recurrent_perturbation, xr.Dataset):
-                raise TypeError(
-                    f"Expected xr.Dataset for recurrent_perturbation, got {type(recurrent_perturbation)}"
-                )
-            recurrent_pert_source = DataSet(recurrent_perturbation, model_name)
-            variables = model.input_coords()["variable"]
-            da = recurrent_pert_source(run_kwargs["time"], variables)
-            rpert_from_user, rpert_coords = prep_data_array(da)
-        else:
-            rpert_from_user = 0
+    else:
+        tend = torch.Tensor(
+            0
+        )  # needs to be tensor and not int so that .to(device) works
 
-        # set up a post-model hook function that reverts the tendency
-        def tendency_reversion_without_rpert(x, coords):
-            """Reverts the tendency to the first state"""
-            return x.to(run_kwargs["device"]) + tend.to(run_kwargs["device"]), coords
-
-        # set up a post-model hook function that reverts the tendency & adds a recurrent perturbation
-        def tendency_reversion_with_rpert(x, coords):
-            """Reverts the tendency to the first state & add perturbation"""
-            return (
-                x.to(run_kwargs["device"])
-                + tend.to(run_kwargs["device"])
-                + rpert_from_user.to(run_kwargs["device"]),
-                coords,
+    # get the recurrent perturbation
+    if recurrent_perturbation is not None:
+        if not isinstance(recurrent_perturbation, xr.Dataset):
+            raise TypeError(
+                f"Expected xr.Dataset for recurrent_perturbation, got {type(recurrent_perturbation)}"
             )
+        recurrent_pert_source = DataSet(recurrent_perturbation, model_name)
+        variables = model.input_coords()["variable"]
+        da = recurrent_pert_source(run_kwargs["time"], variables)
+        rpert_from_user, rpert_coords = prep_data_array(da)
+    else:
+        rpert_from_user = torch.Tensor(
+            0
+        )  # needs to be tensor and not int so that .to(device) works
+
+    if tendency_reversion:
 
         # set up a hook function that returns the input as is
         def identity(x, coords):
@@ -246,7 +261,7 @@ def run_deterministic_w_perturbations(
 
         # reset the model hooks
         model.front_hook = identity
-        model.rear_hook = tendency_reversion_without_rpert
+        model.rear_hook = tendency_reversion_without_user_rpert
 
         # run validation step
         test_TR_io = XarrayBackend()
@@ -269,9 +284,9 @@ def run_deterministic_w_perturbations(
                 summary.append(line_str)
         print("\n".join(summary))
 
-        # run the model for the full number of steps with tendency reversion
-        model.front_hook = identity
-        model.rear_hook = tendency_reversion_with_rpert
+    # run the model for the full number of steps with tendency reversion
+    # no need to set front hook, if TR active it will be identity here
+    model.rear_hook = tendency_reversion_with_user_rpert
 
     ds = run.deterministic(**run_kwargs).root
 
