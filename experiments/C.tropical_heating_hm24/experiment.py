@@ -36,8 +36,6 @@ def run_experiment(model_name: str, config_path: str) -> str:
     # load the time-mean initial condition from HM24
     IC_ds = xr.open_dataset(IC_path)
     IC_ds = general.sort_latitudes(IC_ds, model_name, input=True)
-
-    # get ERA5 data from the ECMWF CDS
     data_source = general.DataSet(IC_ds, model_name)
 
     # create recurrent perturbation
