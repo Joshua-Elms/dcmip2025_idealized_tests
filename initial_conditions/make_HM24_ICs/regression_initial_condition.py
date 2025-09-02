@@ -16,72 +16,63 @@ import numpy as np
 import xarray as xr
 import os
 from scipy.stats import linregress
-from utils import inference_sfno
+from utils_E2S import general
 from pathlib import Path
+from download_and_compute_ICs import generate_dates
+
+MODEL_LEVELS = dict(
+    SFNO = [1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50],
+    Pangu6 = [1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50],
+    GraphCastOperational = [1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50],
+    FuXi = [1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50],
+)
 
 def compute_regression(
-    ic: str, 
+    year_range: list[int],
+    ic_months: list[int],
+    ic_str: str, 
     ylat: float, 
     xlon: float, 
     locrad: float, 
     amp: float, 
+    rpath: Path,    
     dpath: Path, 
     opath: Path, 
-    model: str
+    model: str,
+    plev: str | int = 500,
     ):
     """
     Compute the regression initial conditions for the specified model and season.
     Parameters:
-        ic (str): Initial condition season, either 'DJF' for NH winter or 'JAS' for NH summer.
+        year_range (list[int]): List of years to include in the regression, e.g. [2018, 2019].
+        ic_months (list[int]): List of months to use for initial conditions (1-12), e.g. [12, 1, 2] for DJF.
+        ic_str (str): Initial condition season, either 'DJF' for NH winter or 'JAS' for NH summer.
         ylat (float): Latitude of the perturbation in degrees North.
         xlon (float): Longitude of the perturbation in degrees East.
         locrad (float): Localization radius in kilometers for the scale of the initial perturbation.
         amp (float): Scaling amplitude for the initial condition (1 = climo variance at the base point).
-        dpath (Path): Path to the directory containing the ERA5 data files.
+        rpath (Path): Path to the raw data.
+        dpath (Path): Path to the model initial conditions.
         opath (Path): Path to the directory where the regression results will be saved.
-        model (str): The model to use for regression, either 'sfno', 'pangu', or 'graphcast_oper'.
+        model (str): The model to use for regression, from: ["SFNO", "Pangu6", "GraphCastOperational", "FuXi"].
+        plev (int): Pressure level to regress against (default: 500 hPa). To use surface pressure ('msl' if present, 'sp' if not), pass 'sfc'.
     """
-    model_vars = {
-        "sfno": {
-            "param_level_pl": (
-                    ["z", "r", "t", "u", "v"],
-                    [1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50],
-                ),
-            "param_sfc": ["sp", "msl", "u10", "v10", "u100", "v100", "t2m", "tcwv"],
-        },
-        "pangu": {
-            "param_level_pl": (
-                    ["z", "q", "t", "u", "v"],
-                    [1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50],
-                ),
-            "param_sfc": ["msl", "u10", "v10", "t2m"],
-        },
-        "graphcast_oper": {
-            "param_level_pl": (
-                    ["z", "q", "t", "u", "v", "w"],
-                    [1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50],
-                ),
-            "param_sfc": ["msl", "u10", "v10", "t2m"],
-        }
-    }
-
-    param_level_pl = model_vars[model]["param_level_pl"]
-    param, level = param_level_pl
-    param_sfc = model_vars[model]["param_sfc"]
-    nvars_pl = len(param)
-    nlevs = len(level)
-    nvars_sfc = len(param_sfc)
-
+    SL_VARIABLES = ["msl", "sp", "t2m", "tp06", "tcwv", "u10m", "v10m", "u100m", "v100m"]
+    PL_VARIABLES = ["z", "r", "t", "u", "v", "q", "w"]
+    INVARIANT_VARIABLES = ["z", "lsm"]
+    
     # names of variables used in datasets vs the names of the datasets
     name_dict = {
-        "u10": "10m_u_component_of_wind",
-        "v10": "10m_v_component_of_wind",
-        "u100": "100m_u_component_of_wind",
-        "v100": "100m_v_component_of_wind", 
+        "u10m": "10m_u_component_of_wind",
+        "v10m": "10m_v_component_of_wind",
+        "u100m": "100m_u_component_of_wind",
+        "v100m": "100m_v_component_of_wind", 
         "t2m": "2m_temperature",
         "sp": "surface_pressure",
         "msl": "mean_sea_level_pressure",
         "tcwv": "total_column_water_vapour",
+        "tp06": "total_precipitation_06",
+        "lsm": "land_sea_mask",
         "t": "temperature",
         "z": "geopotential",
         "r": "relative_humidity",
@@ -93,25 +84,88 @@ def compute_regression(
 
     # names used in datasets vs names used in the rest of this repo's code
     name_convert_to_framework_dict = dict( 
-            u10="VAR_10U",
-            v10="VAR_10V",
-            u100="VAR_100U",
-            v100="VAR_100V",
-            t2m="VAR_2T",
-            sp="SP",
-            msl="MSL",
-            tcwv="TCW",
-            t="T",
-            z="Z",
-            r="R",
-            q="Q",
-            u="U",
-            v="V",
-            w="W",
+            u10="u10m",
+            v10="v10m",
+            u100="u100m",
+            v100="v100m",
+            tp="tp06",
+            t2m="t2m",
+            sp="sp",
+            msl="msl",
+            tcwv="tcwv",
+            t="t",
+            z="z",
+            r="r",
+            q="q",
+            u="u",
+            v="v",
+            w="w",
             lat="latitude",
             lon="longitude",
         )
+
+
+    input_data_path = dpath / f"{model}.nc"
+    if not input_data_path.exists():
+        raise FileNotFoundError(f"Input data file {input_data_path} does not exist.")
+
+    ds = xr.open_dataset(input_data_path)
+    nvars = len(ds.data_vars)
+    levs = MODEL_LEVELS[model]
+    nlevs = len(levs)
+    # figure out which variables on which levels are in this dataset
+    params_pl, params_sl, params_invariant = [], [], []
+    for var in ds.data_vars:
+        if var in SL_VARIABLES:
+            params_sl.append(var)
+        elif len(var) > 1 and var[0] in PL_VARIABLES: # need to keep out invariant "z" which matches PL name
+            try:
+                var_lev = int(var[1:])
+                if var_lev in levs:
+                    params_pl.append(var)
+            except Exception:
+                pass
+        elif var in INVARIANT_VARIABLES:
+            params_invariant.append(var)
+        else:
+            raise ValueError(f"Unknown variable {var} found in dataset.")
+
+    if "msl" not in params_sl and "sp" not in params_sl and plev == "sfc":
+        raise ValueError("At least one of 'msl' or 'sp' must be present in surface level variables to use plev='sfc' .")
+    nvars_pl = len(params_pl)
+    nvars_sl = len(params_sl)
+    nvars_invariant = len(params_invariant)
+    sorted_params_sl = [var for var in SL_VARIABLES if var in params_sl]
+
+    try:
+        z_str = f"z{plev}"
+        xlev = params_pl.index(z_str)
+        print(f"Using {z_str} as independent variable for regression.")
+    except ValueError:
+        if plev != "sfc":
+            raise ValueError(f"Geopotential field {z_str} not found in model levels {levs}.")
+        else:
+            print(f"Using surface pressure as independent variable for regression.")
     
+    # figure out which files need to be opened for this data
+    dates = generate_dates(year_range, ic_months)
+    n_times = len(dates)
+    pl_paths = []
+    sl_paths = []
+    
+    for date in dates:
+        for vp in params_pl:
+            v, p = vp[0], vp[1:]
+            path = rpath / f"v={name_dict[v]}_p={p}_d={date}.nc"
+            if not path.exists():
+                print(f"file no existe: {path}")
+            pl_paths.append(path)
+        for v in sorted_params_sl:
+            path = rpath / f"v={name_dict[v]}_d={date}.nc"
+            if not path.exists():
+                print(f"file no existe: {path}")
+            sl_paths.append(path)
+
     print('computing the climo regression against one var at one point')
 
     # ERA5 lat,lon grid
@@ -122,54 +176,11 @@ def compute_regression(
     lat_2d = np.repeat(lat[:,np.newaxis],lon.shape[0],axis=1)
     lon_2d = np.repeat(lon[np.newaxis,:],lat.shape[0],axis=0)
 
-    if ic == 'DJF':
-        months = ["12", "01", "02"]  # December, January, February
-        pl_paths = []
-        sfc_paths = []
-        for m in months:
-            for v in param_level_pl[0]:
-                path = dpath/f'v={name_dict[v]}_m={m}.nc'
-                if not path.exists():
-                    print(f"Warning: {path} does not exist.")
-                    continue
-                pl_paths.append(path)
-            for v in param_sfc:
-                path = dpath/f'v={name_dict[v]}_m={m}.nc'
-                if not path.exists():
-                    print(f"Warning: {path} does not exist.")
-                    continue
-                sfc_paths.append(path)
-
-        # set level of point to be regressed against; xlev = 5 corresponds to 500 hPa
-        xlev = 5
-    elif ic == 'JAS':    
-        months = ["07", "08", "09"]  # July, August, September
-        pl_paths = []
-        sfc_paths = []
-        for m in months:
-            for v in param_level_pl[0]:
-                path = dpath/f'v={name_dict[v]}_m={m}.nc'
-                if not path.exists():
-                    print(f"Warning: {path} does not exist.")
-                    continue
-                pl_paths.append(path)
-            for v in param_sfc:
-                path = dpath/f'v={name_dict[v]}_m={m}.nc'
-                if not path.exists():
-                    print(f"Warning: {path} does not exist.")
-                    continue
-                sfc_paths.append(path)
-        # set level of point to be regressed against; xlev = 5 corresponds to 500 hPa
-        xlev = 5
-
-    else:
-        raise('not a valid season. set ic to DJF or JAS')
-
     # base point indices
     bplat = int((90.-ylat)*4); bplon = int(xlon)*4
     print('lat, lon=',lat[bplat],lon[bplon])
 
-    locfunc = inference_sfno.gen_circular_perturbation(lat_2d,lon_2d,bplat,bplon,1.0,locRad=locrad)
+    locfunc = general.gen_circular_perturbation(lat_2d,lon_2d,bplat,bplon,1.0,locRad=locrad)
     print('locfunc max:',np.max(locfunc))
 
     # indices where this function is greater than zero
@@ -188,27 +199,20 @@ def compute_regression(
 
     # open pl data
     pl_ds = xr.open_mfdataset(pl_paths, combine='nested', parallel=True)
-    # open sfc data
-    sfc_ds = xr.open_mfdataset(sfc_paths, combine='nested', parallel=True)
-
-    # check that the datasets have the same time dimension
-    assert pl_ds.sizes["valid_time"] == sfc_ds.sizes["valid_time"], "Pressure level and surface datasets must have the same number of time steps."
-    n_times = pl_ds.sizes["valid_time"]
-
     # populate regression arrays
     # pressure level data
-    regdat_pl = np.zeros([nvars_pl,n_times,nlevs,latwin,lonwin])
-    for i, var in enumerate(param_level_pl[0]):
-        assert var in pl_ds.data_vars, f"Variable {var} not found in pressure level dataset."
+    regdat_pl = np.zeros([nvars_pl,n_times,latwin,lonwin])
+    for i, var in enumerate(params_pl):
         print(f"Processing variable {var} ({i+1}/{nvars_pl})")
-        regdat_pl[i] = pl_ds[var].isel(latitude=slice(iminlat, imaxlat), longitude=slice(iminlon, imaxlon)).values
-    # surface data
-    regdat_sfc = np.zeros([nvars_sfc,n_times,latwin,lonwin])
-    for i, var in enumerate(param_sfc):
-        assert var in sfc_ds.data_vars, f"Variable {var} not found in surface dataset."
-        print(f"Processing variable {var} ({i+1}/{nvars_sfc})")
-        regdat_sfc[i] = sfc_ds[var].isel(latitude=slice(iminlat, imaxlat), longitude=slice(iminlon, imaxlon)).values
+        regdat_pl[i] = pl_ds[var].isel(lat=slice(iminlat, imaxlat), lon=slice(iminlon, imaxlon)).values
         
+    # open single level data
+    sl_ds = xr.open_mfdataset(sl_paths, combine='nested', parallel=True)
+    regdat_sfc = np.zeros([nvars_sl,n_times,latwin,lonwin])
+    for i, var in enumerate(sorted_params_sl): # using sorted to ensure pressure is idx 0
+        print(f"Processing variable {var} ({i+1}/{nvars_sl})")
+        regdat_sfc[i] = sl_ds[var].isel(lat=slice(iminlat, imaxlat), lon=slice(iminlon, imaxlon)).values
+
     # center the data
     regdat_pl = regdat_pl - np.mean(regdat_pl,axis=1,keepdims=True)
     regdat_sfc = regdat_sfc - np.mean(regdat_sfc,axis=1,keepdims=True)
@@ -219,9 +223,9 @@ def compute_regression(
         print(var,regdat_pl[var,:,5,int(latwin/2),int(lonwin/2)])
 
     # define the independent variable: sample at the chosen point (middle of domain)
-    if ic == 'DJF':
+    if isinstance(plev, int):
         xvar = regdat_pl[0,:,xlev,int(latwin/2)+1,int(lonwin/2)+1] # upper level
-    elif ic == 'JAS':
+    elif plev == "sfc":
         xvar = regdat_sfc[0,:,int(latwin/2)+1,int(lonwin/2)+1] # surface
 
     # standardize
@@ -231,9 +235,9 @@ def compute_regression(
     print('xvar min,max:',np.min(xvar),np.max(xvar))
 
     # regress pressure variables
-    regf_pl = np.zeros([nvars_pl,len(level),latwin,lonwin])
+    regf_pl = np.zeros([nvars_pl,nlevs,latwin,lonwin])
     for var in range(nvars_pl):
-        for k in range(len(level)):
+        for k in range(nlevs):
             print('k=',k)
             for j in range(latwin):
                 for i in range(lonwin):
@@ -248,8 +252,8 @@ def compute_regression(
             regf_pl[var,k,:] = locfunc[iminlat:imaxlat,iminlon:imaxlon]*regf_pl[var,k,:]
 
     # regress surface variables
-    regf_sfc = np.zeros([nvars_sfc,latwin,lonwin])
-    for var in range(nvars_sfc):
+    regf_sfc = np.zeros([nvars_sl,latwin,lonwin])
+    for var in range(nvars_sl):
         for j in range(latwin):
             for i in range(lonwin):
                 yvar = regdat_sfc[var,:,j,i]
@@ -260,7 +264,6 @@ def compute_regression(
         regf_sfc[var,:] = locfunc[iminlat:imaxlat,iminlon:imaxlon]*regf_sfc[var,:]
 
     # save the regression field for later simulations
-    event = "cyclone" if ic == "DJF" else "hurricane"
     if ylat - int(ylat) == 0:
         str_lat = f"{int(ylat)}"
     else:
@@ -269,24 +272,29 @@ def compute_regression(
         str_lon = f"{int(xlon)}"
     else:
         str_lon = f"{round(xlon*4)/4:.2f}"
-    rgfile = opath / f'{event}_{ic}_{str_lat}N_{str_lon}E_regression_{model}.nc'
+    rgfile = opath / f'{ic_str}_{str_lat}N_{str_lon}E_z-regression_{model}.nc'
 
     ds = xr.Dataset(
         coords={
-            "level": level,
+            "level": levs,
             "latitude": lat[iminlat:imaxlat],
             "longitude": lon[iminlon:imaxlon],
         },
     )
 
-    for i, var in enumerate(param_level_pl[0]):
+    for i, var in enumerate(params_pl):
         ds[name_convert_to_framework_dict[var]] = xr.DataArray(
             regf_pl[i], dims=["level", "latitude", "longitude"], attrs={"long_name": name_dict[var]}
         )
-    for i, var in enumerate(param_sfc):
+    for i, var in enumerate(sorted_params_sl):
         ds[name_convert_to_framework_dict[var]] = xr.DataArray(
             regf_sfc[i], dims=["latitude", "longitude"], attrs={"long_name": name_dict[var]}
         )
+    for i, var in enumerate(params_invariant):
+        ds[name_convert_to_framework_dict[var]] = xr.DataArray(
+            np.zeros_like(regf_sfc[0]), dims=["latitude", "longitude"], attrs={"long_name": name_dict[var] if var != "z" else "geopotential_at_surface"}
+        )
+
     if rgfile.exists():
         print(f"Warning: {rgfile} already exists. Overwriting.")
         rgfile.unlink()  # remove the existing file
@@ -299,15 +307,25 @@ def compute_regression(
 # START: parameters and call to compute_regression
 # 
 
-# netcdf data lives here
-dpath = Path(os.environ.get("WORK")) / "dcmip" / "era5"
+# raw data
+rpath = Path("/N/slate/jmelms/projects/HM24_ICs/raw")
+
+# netcdf full initial conditions lives here
+dpath = Path("/N/slate/jmelms/projects/HM24_ICs/DJF_2018-2019/IC_files")
 
 # write regression results here:
-opath = Path(os.environ.get("WORK")) / "dcmip" / "hm24_perts"
+opath = Path("/N/slate/jmelms/projects/HM24_ICs/DJF_2018-2019/reg_pert_files")
 opath.mkdir(parents=True, exist_ok=True)
 
+# set dates
+start_end_years_inc = [2018, 2019]
+year_range = range(
+    start_end_years_inc[0], start_end_years_inc[1] + 1
+)  # inclusive range
+
 # select DJF or JAS initial conditions
-ic = 'DJF'
+ic_months = [12, 1, 2]
+ic_str = 'DJF'
 # set lat/lon of perturbation in degrees N, E
 ylat = 40; xlon = 150
 # localization radius in km for the scale of the initial perturbation
@@ -315,11 +333,13 @@ locrad = 2000.
 # scaling amplitude for initial condition (1=climo variance at the base point)
 amp = -1.
 
-compute_regression(ic, ylat, xlon, locrad, amp, dpath, opath, model="sfno")
-compute_regression(ic, ylat, xlon, locrad, amp, dpath, opath, model="pangu")
-compute_regression(ic, ylat, xlon, locrad, amp, dpath, opath, model="graphcast_oper")
+models = ["SFNO", "Pangu6", "GraphCastOperational", "FuXi"]
+for model in models:
+    compute_regression(year_range, ic_months, ic_str, ylat, xlon, locrad, amp, rpath, dpath, opath, model=model)
 
-ic = 'JAS'
+
+ic_months = [7, 8, 9]
+ic_str = 'JAS'
 # set lat/lon of perturbation in degrees N, E
 ylat = 15.; xlon = 360.-40.
 # localization radius in km for the scale of the initial perturbation
@@ -327,9 +347,8 @@ locrad = 1000.
 # scaling amplitude for initial condition (1=climo variance at the base point)
 amp = -1.
 
-compute_regression(ic, ylat, xlon, locrad, amp, dpath, opath, model="sfno")
-compute_regression(ic, ylat, xlon, locrad, amp, dpath, opath, model="pangu")
-compute_regression(ic, ylat, xlon, locrad, amp, dpath, opath, model="graphcast_oper")
+for model in models:
+    compute_regression(year_range, ic_months, ic_str, ylat, xlon, locrad, amp, rpath, dpath, opath, model=model)
 
 #
 # END: parameters and call to compute_regression
