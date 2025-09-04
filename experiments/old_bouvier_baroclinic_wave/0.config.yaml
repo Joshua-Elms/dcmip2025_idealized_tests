@@ -1,19 +1,10 @@
-perturbation_params:
-  amp: 0.0
-experiment_subdirectories: 
-  - "plots"
-  - "auxiliary"
-
-experiment_dir: /N/slate/jmelms/projects/dcmip2025_idealized_tests/experiments/B.bouvier_baroclinic_wave/data
-experiment_name: test_SFNO
+experiment_dir: /glade/u/home/jmelms/projects/dcmip2025_idealized_tests/experiments/C.bouvier_baroclinic_wave/data
+experiment_name: canonical_run
 fort_executable_path: /glade/u/home/jmelms/projects/dcmip2025_idealized_tests/experiments/C.bouvier_baroclinic_wave/initial_conditions/gen_IC_FCN.out
-debug_run: True
-models: ["SFNO"] # "SFNO", "GraphCastOperational"
-overwrite: True
 inference_parameters:
   device: cuda:0
-  n_timesteps: 4
-  tendency_reversion: True
+  n_timesteps: 80
+  tendency_reversion: true
 initial_condition_parameters:
   moisture:
   - 42
@@ -43,11 +34,11 @@ initial_condition_parameters:
   - 100
   - m s^-1
 perturbation_parameters:
-  enabled: true
-  u_wind_pert_base: 1
-  localization_radius: 637100
   center_latitude: 40
   center_longitude: 20
+  enabled: true
+  localization_radius: 637100
+  u_wind_pert_base: 1
 processor_parameters:
   all_plevels_fname: levels_full.txt
   include_dewpt: false
