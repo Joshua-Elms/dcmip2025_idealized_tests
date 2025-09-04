@@ -221,7 +221,7 @@ def aggregate_tp_files(tp_dates: list[str], download_dir: Path):
         ds = xr.open_mfdataset(fpaths, combine="nested", parallel=True)
         ds = ds.sum(dim="valid_time").compute()
         # add chunk[0] as valid_time coord
-        ds = ds.assign_coords(valid_time=[chunk[0]])
+        ds = ds.assign_coords(valid_time=[np.datetime64(chunk[0])])
         # write 6-hourly total precipitation file valid for the end of the interval
         ds.to_netcdf(output_path)
 

@@ -44,11 +44,6 @@ MODEL_LEVELS = dict(
 )
 
 
-def linreg(xvar, regdat, regf, var, j, i):
-    slope, intercept, r_value, p_value, std_err = linregress(xvar, regdat[var, :, j, i])
-    regf[var, j, i] = slope * amp + intercept
-
-
 def compute_regression(
     year_range: list[int],
     ic_months: list[int],
@@ -167,7 +162,7 @@ def compute_regression(
                 xlev = relevant_vars.index("sp")
 
     # figure out which files need to be opened for this data
-    dates = generate_dates(year_range, ic_months)[:2]
+    dates = generate_dates(year_range, ic_months)
     n_times = len(dates)
     raw_paths = []
 
@@ -224,7 +219,7 @@ def compute_regression(
     raw_ds = xr.open_mfdataset(raw_paths, combine="nested", parallel=True)
     stop = perf_counter()
     print(
-        f"Opened {len(raw_paths)} files in {stop - start:.2f} s, avg'ing {(stop - start) / (1000*len(raw_paths)):.2f} ms/file."
+        f"Opened {len(raw_paths)} files in {stop - start:.2f} s, avg'ing {(1000*(stop - start)) / (len(raw_paths)):.2f} ms/file."
     )
     # populate regression arrays
     regdat = np.zeros([nvars_rel, n_times, latwin, lonwin])
@@ -272,23 +267,21 @@ def compute_regression(
     # this was a slow loop, so it's parallel now
     # regress variables
     start = perf_counter()
-    args = []
     regf = np.zeros([nvars_rel, latwin, lonwin])
     for var in range(nvars_rel):
         for j in range(latwin):
             for i in range(lonwin):
-                args.append((xvar, regdat, regf, var, j, i))
+                slope, intercept, r_value, p_value, std_err = linregress(
+                    xvar, regdat[var, :, j, i]
+                )
+                regf[var, j, i] = slope * amp + intercept
 
-    with mp.Pool(processes=mp.cpu_count()) as pool:
-        pool.starmap(linreg, args)
-
-    for var in range(nvars_rel):
         # spatially localize
         regf[var, :] = locfunc[iminlat:imaxlat, iminlon:imaxlon] * regf[var, :]
 
     stop = perf_counter()
     print(
-        f"Regression computation completed in {stop - start:.2f} seconds, avg'ing {(stop - start) / (n_times):.2f} s/date."
+        f"Regression computation completed in {stop - start:.2f} seconds, averaging {(stop - start) / (n_times):.2f} s/date."
     )
 
     # save the regression field for later simulations
@@ -312,8 +305,6 @@ def compute_regression(
     zero_da = xr.DataArray(np.zeros((nlat, nlon)), dims=["latitude", "longitude"])
 
     for i, var in enumerate(relevant_vars):
-        if i == 0:
-            breakpoint()
         da_name = name_convert_to_framework_dict.get(var, var)
         output_ds[da_name] = zero_da.copy()
         output_ds[da_name][
@@ -362,7 +353,7 @@ locrad = 2000.0
 # scaling amplitude for initial condition (1=climo variance at the base point)
 amp = -1.0
 
-models = ["SFNO", "Pangu6", "GraphCastOperational", "FuXi"]
+models = ["Pangu6", "SFNO"]
 for model in models:
     compute_regression(
         year_range,
