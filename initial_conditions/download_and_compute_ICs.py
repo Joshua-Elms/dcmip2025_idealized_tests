@@ -106,7 +106,21 @@ def download_chunk(
     client = cdsapi.Client()
     try:
         client.retrieve(dataset, request, download_dir / fname)
-
+        # if we don't do this here, downstream apps
+        # get confused by these names; is u10
+        # the 10m u wind, or the 10hPa u wind?
+        rewrite_vars = { 
+            "10m_v_component_of_wind": ("v10", "v10m"),
+            "10m_u_component_of_wind": ("u10", "u10m"),
+            "100m_v_component_of_wind": ("v100", "v100m"),
+            "100m_u_component_of_wind": ("u100", "u100m"),
+        }
+        if variable in rewrite_vars:
+            old_name, new_name = rewrite_vars[variable]
+            ds = xr.open_dataset(download_dir / fname)
+            ds = ds.rename_vars({old_name: new_name})
+            (download_dir / fname).unlink()  # remove original file
+            ds.to_netcdf(download_dir / fname)
     except Exception as e:
         print(f"ERROR: request {fname} failed: {e}")
         return fname, "failed"
@@ -219,9 +233,20 @@ def aggregate_tp_files(tp_dates: list[str], download_dir: Path):
             continue
         fpaths = [download_dir / f"v=total_precipitation_d={date}.nc" for date in chunk]
         ds = xr.open_mfdataset(fpaths, combine="nested", parallel=True)
-        ds = ds.sum(dim="valid_time").compute()
+        t = chunk[0]
         # add chunk[0] as valid_time coord
-        ds = ds.assign_coords(valid_time=[np.datetime64(chunk[0])])
+        ds = ds.sum(dim="valid_time")
+        ds["tp"] = ds["tp"].expand_dims(
+            dict(
+                valid_time=[
+                    np.datetime64(f"{t[:4]}-{t[4:6]}-{t[6:8]}T{t[8:]}").astype(
+                        "datetime64[ns]"
+                    )
+                ]
+            ),
+            axis=0,
+        )
+        ds = ds.rename_vars({"tp": "tp06"})
         # write 6-hourly total precipitation file valid for the end of the interval
         ds.to_netcdf(output_path)
 
@@ -255,12 +280,13 @@ def create_ICs_from_time_means(
         }
     )
     t = [np.datetime64("2000-01-01 00:00")]
-    if model in ["GraphCastOperational", "FuXi"]: # TODO: parametrize this and automatically adjust
+    if model in [
+        "GraphCastOperational",
+        "FuXi",
+    ]:  # TODO: parametrize this and automatically adjust
         t = [np.datetime64("1999-12-31 18:00")] + t
     ds = ds.expand_dims({"time": t})
-    ds = ds.drop_vars(
-            ["number", "expver"], errors="ignore"
-        )
+    ds = ds.drop_vars(["number", "expver"], errors="ignore")
 
     return ds
 
@@ -374,14 +400,14 @@ if __name__ == "__main__":
         "100m_v_component_of_wind": "v100m",
         "total_column_water_vapour": "tcwv",
         "total_precipitation_06": "tp06",
-        "land_sea_mask": "lsm"
+        "land_sea_mask": "lsm",
     }
     p_levels = [50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]
     # p_levels = [50, 1000]  # debug only
     pl_dataset = "reanalysis-era5-pressure-levels"
     sfc_dataset = "reanalysis-era5-single-levels"
     land_dataset = "reanalysis-era5-land"
-    start_end_years_inc = [1979, 2019]
+    start_end_years_inc = [2018, 2019]
     year_range_name = f"{start_end_years_inc[0]}-{start_end_years_inc[1]}"
     year_range = range(
         start_end_years_inc[0], start_end_years_inc[1] + 1
@@ -390,8 +416,8 @@ if __name__ == "__main__":
     models = ["SFNO", "Pangu6", "GraphCastOperational", "FuXi"]
     static_fields = {
         "geopotential": "https://confluence.ecmwf.int/download/attachments/140385202/geo_1279l4_0.1x0.1.grib2_v4_unpack.nc?version=1&modificationDate=1591983422003&api=v2",
-        "land_sea_mask": "https://confluence.ecmwf.int/download/attachments/140385202/lsm_1279l4_0.1x0.1.grb_v4_unpack.nc?version=1&modificationDate=1591983422208&api=v2"
-        }
+        "land_sea_mask": "https://confluence.ecmwf.int/download/attachments/140385202/lsm_1279l4_0.1x0.1.grb_v4_unpack.nc?version=1&modificationDate=1591983422208&api=v2",
+    }
     base_data_dir = Path("/N/slate/jmelms/projects/HM24_ICs")
     raw_data_dir = base_data_dir / "raw"
     for season, months in seasons.items():
@@ -433,12 +459,16 @@ if __name__ == "__main__":
             # because they are always single level
             # and only one of them needs to be downloaded
             # so we download them to raw and then stick them
-            # in the time_means 
-            if static_fields: # check whether any need to be downloaded
+            # in the time_means
+            if static_fields:  # check whether any need to be downloaded
                 for field, link in static_fields.items():
                     raw_path = raw_data_dir / f"{field}.nc"
                     if not raw_path.exists():
-                        print(FileNotFoundError(f"Field {field} not found at {raw_path}, see extract_static_graphcast_fields.py"))
+                        print(
+                            FileNotFoundError(
+                                f"Field {field} not found at {raw_path}, see extract_static_graphcast_fields.py"
+                            )
+                        )
                     # copy to time_means if needed
                     fpath = time_mean_dir / f"{field}_tm.nc"
                     if fpath.exists():

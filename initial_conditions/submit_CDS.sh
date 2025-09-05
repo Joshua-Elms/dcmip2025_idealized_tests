@@ -9,9 +9,9 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=1
-#SBATCH --time=24:00:00
-#SBATCH --mem=50GB
+#SBATCH --time=08:00:00
+#SBATCH --mem=200GB
 #SBATCH -A r00389
 
 source /N/slate/jmelms/projects/earth2studio-cu126/.venv/bin/activate
-python /N/slate/jmelms/projects/dcmip2025_idealized_tests/initial_conditions/make_HM24_ICs/download_and_compute_ICs.py
+python /N/slate/jmelms/projects/dcmip2025_idealized_tests/initial_conditions/download_and_compute_ICs.py

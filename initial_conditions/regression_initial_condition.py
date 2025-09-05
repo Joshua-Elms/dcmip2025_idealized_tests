@@ -74,16 +74,16 @@ def compute_regression(
         model (str): The model to use for regression, from: ["SFNO", "Pangu6", "GraphCastOperational", "FuXi"].
         plev (int): Pressure level to regress against (default: 500 hPa). To use surface pressure ('msl' if present, 'sp' if not), pass 'sfc'.
     """
-    SL_VARIABLES = ["msl", "sp", "t2m", "tp06", "tcwv", "u10", "v10", "u100", "v100"]
+    SL_VARIABLES = ["msl", "sp", "t2m", "tp06", "tcwv", "u10m", "v10m", "u100m", "v100m"]
     PL_VARIABLES = ["z", "r", "t", "u", "v", "q", "w"]
     INVARIANT_VARIABLES = ["z", "lsm"]
 
     # names of variables used in datasets vs the names of the datasets
     name_dict = {
-        "u10": "10m_u_component_of_wind",
-        "v10": "10m_v_component_of_wind",
-        "u100": "100m_u_component_of_wind",
-        "v100": "100m_v_component_of_wind",
+        "u10m": "10m_u_component_of_wind",
+        "v10m": "10m_v_component_of_wind",
+        "u100m": "100m_u_component_of_wind",
+        "v100m": "100m_v_component_of_wind",
         "t2m": "2m_temperature",
         "sp": "surface_pressure",
         "msl": "mean_sea_level_pressure",
@@ -162,8 +162,9 @@ def compute_regression(
                 xlev = relevant_vars.index("sp")
 
     # figure out which files need to be opened for this data
-    dates = generate_dates(year_range, ic_months)
+    dates = generate_dates(year_range, ic_months)[:2]
     n_times = len(dates)
+    print(f"n_times: {n_times}, dates: {dates}")
     raw_paths = []
 
     for date in dates:
@@ -353,7 +354,7 @@ locrad = 2000.0
 # scaling amplitude for initial condition (1=climo variance at the base point)
 amp = -1.0
 
-models = ["Pangu6", "SFNO"]
+models = ["GraphCastOperational", "FuXi", "Pangu6", "SFNO"]
 for model in models:
     compute_regression(
         year_range,
