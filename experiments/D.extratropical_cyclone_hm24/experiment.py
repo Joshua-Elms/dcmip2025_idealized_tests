@@ -22,7 +22,7 @@ def run_experiment(model_name: str, config_path: str) -> str:
     # unpack config & set paths
     season = config["IC_season"]
     IC_path = Path(config["HM24_IC_dir"]) / f"{model_name}.nc"
-    perturbation_path = Path(config["perturbation_dir"]) / f"{model_name}_{season}.nc"
+    perturbation_path = Path(config["perturbation_dir"]) / f"{season}_40N_150E_z-regression_{model_name}.nc"
     output_dir = Path(config["experiment_dir"]) / config["experiment_name"]
     nc_output_file = output_dir / f"output_{model_name}.nc"
     tendency_file = output_dir / "auxiliary" / f"tendency_{model_name}.nc"

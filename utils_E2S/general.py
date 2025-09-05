@@ -287,6 +287,16 @@ def run_deterministic_w_perturbations(
     # run the model for the full number of steps with tendency reversion
     # no need to set front hook, if TR active it will be identity here
     model.rear_hook = tendency_reversion_with_user_rpert
+    
+    # add optional initial perturbation
+    if initial_perturbation is not None:
+        if not isinstance(initial_perturbation, xr.Dataset):
+            raise TypeError(
+                f"Expected xr.Dataset for initial_perturbation, got {type(initial_perturbation)}"
+            )
+        else:
+            breakpoint()
+            run_kwargs["data"].ds += initial_perturbation
 
     ds = run.deterministic(**run_kwargs).root
 
