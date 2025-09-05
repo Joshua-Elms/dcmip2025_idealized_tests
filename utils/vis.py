@@ -219,6 +219,7 @@ def create_and_plot_variable_gif(
         
     # norm = MidpointNormalize(vmin=vmin, vmax=vmax, midpoint=vmid, clip=True)
     # sm = cm.ScalarMappable(norm=norm, cmap=cmap)
+    breakpoint()
     im = ax.imshow(
         data.isel({iter_var:iter_vals[0]}), 
         cmap=cmap,

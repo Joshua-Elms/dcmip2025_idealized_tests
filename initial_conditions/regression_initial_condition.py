@@ -100,13 +100,7 @@ def compute_regression(
     }
 
     # names used in datasets vs names used in the rest of this repo's code
-    name_convert_to_framework_dict = dict(
-        u10="u10m",
-        v10="v10m",
-        u100="u100m",
-        v100="v100m",
-        tp="tp06",
-    )
+    name_convert_to_framework_dict = dict()
 
     input_data_path = dpath / f"{model}.nc"
     if not input_data_path.exists():
@@ -298,18 +292,18 @@ def compute_regression(
 
     output_ds = xr.Dataset(
         coords={
-            "latitude": lat,
-            "longitude": lon,
+            "lat": lat,
+            "lon": lon,
         },
     )
 
-    zero_da = xr.DataArray(np.zeros((nlat, nlon)), dims=["latitude", "longitude"])
+    zero_da = xr.DataArray(np.zeros((nlat, nlon)), dims=["lat", "lon"])
 
     for i, var in enumerate(relevant_vars):
         da_name = name_convert_to_framework_dict.get(var, var)
         output_ds[da_name] = zero_da.copy()
         output_ds[da_name][
-            dict(latitude=slice(iminlat, imaxlat), longitude=slice(iminlon, imaxlon))
+            dict(lat=slice(iminlat, imaxlat), lon=slice(iminlon, imaxlon))
         ] = regf[i]
     for i, var in enumerate(params_invariant):
         da_name = name_convert_to_framework_dict.get(var, var)
@@ -354,7 +348,7 @@ locrad = 2000.0
 # scaling amplitude for initial condition (1=climo variance at the base point)
 amp = -1.0
 
-models = ["GraphCastOperational", "FuXi", "Pangu6", "SFNO"]
+models = ["Pangu6", "SFNO", "GraphCastOperational", "FuXi"]
 for model in models:
     compute_regression(
         year_range,

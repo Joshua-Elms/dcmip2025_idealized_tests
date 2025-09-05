@@ -1,16 +1,16 @@
 experiment_dir: /N/slate/jmelms/projects/dcmip2025_idealized_tests/experiments/D.extratropical_cyclone_hm24/data
-experiment_name: test_SFNO_pert
+experiment_name: real_sim
 HM24_IC_dir: /N/slate/jmelms/projects/HM24_ICs/DJF_2018-2019/IC_files
 perturbation_dir: /N/slate/jmelms/projects/HM24_ICs/DJF_2018-2019/reg_pert_files
 IC_season: DJF
 tendency_reversion: True
 device: cuda:0
-n_timesteps: 4
-debug_run: True
-models: ["SFNO"] # "SFNO", "GraphCastOperational"
+n_timesteps: 16
+debug_run: False
+models: ["Pangu6x", "SFNO"] # "SFNO", "GraphCastOperational"
 overwrite: True
 perturbation_params:
-  amp: 0.0
+  amp: 1
 experiment_subdirectories: 
   - "plots"
   - "auxiliary"

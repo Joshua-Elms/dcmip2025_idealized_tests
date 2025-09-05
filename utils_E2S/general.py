@@ -185,17 +185,28 @@ def run_deterministic_w_perturbations(
 
     # set up a post-model hook function that reverts the tendency
     def tendency_reversion_without_user_rpert(x, coords):
-        """Reverts the tendency to the first state"""
-        return x.to(run_kwargs["device"]) + tend.to(run_kwargs["device"]), coords
+        """Reverts the tendency to the first state. This horrendous-looking return is necessary because 
+        tend could either be a Tensor of the correct shape to be added to x, or as an integer (probably 0)
+        which represents the parent inference function being called with tendency_reversion = False.
+        For some reason, the return statement is unwrapped into normal code w/ variable assignments, 
+        there's an unbounded variable error coming from tend.""" 
+        return x.to(run_kwargs["device"]) + (tend if isinstance(tend, int) else tend.to(run_kwargs["device"])), coords
 
     # set up a post-model hook function that reverts the tendency & adds a recurrent perturbation
     def tendency_reversion_with_user_rpert(x, coords):
-        """Reverts the tendency to the first state & add perturbation"""
+        """Reverts the tendency to the first state and adds a user-selected perturbation. This horrendous-looking
+        return is necessary because tend could either be a Tensor of the correct shape to be added 
+        to x, or as an integer (probably 0) which represents the parent inference function being 
+        called with tendency_reversion = False. For some reason, the return statement is unwrapped 
+        into normal code w/ variable assignments, there's an unbounded variable error coming from tend. 
+        The foregoing comments apply equally to rpert_from_user."""
         return (
-            x.to(run_kwargs["device"])
-            + tend.to(run_kwargs["device"])
-            + rpert_from_user.to(run_kwargs["device"]),
-            coords,
+            (
+                x.to(run_kwargs["device"]) + 
+                (tend if isinstance(tend, int) else tend.to(run_kwargs["device"])) + 
+                (rpert_from_user if isinstance(rpert_from_user, int) else rpert_from_user.to(run_kwargs["device"]))
+            ), 
+            coords
         )
 
     if tendency_reversion:
@@ -230,12 +241,10 @@ def run_deterministic_w_perturbations(
 
         # set the tendency of static variables to 0
         idx = model_static_var_indices[model_name]
-        tend[:, :, :, idx, :, :] = 0
+        tend[..., idx, :, :] = 0
 
     else:
-        tend = torch.Tensor(
-            0
-        )  # needs to be tensor and not int so that .to(device) works
+        tend = 0
 
     # get the recurrent perturbation
     if recurrent_perturbation is not None:
@@ -248,9 +257,7 @@ def run_deterministic_w_perturbations(
         da = recurrent_pert_source(run_kwargs["time"], variables)
         rpert_from_user, rpert_coords = prep_data_array(da)
     else:
-        rpert_from_user = torch.Tensor(
-            0
-        )  # needs to be tensor and not int so that .to(device) works
+        rpert_from_user = 0
 
     if tendency_reversion:
 
@@ -295,7 +302,6 @@ def run_deterministic_w_perturbations(
                 f"Expected xr.Dataset for initial_perturbation, got {type(initial_perturbation)}"
             )
         else:
-            breakpoint()
             run_kwargs["data"].ds += initial_perturbation
 
     ds = run.deterministic(**run_kwargs).root

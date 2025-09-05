@@ -1,12 +1,15 @@
 experiment_dir: /N/slate/jmelms/projects/dcmip2025_idealized_tests/experiments/A.mass_conservation/data
 experiment_name: full_test
 ic_dates: ["2018/01/01 12:00", "2018/07/01 12:00"]
-models: ["SFNO", "Pangu6"]
+models: ["Pangu6x", "SFNO", "GraphCastOperational", "FuXi"]
 n_timesteps: 40
 device: cuda:0
 debug_run: false
+overwrite: true
 keep_vars_dict: 
   SFNO: ["sp", "msl"]
   Pangu6: ["msl"]
   GraphCastOperational: ["msl"]
   FuXi: ["msl"]
+experiment_subdirectories: 
+  - "plots"
