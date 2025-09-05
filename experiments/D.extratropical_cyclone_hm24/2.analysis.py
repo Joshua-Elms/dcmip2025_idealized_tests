@@ -123,7 +123,6 @@ for model_name in models:
     # Z500 anomalies
     titles = [f"{model_name.upper()}: $Z_{{500}}$ Anomalies from {season} Climatology at t={t*6} hours" for t in range(0, n_timesteps+1)]
     data = ds["z500"].squeeze() - (mean_ds["z500"]).squeeze()
-    breakpoint()
     plot_var = f"z500_anom_{model_name}"
     vis.create_and_plot_variable_gif(
         data=data,
@@ -162,7 +161,7 @@ for model_name in models:
 
     # T500 anomalies
     titles = [f"{model_name.upper()}: $T_{{500}}$ Anomalies from {season} Climatology at t={t*6} hours" for t in range(0, n_timesteps+1)]
-    data = ds["t500"] - (mean_ds["t500"]).squeeze()
+    data = ds["t500"].squeeze() - (mean_ds["t500"]).squeeze()
     plot_var = f"t500_anom_{model_name}"
     vis.create_and_plot_variable_gif(
         data=data,
