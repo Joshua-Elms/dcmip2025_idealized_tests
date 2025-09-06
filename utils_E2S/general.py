@@ -1,4 +1,4 @@
-from matplotlib.pyplot import axis
+from collections.abc import Callable
 import xarray as xr
 from datetime import datetime
 import numpy as np
@@ -12,6 +12,7 @@ from pathlib import Path
 import datetime as dt
 import yaml
 import shutil
+import subprocess
 from dotenv import load_dotenv
 from time import perf_counter
 import torch
@@ -167,6 +168,49 @@ def load_model(model_name: str) -> PrognosticModel:
     return model
 
 
+def run_experiment_controller(experiment_func: Callable[[str, str], None], config_path: Path) -> None:
+    """Code to orchestrate running an experiment for multiple models. This
+    function is useful both for initializing an experiment config file and
+    for running each model separately via subprocess, which prevents the GPU
+    memory from being overloaded by models failing to release memory after use."""
+    # load config file
+    config = read_config(config_path)
+    print(
+        f"Running experiment '{config['experiment_name']}' with models: {config['models']}"
+    )
+
+    # get ready to output data to disk
+    exp_dir = prepare_output_directory(config)
+
+    # see whether debug run or full run
+    if config["debug_run"]:
+        print(
+            "Running in debug mode. The experiment function will be invoked directly instead of via subprocess."
+        )
+        if len(config["models"]) != 1:
+            raise ValueError(
+                "In debug mode, only one model can be run at a time. Please set 'debug_run' to False or choose a single model in the config. Exiting."
+            )
+        status = experiment_func(config["models"][0], str(config_path.resolve()))
+
+    else:
+        print(
+            "Running in full mode. The 'experiment_func' will be invoked for each model via subprocess."
+        )
+        # loop over models and run the experiment for each
+        for model_name in config["models"]:
+            subprocess.run(
+                [
+                    "python",
+                    "-c",
+                    f"experiment_func('{model_name}', '{str(config_path.resolve())}')",
+                ],
+                check=True,
+            )
+
+    print("Experiment completed. Results written to ", exp_dir)
+
+
 def run_deterministic_w_perturbations(
     run_kwargs: dict,
     tendency_reversion: bool,
@@ -185,28 +229,36 @@ def run_deterministic_w_perturbations(
 
     # set up a post-model hook function that reverts the tendency
     def tendency_reversion_without_user_rpert(x, coords):
-        """Reverts the tendency to the first state. This horrendous-looking return is necessary because 
+        """Reverts the tendency to the first state. This horrendous-looking return is necessary because
         tend could either be a Tensor of the correct shape to be added to x, or as an integer (probably 0)
         which represents the parent inference function being called with tendency_reversion = False.
-        For some reason, the return statement is unwrapped into normal code w/ variable assignments, 
-        there's an unbounded variable error coming from tend.""" 
-        return x.to(run_kwargs["device"]) + (tend if isinstance(tend, int) else tend.to(run_kwargs["device"])), coords
+        For some reason, the return statement is unwrapped into normal code w/ variable assignments,
+        there's an unbounded variable error coming from tend."""
+        return (
+            x.to(run_kwargs["device"])
+            + (tend if isinstance(tend, int) else tend.to(run_kwargs["device"])),
+            coords,
+        )
 
     # set up a post-model hook function that reverts the tendency & adds a recurrent perturbation
     def tendency_reversion_with_user_rpert(x, coords):
         """Reverts the tendency to the first state and adds a user-selected perturbation. This horrendous-looking
-        return is necessary because tend could either be a Tensor of the correct shape to be added 
-        to x, or as an integer (probably 0) which represents the parent inference function being 
-        called with tendency_reversion = False. For some reason, the return statement is unwrapped 
-        into normal code w/ variable assignments, there's an unbounded variable error coming from tend. 
+        return is necessary because tend could either be a Tensor of the correct shape to be added
+        to x, or as an integer (probably 0) which represents the parent inference function being
+        called with tendency_reversion = False. For some reason, the return statement is unwrapped
+        into normal code w/ variable assignments, there's an unbounded variable error coming from tend.
         The foregoing comments apply equally to rpert_from_user."""
         return (
             (
-                x.to(run_kwargs["device"]) + 
-                (tend if isinstance(tend, int) else tend.to(run_kwargs["device"])) + 
-                (rpert_from_user if isinstance(rpert_from_user, int) else rpert_from_user.to(run_kwargs["device"]))
-            ), 
-            coords
+                x.to(run_kwargs["device"])
+                + (tend if isinstance(tend, int) else tend.to(run_kwargs["device"]))
+                + (
+                    rpert_from_user
+                    if isinstance(rpert_from_user, int)
+                    else rpert_from_user.to(run_kwargs["device"])
+                )
+            ),
+            coords,
         )
 
     if tendency_reversion:
@@ -294,7 +346,7 @@ def run_deterministic_w_perturbations(
     # run the model for the full number of steps with tendency reversion
     # no need to set front hook, if TR active it will be identity here
     model.rear_hook = tendency_reversion_with_user_rpert
-    
+
     # add optional initial perturbation
     if initial_perturbation is not None:
         if not isinstance(initial_perturbation, xr.Dataset):

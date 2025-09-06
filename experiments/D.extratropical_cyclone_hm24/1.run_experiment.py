@@ -1,11 +1,13 @@
 import xarray as xr
+import numpy as np
 from pathlib import Path
 import numpy as np
-import warnings
-import datetime as dt
 from torch.cuda import mem_get_info
 from utils_E2S import general
 from earth2studio.io import XarrayBackend
+import subprocess
+import warnings
+
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 
@@ -19,11 +21,15 @@ def run_experiment(model_name: str, config_path: str) -> str:
     )
 
     # unpack config & set paths
+    season = config["IC_season"]
     IC_path = Path(config["HM24_IC_dir"]) / f"{model_name}.nc"
+    perturbation_path = (
+        Path(config["perturbation_dir"])
+        / f"{season}_40N_150E_z-regression_{model_name}.nc"
+    )
     output_dir = Path(config["experiment_dir"]) / config["experiment_name"]
     nc_output_file = output_dir / f"output_{model_name}.nc"
     tendency_file = output_dir / "auxiliary" / f"tendency_{model_name}.nc"
-    recurrent_perturbation_file = output_dir / "auxiliary" / f"heating_{model_name}.nc"
 
     # load the model
     model = general.load_model(model_name)
@@ -38,35 +44,10 @@ def run_experiment(model_name: str, config_path: str) -> str:
     IC_ds = general.sort_latitudes(IC_ds, model_name, input=True)
     data_source = general.DataSet(IC_ds, model_name)
 
-    # create recurrent perturbation
-    pert_params = config["perturbation_params"]
-    amp = pert_params["amp"]
-    k = pert_params["k"]
-    ylat = pert_params["ylat"]
-    xlon = pert_params["xlon"]
-    locRad = pert_params["locRadkm"] * 1.0e3  # convert km to m
-    heating = amp * general.gen_elliptical_perturbation(
-        IC_ds.lat, IC_ds.lon, k, ylat, xlon, locRad
-    )
-    heating = heating[np.newaxis, :]  # init_time
-    # for any model with multiple input timesteps
-    # we should only perturb the final one in the output
-    heating_ds = general.create_initial_condition(model)
-    model_levels = general.model_levels[model_name]
-    model_coords = {
-        k: v for k, v in model.input_coords().items() if k in ["lat", "lon"]
-    }
-    model_coords["time"] = np.atleast_1d(
-        np.datetime64("2000-01-01")
-    )  # add time coordinate
-    perturb_levels = model_levels[(model_levels <= 1000) & (model_levels >= 200)]
-    perturb_variables = [f"t{lev}" for lev in perturb_levels]
-    for var in perturb_variables:
-        heating_ds[var] = xr.DataArray(
-            heating, model_coords, dims=["time", "lat", "lon"]
-        )
-    print(f"Applying tropical heating perturbation: {heating_ds}")
-    heating_ds.to_netcdf(recurrent_perturbation_file)
+    # read and preprocess initial perturbation
+    pert = xr.open_dataset(perturbation_path)
+    amp = config["perturbation_params"]["amp"]
+    pert = pert * amp
 
     # run experiment
     run_kwargs = {
@@ -83,7 +64,7 @@ def run_experiment(model_name: str, config_path: str) -> str:
         config["tendency_reversion"],
         model_name,
         tendency_file,
-        recurrent_perturbation=heating_ds,
+        initial_perturbation=pert,
     )
 
     # for clarity
@@ -97,3 +78,10 @@ def run_experiment(model_name: str, config_path: str) -> str:
 
     # save data
     ds.to_netcdf(nc_output_file)
+
+
+if __name__ == "__main__":
+    general.run_experiment_controller(
+        experiment_func=run_experiment,
+        config_path = Path(__file__).parent / "0.config.yaml"
+    )
