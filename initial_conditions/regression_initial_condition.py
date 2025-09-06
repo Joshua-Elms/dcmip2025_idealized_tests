@@ -74,7 +74,17 @@ def compute_regression(
         model (str): The model to use for regression, from: ["SFNO", "Pangu6", "GraphCastOperational", "FuXi"].
         plev (int): Pressure level to regress against (default: 500 hPa). To use surface pressure ('msl' if present, 'sp' if not), pass 'sfc'.
     """
-    SL_VARIABLES = ["msl", "sp", "t2m", "tp06", "tcwv", "u10m", "v10m", "u100m", "v100m"]
+    SL_VARIABLES = [
+        "msl",
+        "sp",
+        "t2m",
+        "tp06",
+        "tcwv",
+        "u10m",
+        "v10m",
+        "u100m",
+        "v100m",
+    ]
     PL_VARIABLES = ["z", "r", "t", "u", "v", "q", "w"]
     INVARIANT_VARIABLES = ["z", "lsm"]
 
@@ -156,7 +166,7 @@ def compute_regression(
                 xlev = relevant_vars.index("sp")
 
     # figure out which files need to be opened for this data
-    dates = generate_dates(year_range, ic_months)[:2]
+    dates = generate_dates(year_range, ic_months)
     n_times = len(dates)
     print(f"n_times: {n_times}, dates: {dates}")
     raw_paths = []
@@ -245,9 +255,6 @@ def compute_regression(
     print(
         f"Shape comes from: {nvars_rel} variables x {n_times} samples x {latwin} latitudes x {lonwin} longitudes"
     )
-
-    # for var in range(nvars_rel):
-    #     print(var,regdat[var,:,5,int(latwin/2),int(lonwin/2)])
 
     # define the independent variable: sample at the chosen point (middle of domain)
     xvar = regdat[xlev, :, int(latwin / 2) + 1, int(lonwin / 2) + 1]

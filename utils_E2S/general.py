@@ -155,7 +155,7 @@ def prepare_output_directory(config: dict) -> Path:
 def load_model(model_name: str) -> PrognosticModel:
     """Load a model by name. Currently loads default model weights from cache, or downloads them to cache if not present."""
     load_dotenv()
-    models = {"SFNO", "Pangu6", "Pangu6x", "Pangu24", "GraphCastOperational", "FuXi"}
+    models = {"SFNO", "Pangu6", "Pangu6x", "Pangu24", "GraphCastOperational", "FuXi", "Aurora"}
     if model_name not in models:
         raise ValueError(
             f"Model '{model_name}' is not supported. Supported models are: {models}."
