@@ -21,6 +21,7 @@ model_levels = dict(
     SFNO=np.array([50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]),
     Pangu6=np.array([50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]),
     Pangu6x=np.array([50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]),
+    Pangu24=np.array([50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]),
     GraphCastOperational=np.array(
         [50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]
     ),
@@ -30,6 +31,7 @@ model_static_var_indices = dict(
     SFNO=np.array([]),
     Pangu6=np.array([]),
     Pangu6x=np.array([]),
+    Pangu24=np.array([]),
     GraphCastOperational=np.array([83, 84]),
     FuXi=np.array([]),
 )
@@ -153,7 +155,7 @@ def prepare_output_directory(config: dict) -> Path:
 def load_model(model_name: str) -> PrognosticModel:
     """Load a model by name. Currently loads default model weights from cache, or downloads them to cache if not present."""
     load_dotenv()
-    models = {"SFNO", "Pangu6", "Pangu6x", "GraphCastOperational", "FuXi"}
+    models = {"SFNO", "Pangu6", "Pangu6x", "Pangu24", "GraphCastOperational", "FuXi"}
     if model_name not in models:
         raise ValueError(
             f"Model '{model_name}' is not supported. Supported models are: {models}."
@@ -168,11 +170,25 @@ def load_model(model_name: str) -> PrognosticModel:
     return model
 
 
-def run_experiment_controller(experiment_func: Callable[[str, str], None], config_path: Path) -> None:
+def run_experiment_controller(calling_directory: Path, run_experiment: Callable[[str, str], None], config_path: Path) -> None:
     """Code to orchestrate running an experiment for multiple models. This
     function is useful both for initializing an experiment config file and
     for running each model separately via subprocess, which prevents the GPU
-    memory from being overloaded by models failing to release memory after use."""
+    memory from being overloaded by models failing to release memory after use.
+    
+    Parameters
+    ----------
+    calling_directory : Path
+        The directory from which the experiment is being called.
+    run_experiment : Callable[[str, str], None]
+        The function to run the experiment.
+    config_path : Path
+        The path to the experiment configuration file.
+        
+    Returns
+    -------
+    None
+    """
     # load config file
     config = read_config(config_path)
     print(
@@ -191,7 +207,7 @@ def run_experiment_controller(experiment_func: Callable[[str, str], None], confi
             raise ValueError(
                 "In debug mode, only one model can be run at a time. Please set 'debug_run' to False or choose a single model in the config. Exiting."
             )
-        status = experiment_func(config["models"][0], str(config_path.resolve()))
+        status = run_experiment(config["models"][0], str(config_path.resolve()))
 
     else:
         print(
@@ -199,13 +215,24 @@ def run_experiment_controller(experiment_func: Callable[[str, str], None], confi
         )
         # loop over models and run the experiment for each
         for model_name in config["models"]:
+            # code in third arg from: https://stackoverflow.com/questions/27189044/import-with-dot-name-in-python
             subprocess.run(
                 [
                     "python",
                     "-c",
-                    f"experiment_func('{model_name}', '{str(config_path.resolve())}')",
+f"""
+import importlib.util;
+spec = importlib.util.spec_from_file_location(
+    name='run_experiment_pyfile',
+    location='{str((calling_directory / '1.run_experiment.py').resolve())}'
+);
+module = importlib.util.module_from_spec(spec);
+spec.loader.exec_module(module);
+module.run_experiment('{model_name}', '{str(config_path.resolve())}');
+""",
                 ],
                 check=True,
+                cwd=calling_directory,
             )
 
     print("Experiment completed. Results written to ", exp_dir)
@@ -232,7 +259,7 @@ def run_deterministic_w_perturbations(
         """Reverts the tendency to the first state. This horrendous-looking return is necessary because
         tend could either be a Tensor of the correct shape to be added to x, or as an integer (probably 0)
         which represents the parent inference function being called with tendency_reversion = False.
-        For some reason, the return statement is unwrapped into normal code w/ variable assignments,
+        For some reason, if the return statement is unwrapped into normal code w/ variable assignments,
         there's an unbounded variable error coming from tend."""
         return (
             x.to(run_kwargs["device"])
@@ -245,7 +272,7 @@ def run_deterministic_w_perturbations(
         """Reverts the tendency to the first state and adds a user-selected perturbation. This horrendous-looking
         return is necessary because tend could either be a Tensor of the correct shape to be added
         to x, or as an integer (probably 0) which represents the parent inference function being
-        called with tendency_reversion = False. For some reason, the return statement is unwrapped
+        called with tendency_reversion = False. For some reason, if the return statement is unwrapped
         into normal code w/ variable assignments, there's an unbounded variable error coming from tend.
         The foregoing comments apply equally to rpert_from_user."""
         return (
@@ -270,8 +297,9 @@ def run_deterministic_w_perturbations(
         states = []
 
         def append_state(x, coords):
-            """Appends the states to a list. Only add final lead_time if more than one."""
-            states.append(x.clone().cpu()[:, :, -1:])
+            """Appends the states to a list. Only add final lead_time if more than one.
+            See dimenions here: """
+            states.append(x.clone().cpu()[..., -1:, :, :, :])
             return x, coords
 
         model.rear_hook = append_state
@@ -293,7 +321,8 @@ def run_deterministic_w_perturbations(
 
         # set the tendency of static variables to 0
         idx = model_static_var_indices[model_name]
-        tend[..., idx, :, :] = 0
+        if len(idx) > 0:
+            tend[..., idx, :, :] = 0
 
     else:
         tend = 0
@@ -312,11 +341,6 @@ def run_deterministic_w_perturbations(
         rpert_from_user = 0
 
     if tendency_reversion:
-
-        # set up a hook function that returns the input as is
-        def identity(x, coords):
-            """Returns the input as is"""
-            return x, coords
 
         # reset the model hooks
         model.front_hook = identity
@@ -646,6 +670,7 @@ def sort_latitudes(ds: xr.Dataset, model_name: str, input: bool):
         "SFNO": True,
         "Pangu6": False,
         "Pangu6x": False,
+        "Pangu24": False,
         "FuXi": False,
         "GraphCastOperational": False,
     }
@@ -653,6 +678,7 @@ def sort_latitudes(ds: xr.Dataset, model_name: str, input: bool):
         "SFNO": True,
         "Pangu6": True,
         "Pangu6x": True,
+        "Pangu24": True,
         "FuXi": True,
         "GraphCastOperational": True,
     }

@@ -1,5 +1,5 @@
 experiment_dir: /N/slate/jmelms/projects/dcmip2025_idealized_tests/experiments/D.extratropical_cyclone_hm24/data
-experiment_name: test_thing
+experiment_name: 6hr_nt=16
 HM24_IC_dir: /N/slate/jmelms/projects/HM24_ICs/DJF_2018-2019/IC_files
 perturbation_dir: /N/slate/jmelms/projects/HM24_ICs/DJF_2018-2019/reg_pert_files
 IC_season: DJF

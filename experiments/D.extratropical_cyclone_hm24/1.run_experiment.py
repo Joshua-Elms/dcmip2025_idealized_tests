@@ -5,7 +5,6 @@ import numpy as np
 from torch.cuda import mem_get_info
 from utils_E2S import general
 from earth2studio.io import XarrayBackend
-import subprocess
 import warnings
 
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -82,6 +81,7 @@ def run_experiment(model_name: str, config_path: str) -> str:
 
 if __name__ == "__main__":
     general.run_experiment_controller(
-        experiment_func=run_experiment,
-        config_path = Path(__file__).parent / "0.config.yaml"
+        calling_directory=Path(__file__).parent,
+        run_experiment=run_experiment,
+        config_path=Path(__file__).parent / "0.config.yaml"
     )
