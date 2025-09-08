@@ -21,7 +21,7 @@ models = config["models"]
 plot_var = "msl" # choose either "msl" or "sp", can only use "sp" if models = ["sfno"] (other models don't output SP)
 # vis options
 cmap_str = "Dark2" # options here: matplotlib.org/stable/tutorials/colors/colormaps.html
-day_interval_x_ticks = 15 # how many days between x-ticks on the plot
+day_interval_x_ticks = 2 # how many days between x-ticks on the plot
 standardized_ylims = (1010, 1014) # y-limits for the plot, set to None to use the model output min/max
 
 # set up directories

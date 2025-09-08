@@ -1,8 +1,8 @@
 experiment_dir: /N/slate/jmelms/projects/dcmip2025_idealized_tests/experiments/A.mass_conservation/data
-experiment_name: small_models_nt=360
+experiment_name: small_models_nt=40
 ic_dates: ["2018/01/01 12:00", "2018/07/01 12:00"]
-models: ["FuXi", "SFNO", "Pangu6"]
-n_timesteps: 360
+models: ["FuXi", "SFNO", "Pangu6", "Pangu24"]
+n_timesteps: 40
 device: cuda:0
 debug_run: false
 overwrite: true
