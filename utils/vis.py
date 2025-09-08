@@ -184,7 +184,7 @@ def create_and_plot_variable_gif(
     """
     ### prepare helper variables for plotting
     # lat/lon info
-    lat, lon = data.latitude.values, data.longitude.values
+    lat, lon = data.lat.values, data.lon.values
     nlat, nlon = len(lat), len(lon)
     
     # check titles
@@ -241,6 +241,7 @@ def create_and_plot_variable_gif(
     # ticks and ticklabels
     gl = ax.gridlines(crs=ccrs.PlateCarree(),linewidth=1.0,color='gray', alpha=0.5,linestyle='--', draw_labels=True)
     gl.top_labels = False
+    gl.right_labels = False
     ax.set_extent(extent, crs=ccrs.PlateCarree())
 
     ### Set other plot aesthetics

@@ -3,7 +3,7 @@ import os
 
 cwd = Path().cwd().resolve()
 
-if cwd.name != "DCMIP2025-ML":
+if cwd.name != "dcmip2025_idealized_tests":
     raise ValueError(f"Please run this script from the root of the DCMIP2025-ML repository. Current directory: {cwd}")
 
 msg = \

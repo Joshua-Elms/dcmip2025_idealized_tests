@@ -1,0 +1,17 @@
+experiment_dir: /N/slate/jmelms/projects/dcmip2025_idealized_tests/experiments/E.geostrophic_adjustment_hm24/data
+experiment_name: test_GA
+HM24_IC_dir: /N/slate/jmelms/projects/HM24_ICs/DJF_2018-2019/IC_files
+perturbation_dir: /N/slate/jmelms/projects/HM24_ICs/DJF_2018-2019/reg_pert_files
+IC_season: DJF
+tendency_reversion: True
+device: cuda:0
+n_timesteps: 4
+debug_run: False
+models: ["Pangu6x", "SFNO"]
+overwrite: True
+perturbation_params:
+  amp: 1
+  perturb_level_hPa: 500
+experiment_subdirectories: 
+  - "plots"
+  - "auxiliary"

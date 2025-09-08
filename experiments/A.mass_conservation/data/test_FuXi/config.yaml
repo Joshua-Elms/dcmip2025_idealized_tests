@@ -1,15 +1,14 @@
 experiment_dir: /N/slate/jmelms/projects/dcmip2025_idealized_tests/experiments/A.mass_conservation/data
-experiment_name: small_models_nt=360
+experiment_name: test_FuXi
 ic_dates: ["2018/01/01 12:00", "2018/07/01 12:00"]
-models: ["FuXi", "SFNO", "Pangu6"]
-n_timesteps: 360
+models: ["FuXi"]
+n_timesteps: 20
 device: cuda:0
-debug_run: false
+debug_run: true
 overwrite: true
 keep_vars_dict: 
   SFNO: ["sp", "msl"]
   Pangu6: ["msl"]
-  Pangu24: ["msl"]
   Pangu6x: ["msl"]
   GraphCastOperational: ["msl"]
   FuXi: ["msl"]

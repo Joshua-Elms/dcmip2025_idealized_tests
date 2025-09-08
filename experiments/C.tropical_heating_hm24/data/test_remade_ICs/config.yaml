@@ -1,0 +1,21 @@
+experiment_dir: /N/slate/jmelms/projects/dcmip2025_idealized_tests/experiments/C.tropical_heating_hm24/data
+experiment_name: test_remade_ICs
+HM24_IC_dir: /N/slate/jmelms/projects/HM24_ICs/DJF_2018-2019/IC_files
+perturbation_dir: /glade/work/jmelms/dcmip/hm24_perts
+IC_season: DJF
+tendency_reversion: False
+device: cuda:0
+n_timesteps: 8
+debug_run: False
+models: ["FuXi", "GraphCastOperational"]
+overwrite: True
+perturbation_params:
+  amp: 0.
+  k: 6
+  ylat: 0
+  xlon: 120
+  locRadkm: 10000
+experiment_subdirectories: 
+  - "plots"
+  - "auxiliary"
+  

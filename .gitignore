@@ -1,7 +1,11 @@
 *__pycache__*
 *.nc
-*.o*
+*.out
 .DS_Store
 .cache.pkl
 logs/
 E2S/*
+E2S_P6x/*
+plots/
+*.err
+initial_conditions/make_HM24_ICs/outputs/*.png
