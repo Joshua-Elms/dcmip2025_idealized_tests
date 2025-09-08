@@ -24,6 +24,9 @@ SUPPORTED_MODELS = {
     "Pangu24",
     "GraphCastOperational",
     "FuXi",
+    "FuXiShort",
+    "FuXiMedium",
+    "FuXiLong",
     "FCN3",
 }
 model_levels = dict(
@@ -178,6 +181,10 @@ def load_model(model_name: str) -> PrognosticModel:
     end = perf_counter()
     print(f"Model '{model_name}' loaded in {end - start:.2f} seconds.")
     return model
+
+def get_model_variables(model: str) -> list[str]:
+    """Get the list of variables used by a model."""
+    return model.inputs_coords()["variable"]
 
 
 def run_experiment_controller(
