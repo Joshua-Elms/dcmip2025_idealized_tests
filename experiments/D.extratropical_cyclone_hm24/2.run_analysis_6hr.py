@@ -8,7 +8,7 @@ import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import numpy as np
 import yaml
-from utils_E2S import general
+from utils_E2S import general, model_info
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -40,10 +40,13 @@ for model_name in models:
     tds = xr.open_dataset(tendency_file)
     mean_ds = xr.open_dataset(IC_path)
     print("Dividing geopotential Z [m^2/s^2] by 9.8 [m/s^2] to convert to height z [m]")
-    for level in general.model_levels[model_name]:
-        levstr = f"z{level}"
-        ds[levstr] = ds[levstr] / (g) # convert to geopot. height
-        mean_ds[levstr] = mean_ds[levstr] / (g) # convert to geopot. height
+    for level in model_info.STANDARD_13_LEVELS:
+        try:
+            levstr = f"z{level}"
+            ds[levstr] = ds[levstr] / (g) # convert to geopot. height
+            mean_ds[levstr] = mean_ds[levstr] / (g) # convert to geopot. height
+        except KeyError:
+            continue
 
     print(f"Loaded data from {model_name}, beginning visualization.")
     

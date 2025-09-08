@@ -11,44 +11,12 @@ import earth2studio.run as run
 from pathlib import Path
 import datetime as dt
 import yaml
+from utils_E2S import model_info
 import shutil
 import subprocess
 from dotenv import load_dotenv
 from time import perf_counter
 import torch
-
-SUPPORTED_MODELS = {
-    "SFNO",
-    "Pangu6",
-    "Pangu6x",
-    "Pangu24",
-    "GraphCastOperational",
-    "FuXi",
-    "FuXiShort",
-    "FuXiMedium",
-    "FuXiLong",
-    "FCN3",
-}
-model_levels = dict(
-    SFNO=np.array([50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]),
-    Pangu6=np.array([50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]),
-    Pangu6x=np.array([50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]),
-    Pangu24=np.array([50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]),
-    GraphCastOperational=np.array(
-        [50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]
-    ),
-    FuXi=np.array([50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]),
-    FCN3=np.array([50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]),
-)
-model_static_var_indices = dict(
-    SFNO=np.array([]),
-    Pangu6=np.array([]),
-    Pangu6x=np.array([]),
-    Pangu24=np.array([]),
-    GraphCastOperational=np.array([83, 84]),
-    FuXi=np.array([]),
-    FCN3=np.array([]),
-)
 
 
 class DataSet:
@@ -169,9 +137,9 @@ def prepare_output_directory(config: dict) -> Path:
 def load_model(model_name: str) -> PrognosticModel:
     """Load a model by name. Currently loads default model weights from cache, or downloads them to cache if not present."""
     load_dotenv()
-    if model_name not in SUPPORTED_MODELS:
+    if model_name not in model_info.SUPPORTED_MODELS:
         raise ValueError(
-            f"Model '{model_name}' is not supported. Supported models are: {SUPPORTED_MODELS}."
+            f"Model '{model_name}' is not supported. Supported models are: {model_info.SUPPORTED_MODELS}."
         )
     model_class = getattr(earth2studio.models.px, model_name)
     start = perf_counter()
@@ -181,10 +149,6 @@ def load_model(model_name: str) -> PrognosticModel:
     end = perf_counter()
     print(f"Model '{model_name}' loaded in {end - start:.2f} seconds.")
     return model
-
-def get_model_variables(model: str) -> list[str]:
-    """Get the list of variables used by a model."""
-    return model.inputs_coords()["variable"]
 
 
 def run_experiment_controller(
@@ -341,7 +305,7 @@ def run_deterministic_w_perturbations(
         tend = states[0] - states[1]
 
         # set the tendency of static variables to 0
-        idx = model_static_var_indices[model_name]
+        idx = np.nonzero(np.array(model_info.MODEL_VARIABLES[model_name]["types"]) == model_info.IN)[0]
         if len(idx) > 0:
             tend[..., idx, :, :] = 0
 
@@ -687,30 +651,12 @@ def gen_baroclinic_wave_perturbation(
 
 
 def sort_latitudes(ds: xr.Dataset, model_name: str, input: bool):
-    lat_ascending_by_model_input = {
-        "SFNO": True,
-        "FCN3": True,
-        "Pangu6": False,
-        "Pangu6x": False,
-        "Pangu24": False,
-        "FuXi": False,
-        "GraphCastOperational": False,
-    }
-    lat_ascending_by_model_output = {
-        "SFNO": True,
-        "FCN3": True,
-        "Pangu6": True,
-        "Pangu6x": True,
-        "Pangu24": True,
-        "FuXi": True,
-        "GraphCastOperational": True,
-    }
+    
+    lat_direction = "descending"
     if input:
-        lat_should_be_ascending = lat_ascending_by_model_input[model_name]
-    else:
-        lat_should_be_ascending = lat_ascending_by_model_output[model_name]
+        lat_direction = model_info.MODEL_LATITUDE_ORDERING[model_name]
     lat = ds["lat"]
-    if lat_should_be_ascending:
+    if lat_direction == "ascending":
         if lat[0] > lat[-1]:
             print(
                 f"Latitude coordinates should be ascending for {model_name}, reversing."

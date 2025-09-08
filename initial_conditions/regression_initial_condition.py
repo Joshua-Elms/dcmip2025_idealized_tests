@@ -21,27 +21,7 @@ from pathlib import Path
 from download_and_compute_ICs import generate_dates
 import multiprocessing as mp
 from time import perf_counter
-
-MODEL_LEVELS = dict(
-    SFNO=[1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50],
-    Pangu6=[1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50],
-    GraphCastOperational=[
-        1000,
-        925,
-        850,
-        700,
-        600,
-        500,
-        400,
-        300,
-        250,
-        200,
-        150,
-        100,
-        50,
-    ],
-    FuXi=[1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50],
-)
+from utils_E2S import model_info
 
 
 def compute_regression(
@@ -56,7 +36,7 @@ def compute_regression(
     dpath: Path,
     opath: Path,
     model: str,
-    plev: str | int = 500,
+    independent_var: str = "z500",
 ):
     """
     Compute the regression initial conditions for the specified model and season.
@@ -72,72 +52,29 @@ def compute_regression(
         dpath (Path): Path to the model initial conditions.
         opath (Path): Path to the directory where the regression results will be saved.
         model (str): The model to use for regression, from: ["SFNO", "Pangu6", "GraphCastOperational", "FuXi"].
-        plev (int): Pressure level to regress against (default: 500 hPa). To use surface pressure ('msl' if present, 'sp' if not), pass 'sfc'.
+        independent_var (str): Variable to regress against, e.g. 'z500' or 'msl'.
     """
-    SL_VARIABLES = [
-        "msl",
-        "sp",
-        "t2m",
-        "tp06",
-        "tcwv",
-        "u10m",
-        "v10m",
-        "u100m",
-        "v100m",
-    ]
-    PL_VARIABLES = ["z", "r", "t", "u", "v", "q", "w"]
-    INVARIANT_VARIABLES = ["z", "lsm"]
-
-    # names of variables used in datasets vs the names of the datasets
-    name_dict = {
-        "u10m": "10m_u_component_of_wind",
-        "v10m": "10m_v_component_of_wind",
-        "u100m": "100m_u_component_of_wind",
-        "v100m": "100m_v_component_of_wind",
-        "t2m": "2m_temperature",
-        "sp": "surface_pressure",
-        "msl": "mean_sea_level_pressure",
-        "tcwv": "total_column_water_vapour",
-        "tp06": "total_precipitation_06",
-        "lsm": "land_sea_mask",
-        "t": "temperature",
-        "z": "geopotential",
-        "r": "relative_humidity",
-        "q": "specific_humidity",
-        "u": "u_component_of_wind",
-        "v": "v_component_of_wind",
-        "w": "vertical_velocity",
-    }
-
-    # names used in datasets vs names used in the rest of this repo's code
-    name_convert_to_framework_dict = dict()
 
     input_data_path = dpath / f"{model}.nc"
     if not input_data_path.exists():
         raise FileNotFoundError(f"Input data file {input_data_path} does not exist.")
 
-    ds = xr.open_dataset(input_data_path)
-    nvars = len(ds.data_vars)
-    levs = MODEL_LEVELS[model]
-    nlevs = len(levs)
-    # figure out which variables on which levels are in this dataset
+    var_names = model_info.MODEL_VARIABLES.get(model)["names"]
+    var_types = model_info.MODEL_VARIABLES.get(model)["types"]
+    nvars = len(var_names)
+    
+    # figure out which variables are in this model
     params_pl, params_sl, params_invariant = [], [], []
-    for var in ds.data_vars:
-        if var in SL_VARIABLES:
-            params_sl.append(var)
-        elif (
-            len(var) > 1 and var[0] in PL_VARIABLES
-        ):  # need to keep out invariant "z" which matches PL name
-            try:
-                var_lev = int(var[1:])
-                if var_lev in levs:
-                    params_pl.append(var)
-            except Exception:
-                pass
-        elif var in INVARIANT_VARIABLES:
-            params_invariant.append(var)
+
+    for i in range(nvars):
+        if var_types[i] == model_info.PL:
+            params_pl.append(var_names[i])
+        elif var_types[i] == model_info.SL:
+            params_sl.append(var_names[i])
+        elif var_types[i] == model_info.IN:
+            params_invariant.append(var_names[i])
         else:
-            raise ValueError(f"Unknown variable {var} found in dataset.")
+            raise ValueError(f"Unknown variable type for {var_names[i]}.")
 
     if "msl" not in params_sl and "sp" not in params_sl and plev == "sfc":
         raise ValueError(
@@ -151,38 +88,30 @@ def compute_regression(
     )  # we don't want to work with invariant vars, the pert for those will be 0 and added at end
     nvars_rel = len(relevant_vars)
     try:
-        z_str = f"z{plev}"
-        xlev = relevant_vars.index(z_str)
-        print(f"Using {z_str} as independent variable for regression.")
+        idx_var = relevant_vars.index(independent_var)
+        print(f"Using {independent_var} as independent variable for regression.")
     except ValueError:
-        if plev != "sfc":
-            raise ValueError(
-                f"Geopotential field {z_str} not found in model levels {levs}."
-            )
-        else:
-            if "msl" in relevant_vars:
-                xlev = relevant_vars.index("msl")
-            else:
-                xlev = relevant_vars.index("sp")
+        raise ValueError(
+            f"Independent variable {independent_var} not found in model {model} variables.")
 
     # figure out which files need to be opened for this data
     dates = generate_dates(year_range, ic_months)
     n_times = len(dates)
     print(f"n_times: {n_times}, dates: {dates}")
-    raw_paths = []
-
+    raw_paths_by_var = {var:[] for var in relevant_vars}
+    
     for date in dates:
         for vp in params_pl:
             v, p = vp[0], vp[1:]
-            path = rpath / f"v={name_dict[v]}_p={p}_d={date}.nc"
+            path = rpath / f"v={model_info.E2S_TO_CDS[v]}_l={p}_d={date}.nc"
             if not path.exists():
                 print(f"file no existe: {path}")
-            raw_paths.append(path)
+            raw_paths_by_var[vp].append(path)
         for v in params_sl:
-            path = rpath / f"v={name_dict[v]}_d={date}.nc"
+            path = rpath / f"v={model_info.E2S_TO_CDS[v]}_l=sl_d={date}.nc"
             if not path.exists():
                 print(f"file no existe: {path}")
-            raw_paths.append(path)
+            raw_paths_by_var[v].append(path)
 
     print("computing the climo regression against one var at one point")
 
@@ -218,18 +147,13 @@ def compute_regression(
     print(iminlon, imaxlon, lon[iminlon], lon[imaxlon])
     print(latwin, lonwin)
 
-    # open all data files
-    print(f"Opening {len(raw_paths)} raw data files... ")
-    start = perf_counter()
-    raw_ds = xr.open_mfdataset(raw_paths, combine="nested", parallel=True)
-    stop = perf_counter()
-    print(
-        f"Opened {len(raw_paths)} files in {stop - start:.2f} s, avg'ing {(1000*(stop - start)) / (len(raw_paths)):.2f} ms/file."
-    )
     # populate regression arrays
     regdat = np.zeros([nvars_rel, n_times, latwin, lonwin])
     for i, var in enumerate(relevant_vars):
-        print(f"Processing variable {var} ({i+1}/{nvars_rel})")
+        start = perf_counter()
+        files = raw_paths_by_var[var]
+        raw_ds = xr.open_mfdataset(files, combine="nested", parallel=True)
+        print(f"Variable {var} ({i+1}/{nvars_rel}) took {perf_counter()-start:.2f} s to open {len(files)}, now processing.")
         if i < nvars_pl:  # pressure levels
             v, p = var[0], var[1:]
             regdat[i] = (
@@ -355,7 +279,7 @@ locrad = 2000.0
 # scaling amplitude for initial condition (1=climo variance at the base point)
 amp = -1.0
 
-models = ["Pangu6", "SFNO", "GraphCastOperational", "FuXi"]
+models = ["Pangu6"]
 for model in models:
     compute_regression(
         year_range,

@@ -87,10 +87,10 @@ def download_chunk(
     }
     if isinstance(level, int):
         request["pressure_level"] = [str(level)]  # add to request
-        fname = f"v={variable}_p={level}_d={date}.nc"
+        fname = f"v={variable}_l={level}_d={date}.nc"
 
     elif level == "single":
-        fname = f"v={variable}_d={date}.nc"
+        fname = f"v={variable}_l=sl_d={date}.nc"
 
     else:
         print(
@@ -128,21 +128,17 @@ def download_chunk(
     return fname, "succeeded"
 
 
-def run_parallel_download(dates, pl_variables, sl_variables, p_levels, ncpus):
-    if pl_variables == [] and sl_variables == []:
-        raise ValueError(
-            "At least one of pl_variables or sl_variables must be provided."
-        )
+def run_parallel_download(dates, var_names, var_types, ncpus):
     args_list = []
     for date in dates:
-        for pl_variable in pl_variables:
-            for p_level in p_levels:
-                args = (pl_variable, date, p_level, pl_dataset, raw_data_dir)
-                args_list.append(args)
-
-        for variable in sl_variables:
-            args = (variable, date, "single", sfc_dataset, raw_data_dir)
-            args_list.append(args)
+        for var_name, var_type in zip(var_names, var_types):
+            if var_type == model_info.PL:
+                p_level = int(var_name[1:]) # extract level from var name
+                args = (var_name, date, p_level, pl_dataset, raw_data_dir)
+            elif var_type == model_info.SL:
+                args = (var_name, date, "single", sfc_dataset, raw_data_dir)
+            else:
+                continue # invariant variable, skip download
 
     # download the data in parallel
     print(f"mp.Pool using ncpus={ncpus}")
@@ -170,43 +166,22 @@ def run_parallel_download(dates, pl_variables, sl_variables, p_levels, ncpus):
 
 def compute_time_mean_from_files(
     dates: list[str],
-    pl_variables: list[str],
-    sl_variables: list[str],
-    pressure_levels: list[int],
+    var_names: list[str],
+    var_types: list[int],
     download_dir: Path,
     save_dir: Path,
 ) -> xr.Dataset:
     """
     Computes the time mean for a list of variables and months.
     """
-    if pl_variables == [] and sl_variables == []:
-        raise ValueError(
-            "At least one of pl_variables or sl_variables must be provided."
-        )
-    for pl_var in pl_variables:
-        for pressure_level in pressure_levels:
-            fpaths = [
-                download_dir / f"v={pl_var}_p={pressure_level}_d={date}.nc"
-                for date in dates
-            ]
-            savepath = save_dir / f"{pl_var}_{pressure_level}_hPa_tm.nc"
-            if savepath.exists():
-                print(f"File {savepath} already exists, skipping.")
-                continue
-            # Open the dataset and compute the time mean
-            var_ds = xr.open_mfdataset(fpaths, combine="nested", parallel=True)
-            time_mean_var_ds = var_ds.mean(dim="valid_time").compute()
-            time_mean_var_ds = time_mean_var_ds.sortby(
-                "latitude"
-            )  # flip latitude index
-            time_mean_var_ds = time_mean_var_ds.drop_vars(
-                "number"
-            )  # extra coord from ecmwf, unneeded
-            time_mean_var_ds.to_netcdf(savepath)
-
-    for sl_var in sl_variables:
-        fpaths = [download_dir / f"v={sl_var}_d={date}.nc" for date in dates]
-        savepath = save_dir / f"{sl_var}_tm.nc"
+    for var_name, var_type in zip(var_names, var_types):
+        if var_type == model_info.PL:
+            pressure_level = int(var_name[1:])  # extract level from var name
+            fpaths = [download_dir / f"v={var_name}_l={pressure_level}_d={date}.nc" for date in dates]
+            savepath = save_dir / f"{var_name}_{pressure_level}_tm.nc"
+        elif var_type == model_info.SL:
+            fpaths = [download_dir / f"v={var_name}_l=sl_d={date}.nc" for date in dates]
+            savepath = save_dir / f"{var_name}_sl_tm.nc"
         if savepath.exists():
             print(f"File {savepath} already exists, skipping.")
             continue
@@ -227,11 +202,11 @@ def aggregate_tp_files(tp_dates: list[str], download_dir: Path):
     # divide tp_dates into 6-hourly intervals
     tp_dates_6chunked = [tp_dates[i : i + 6] for i in range(0, len(tp_dates), 6)]
     for chunk in tp_dates_6chunked:
-        output_path = download_dir / f"v=total_precipitation_06_d={chunk[0]}.nc"
+        output_path = download_dir / f"v=total_precipitation_06_l=sl_d={chunk[0]}.nc"
         if output_path.exists():
             print(f"File {output_path} already exists, skipping.")
             continue
-        fpaths = [download_dir / f"v=total_precipitation_d={date}.nc" for date in chunk]
+        fpaths = [download_dir / f"v=total_precipitation_l=sl_d={date}.nc" for date in chunk]
         ds = xr.open_mfdataset(fpaths, combine="nested", parallel=True)
         t = chunk[0]
         # add chunk[0] as valid_time coord
@@ -252,26 +227,22 @@ def aggregate_tp_files(tp_dates: list[str], download_dir: Path):
 
 
 def create_ICs_from_time_means(
-    season: str, time_mean_dir: Path, model: str, model_variables: dict, p_levels: list
+    season: str, time_mean_dir: Path, model: str, var_names: list[str], var_types: list[int]
 ) -> xr.Dataset:
     """Creates initial conditions from the time means for a given season and model."""
-    pl_variables, sl_variables = model_variables
-    print(
-        f"Creating ICs for {model} for season {season} with {len(pl_variables)} pressure level variables and {len(sl_variables)} single level variables."
-    )
     # open all time mean files and concatenate them into a single dataset
     # where each variable is a separate DataArray
     ds = xr.Dataset()
-    for variable in pl_variables:
-        for pressure_level in p_levels:
-            file_path = time_mean_dir / f"{variable}_{pressure_level}_hPa_tm.nc"
-            new_var_name = f"{lexicon[variable]}{pressure_level}"
-            ds[new_var_name] = xr.open_dataarray(file_path).squeeze(
-                drop=True
-            )  # drop pressure_level dim since it's a single level
-    for variable in sl_variables:
-        file_path = time_mean_dir / f"{variable}_tm.nc"
-        ds[lexicon[variable]] = xr.open_dataarray(file_path).squeeze(drop=True)
+    for variable, var_type in zip(var_names, var_types):
+        if var_type == model_info.PL:
+            level = int(variable[1:])  # extract level from var name
+            new_var_name = f"{lexicon[variable]}{level}"
+            file_path = time_mean_dir / f"{variable}_{level}_tm.nc"
+
+        elif var_type == model_info.SL:
+            new_var_name = lexicon[variable]
+            file_path = time_mean_dir / f"{variable}_sl_tm.nc"
+        ds[new_var_name] = xr.open_dataarray(file_path).squeeze(drop=True)
     # make it match the E2S format
     ds = ds.rename(
         {
@@ -293,120 +264,8 @@ def create_ICs_from_time_means(
 
 if __name__ == "__main__":
     ncpus = 4  # number of CPUs to use for parallelization, don't exceed ncpus from job request
-    pl_variables = [
-        "geopotential",
-        "relative_humidity",
-        "specific_humidity",
-        "temperature",
-        "u_component_of_wind",
-        "v_component_of_wind",
-        "vertical_velocity",
-    ]
-    sfc_variables = [
-        "10m_u_component_of_wind",
-        "10m_v_component_of_wind",
-        "2m_temperature",
-        "mean_sea_level_pressure",
-        "surface_pressure",
-        "100m_u_component_of_wind",
-        "100m_v_component_of_wind",
-        "total_column_water_vapour",
-    ]
-    model_variables = dict(
-        SFNO=[
-            [
-                "geopotential",
-                "specific_humidity",
-                "temperature",
-                "u_component_of_wind",
-                "v_component_of_wind",
-            ],
-            [
-                "10m_u_component_of_wind",
-                "10m_v_component_of_wind",
-                "2m_temperature",
-                "mean_sea_level_pressure",
-                "surface_pressure",
-                "100m_u_component_of_wind",
-                "100m_v_component_of_wind",
-                "total_column_water_vapour",
-            ],
-        ],
-        Pangu6=[
-            [
-                "geopotential",
-                "specific_humidity",
-                "temperature",
-                "u_component_of_wind",
-                "v_component_of_wind",
-            ],
-            [
-                "10m_u_component_of_wind",
-                "10m_v_component_of_wind",
-                "2m_temperature",
-                "mean_sea_level_pressure",
-            ],
-        ],
-        GraphCastOperational=[
-            [
-                "geopotential",
-                "specific_humidity",
-                "temperature",
-                "u_component_of_wind",
-                "v_component_of_wind",
-                "vertical_velocity",
-            ],
-            [
-                "10m_u_component_of_wind",
-                "10m_v_component_of_wind",
-                "2m_temperature",
-                "mean_sea_level_pressure",
-                "total_precipitation_06",
-                "geopotential",  # static, at surface, see https://confluence.ecmwf.int/display/CKB/ERA5-Land%3A+data+documentation#heading-Table1surfaceparametersinvariantsintime
-                "land_sea_mask",  # static
-            ],
-        ],
-        FuXi=[
-            [
-                "geopotential",
-                "relative_humidity",
-                "temperature",
-                "u_component_of_wind",
-                "v_component_of_wind",
-            ],
-            [
-                "10m_u_component_of_wind",
-                "10m_v_component_of_wind",
-                "2m_temperature",
-                "mean_sea_level_pressure",
-                "total_precipitation_06",
-            ],
-        ],
-    )
-    lexicon = {
-        "geopotential": "z",
-        "relative_humidity": "r",
-        "specific_humidity": "q",
-        "temperature": "t",
-        "u_component_of_wind": "u",
-        "v_component_of_wind": "v",
-        "vertical_velocity": "w",
-        "10m_u_component_of_wind": "u10m",
-        "10m_v_component_of_wind": "v10m",
-        "2m_temperature": "t2m",
-        "mean_sea_level_pressure": "msl",
-        "surface_pressure": "sp",
-        "100m_u_component_of_wind": "u100m",
-        "100m_v_component_of_wind": "v100m",
-        "total_column_water_vapour": "tcwv",
-        "total_precipitation_06": "tp06",
-        "land_sea_mask": "lsm",
-    }
-    p_levels = [50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]
-    # p_levels = [50, 1000]  # debug only
     pl_dataset = "reanalysis-era5-pressure-levels"
     sfc_dataset = "reanalysis-era5-single-levels"
-    land_dataset = "reanalysis-era5-land"
     start_end_years_inc = [2018, 2019]
     year_range_name = f"{start_end_years_inc[0]}-{start_end_years_inc[1]}"
     year_range = range(
@@ -423,7 +282,7 @@ if __name__ == "__main__":
     for season, months in seasons.items():
         print(f"Processing season {season}")
         dates = generate_dates(year_range, months)
-        run_parallel_download(dates, pl_variables, sfc_variables, p_levels, ncpus)
+        run_parallel_download(dates, model_info.MASTER_VARIABLE_NAMES, model_info.MASTER_VARIABLES_TYPES, ncpus)
         save_dir = base_data_dir / f"{season}_{year_range_name}"
         time_mean_dir = save_dir / "time_means"
         IC_output_dir = save_dir / "IC_files"
@@ -443,7 +302,7 @@ if __name__ == "__main__":
                 if not downloaded_tp_raw:
                     tp_dates = generate_tp06_dates(dates)
                     run_parallel_download(
-                        tp_dates, [], ["total_precipitation"], "single", ncpus
+                        tp_dates, ["total_precipitation_06"], "single", ncpus
                     )
                     downloaded_tp_raw = True
                     aggregate_tp_files(tp_dates, raw_data_dir)
