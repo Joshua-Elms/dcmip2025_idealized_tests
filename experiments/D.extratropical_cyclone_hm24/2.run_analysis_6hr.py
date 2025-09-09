@@ -39,8 +39,9 @@ for model_name in models:
     ds = xr.open_dataset(nc_output_file)
     tds = xr.open_dataset(tendency_file)
     mean_ds = xr.open_dataset(IC_path)
+    mean_ds = general.sort_latitudes(mean_ds, model_name, input=False)
     if mean_ds.sizes["lat"] > ds.sizes["lat"]:
-        mean_ds = mean_ds.isel(lat=slice(1, ds.sizes["lat"]+1))
+        mean_ds = mean_ds.isel(lat=slice(1, ds.sizes["lat"] + 1))
     print("Dividing geopotential Z [m^2/s^2] by 9.8 [m/s^2] to convert to height z [m]")
     for level in model_info.STANDARD_13_LEVELS:
         try:
@@ -184,6 +185,44 @@ for model_name in models:
         vlims=(-150, 150),  # Set vlims for better visualization
         central_longitude=180.0,
         extent=[120, 280, 0, 70],
+        fig_size = (7.5, 3.5),
+        adjust = {
+            "top": 0.97,
+            "bottom": 0.01,
+            "left": 0.09,
+            "right": 0.87,
+            "hspace": 0.0,
+            "wspace": 0.0,
+        },
+        cbar_kwargs = {
+            "rotation": "horizontal",
+            "y": -0.02,
+            "horizontalalignment": "right",
+            "labelpad": -34.5,
+            "fontsize": 9
+        },
+    )
+    
+    print(f"Made {plot_var}.gif.")
+    
+    # Z500 anomalies (global)
+    titles = [f"{model_name.upper()}: MSLP at t={t*6} hours" for t in range(0, n_timesteps+1)]
+    data = ds["msl"].squeeze()
+    plot_var = f"msl_global_{model_name}"
+    vis.create_and_plot_variable_gif(
+        data=data,
+        plot_var=plot_var,
+        iter_var="lead_time",
+        iter_vals=np.arange(0, n_timesteps+1),
+        plot_dir=plot_dir,
+        units="m",
+        cmap="viridis",
+        titles=titles,
+        keep_images=False,
+        dpi=300,
+        fps=2, 
+        vlims=(95000, 103000),  # Set vlims for better visualization
+        central_longitude=180.0,
         fig_size = (7.5, 3.5),
         adjust = {
             "top": 0.97,

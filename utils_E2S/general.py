@@ -652,7 +652,7 @@ def gen_baroclinic_wave_perturbation(
 
 def sort_latitudes(ds: xr.Dataset, model_name: str, input: bool):
     
-    lat_direction = "descending"
+    lat_direction = "ascending"
     if input:
         lat_direction = model_info.MODEL_LATITUDE_ORDERING[model_name]
     lat = ds["lat"]

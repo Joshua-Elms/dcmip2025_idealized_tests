@@ -85,7 +85,7 @@ def compute_regression(
             f"Independent variable {independent_var} not found in model {model} variables.")
 
     # figure out which files need to be opened for this data
-    dates = IC.generate_dates(year_range, ic_months)[:3]
+    dates = IC.generate_dates(year_range, ic_months)
     n_times = len(dates)
     print(f"n_times: {n_times}, dates: {dates}")
     raw_paths_by_var = {var:[] for var in relevant_vars}
@@ -266,7 +266,7 @@ locrad = 2000.0
 # scaling amplitude for initial condition (1=climo variance at the base point)
 amp = -1.0
 
-models = ["FCN"]
+models = ["FCN", "SFNO", "Pangu6x", "FuXi", "FCN3", "GraphCastOperational"]
 for model in models:
     compute_regression(
         year_range,
@@ -282,31 +282,31 @@ for model in models:
     )
 
 
-ic_months = [7, 8, 9]
-ic_str = "JAS"
-# set lat/lon of perturbation in degrees N, E
-ylat = 15.0
-xlon = 360.0 - 40.0
-# localization radius in km for the scale of the initial perturbation
-locrad = 1000.0
-# scaling amplitude for initial condition (1=climo variance at the base point)
-amp = -1.0
+# ic_months = [7, 8, 9]
+# ic_str = "JAS"
+# # set lat/lon of perturbation in degrees N, E
+# ylat = 15.0
+# xlon = 360.0 - 40.0
+# # localization radius in km for the scale of the initial perturbation
+# locrad = 1000.0
+# # scaling amplitude for initial condition (1=climo variance at the base point)
+# amp = -1.0
 
-for model in models:
-    compute_regression(
-        year_range,
-        ic_months,
-        ic_str,
-        ylat,
-        xlon,
-        locrad,
-        amp,
-        rpath,
-        opath,
-        model=model,
-        independent_var="msl",
-    )
+# for model in models:
+#     compute_regression(
+#         year_range,
+#         ic_months,
+#         ic_str,
+#         ylat,
+#         xlon,
+#         locrad,
+#         amp,
+#         rpath,
+#         opath,
+#         model=model,
+#         independent_var="msl",
+#     )
 
-#
-# END: parameters and call to compute_regression
-#
+# #
+# # END: parameters and call to compute_regression
+# #
