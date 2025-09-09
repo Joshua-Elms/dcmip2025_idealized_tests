@@ -18,7 +18,7 @@ import os
 from scipy.stats import linregress
 from utils_E2S import general
 from pathlib import Path
-from download_and_compute_ICs import generate_dates
+import download_and_compute_ICs as IC
 import multiprocessing as mp
 from time import perf_counter
 from utils_E2S import model_info
@@ -33,7 +33,6 @@ def compute_regression(
     locrad: float,
     amp: float,
     rpath: Path,
-    dpath: Path,
     opath: Path,
     model: str,
     independent_var: str = "z500",
@@ -49,15 +48,10 @@ def compute_regression(
         locrad (float): Localization radius in kilometers for the scale of the initial perturbation.
         amp (float): Scaling amplitude for the initial condition (1 = climo variance at the base point).
         rpath (Path): Path to the raw data.
-        dpath (Path): Path to the model initial conditions.
         opath (Path): Path to the directory where the regression results will be saved.
         model (str): The model to use for regression, from: ["SFNO", "Pangu6", "GraphCastOperational", "FuXi"].
         independent_var (str): Variable to regress against, e.g. 'z500' or 'msl'.
     """
-
-    input_data_path = dpath / f"{model}.nc"
-    if not input_data_path.exists():
-        raise FileNotFoundError(f"Input data file {input_data_path} does not exist.")
 
     var_names = model_info.MODEL_VARIABLES.get(model)["names"]
     var_types = model_info.MODEL_VARIABLES.get(model)["types"]
@@ -76,10 +70,6 @@ def compute_regression(
         else:
             raise ValueError(f"Unknown variable type for {var_names[i]}.")
 
-    if "msl" not in params_sl and "sp" not in params_sl and plev == "sfc":
-        raise ValueError(
-            "At least one of 'msl' or 'sp' must be present in surface level variables to use plev='sfc' ."
-        )
     nvars_pl = len(params_pl)
     nvars_sl = len(params_sl)
     nvars_invariant = len(params_invariant)
@@ -95,7 +85,7 @@ def compute_regression(
             f"Independent variable {independent_var} not found in model {model} variables.")
 
     # figure out which files need to be opened for this data
-    dates = generate_dates(year_range, ic_months)
+    dates = IC.generate_dates(year_range, ic_months)[:4]
     n_times = len(dates)
     print(f"n_times: {n_times}, dates: {dates}")
     raw_paths_by_var = {var:[] for var in relevant_vars}
@@ -153,7 +143,7 @@ def compute_regression(
         start = perf_counter()
         files = raw_paths_by_var[var]
         raw_ds = xr.open_mfdataset(files, combine="nested", parallel=True)
-        print(f"Variable {var} ({i+1}/{nvars_rel}) took {perf_counter()-start:.2f} s to open {len(files)}, now processing.")
+        print(f"Variable {var:<5} ({i+1:02}/{nvars_rel}) took {perf_counter()-start:.2f} s to open {len(files)} files")
         if i < nvars_pl:  # pressure levels
             v, p = var[0], var[1:]
             regdat[i] = (
@@ -181,7 +171,7 @@ def compute_regression(
     )
 
     # define the independent variable: sample at the chosen point (middle of domain)
-    xvar = regdat[xlev, :, int(latwin / 2) + 1, int(lonwin / 2) + 1]
+    xvar = regdat[idx_var, :, int(latwin / 2) + 1, int(lonwin / 2) + 1]
 
     # standardize
     xvar = xvar / np.std(xvar)
@@ -189,8 +179,6 @@ def compute_regression(
     print("xvar shape:", xvar.shape)
     print("xvar min,max:", np.min(xvar), np.max(xvar))
 
-    # set up arg list to pass to mp.Pool
-    # this was a slow loop, so it's parallel now
     # regress variables
     start = perf_counter()
     regf = np.zeros([nvars_rel, latwin, lonwin])
@@ -231,14 +219,12 @@ def compute_regression(
     zero_da = xr.DataArray(np.zeros((nlat, nlon)), dims=["lat", "lon"])
 
     for i, var in enumerate(relevant_vars):
-        da_name = name_convert_to_framework_dict.get(var, var)
-        output_ds[da_name] = zero_da.copy()
-        output_ds[da_name][
+        output_ds[var] = zero_da.copy()
+        output_ds[var][
             dict(lat=slice(iminlat, imaxlat), lon=slice(iminlon, imaxlon))
         ] = regf[i]
     for i, var in enumerate(params_invariant):
-        da_name = name_convert_to_framework_dict.get(var, var)
-        output_ds[da_name] = zero_da.copy()
+        output_ds[var] = zero_da.copy()
 
     if rgfile.exists():
         print(f"Warning: {rgfile} already exists. Overwriting.")
@@ -253,17 +239,11 @@ def compute_regression(
 #
 
 # raw data
-rpath = Path("/N/slate/jmelms/projects/HM24_ICs/raw")
+rpath = Path("/N/slate/jmelms/projects/IC/raw")
 
-# netcdf full initial conditions lives here
-dpath = Path("/N/slate/jmelms/projects/HM24_ICs/DJF_2018-2019/IC_files")
-
-# write regression results here:
-opath = Path("/N/slate/jmelms/projects/HM24_ICs/DJF_2018-2019/reg_pert_files")
-opath.mkdir(parents=True, exist_ok=True)
 
 # set dates
-start_end_years_inc = [2018, 2019]
+start_end_years_inc = [2019, 2019]
 year_range = range(
     start_end_years_inc[0], start_end_years_inc[1] + 1
 )  # inclusive range
@@ -271,6 +251,11 @@ year_range = range(
 # select DJF or JAS initial conditions
 ic_months = [12, 1, 2]
 ic_str = "DJF"
+
+# write regression results here:
+opath = Path(f"/N/slate/jmelms/projects/IC/{ic_str}_{start_end_years_inc[0]}-{start_end_years_inc[1]}/reg_pert_files")
+opath.mkdir(parents=False, exist_ok=True)
+
 # set lat/lon of perturbation in degrees N, E
 ylat = 40
 xlon = 150
@@ -290,7 +275,6 @@ for model in models:
         locrad,
         amp,
         rpath,
-        dpath,
         opath,
         model=model,
     )
@@ -316,7 +300,6 @@ for model in models:
         locrad,
         amp,
         rpath,
-        dpath,
         opath,
         model=model,
     )
