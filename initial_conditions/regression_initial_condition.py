@@ -85,7 +85,7 @@ def compute_regression(
             f"Independent variable {independent_var} not found in model {model} variables.")
 
     # figure out which files need to be opened for this data
-    dates = IC.generate_dates(year_range, ic_months)[:4]
+    dates = IC.generate_dates(year_range, ic_months)[:3]
     n_times = len(dates)
     print(f"n_times: {n_times}, dates: {dates}")
     raw_paths_by_var = {var:[] for var in relevant_vars}
@@ -238,9 +238,8 @@ def compute_regression(
 # START: parameters and call to compute_regression
 #
 
-# raw data
-rpath = Path("/N/slate/jmelms/projects/IC/raw")
-
+# base_dir 
+base_dir = Path("/N/slate/jmelms/projects/IC")
 
 # set dates
 start_end_years_inc = [2019, 2019]
@@ -252,8 +251,11 @@ year_range = range(
 ic_months = [12, 1, 2]
 ic_str = "DJF"
 
+# collect individual netcdf files here:
+rpath = base_dir / "raw"
+
 # write regression results here:
-opath = Path(f"/N/slate/jmelms/projects/IC/{ic_str}_{start_end_years_inc[0]}-{start_end_years_inc[1]}/reg_pert_files")
+opath = base_dir / f"{ic_str}_{start_end_years_inc[0]}-{start_end_years_inc[1]}/reg_pert_files"
 opath.mkdir(parents=False, exist_ok=True)
 
 # set lat/lon of perturbation in degrees N, E
@@ -264,7 +266,7 @@ locrad = 2000.0
 # scaling amplitude for initial condition (1=climo variance at the base point)
 amp = -1.0
 
-models = ["Pangu6"]
+models = ["FCN"]
 for model in models:
     compute_regression(
         year_range,
@@ -302,6 +304,7 @@ for model in models:
         rpath,
         opath,
         model=model,
+        independent_var="msl",
     )
 
 #

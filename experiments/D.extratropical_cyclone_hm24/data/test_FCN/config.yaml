@@ -10,7 +10,7 @@ debug_run: True
 models: ["FCN"]
 overwrite: True
 perturbation_params:
-  amp: 1
+  amp: 0
 experiment_subdirectories: 
   - "plots"
   - "auxiliary"

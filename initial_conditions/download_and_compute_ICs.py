@@ -210,12 +210,12 @@ def compute_time_mean_from_files(
         if var_type == model_info.PL:
             pressure_level = int(var_name[1:])  # extract level from var name
             fpaths = [
-                download_dir / pl_raw_fname(var_name, pressure_level, date)
+                download_dir / pl_raw_fname(model_info.E2S_TO_CDS[var_name[0]], pressure_level, date)
                 for date in dates
             ]
             savepath = save_dir / pl_time_mean_fname(var_name, pressure_level)
         elif var_type == model_info.SL:
-            fpaths = [download_dir / sl_raw_fname(var_name, date) for date in dates]
+            fpaths = [download_dir / sl_raw_fname(model_info.E2S_TO_CDS[var_name], date) for date in dates]
             savepath = save_dir / sl_time_mean_fname(var_name)
         if savepath.exists():
             print(f"File {savepath} already exists, skipping.")
@@ -273,13 +273,11 @@ def create_ICs_from_time_means(
     for variable, var_type in zip(var_names, var_types):
         if var_type == model_info.PL:
             level = int(variable[1:])  # extract level from var name
-            new_var_name = f"{model_info.CDS_TO_E2S[variable]}{level}"
             file_path = time_mean_dir / pl_time_mean_fname(variable, level)
 
         elif var_type == model_info.SL:
-            new_var_name = model_info.CDS_TO_E2S[variable]
             file_path = time_mean_dir / sl_time_mean_fname(variable)
-        ds[new_var_name] = xr.open_dataarray(file_path).squeeze(drop=True)
+        ds[variable] = xr.open_dataarray(file_path).squeeze(drop=True)
     # make it match the E2S format
     ds = ds.rename(
         {
@@ -300,23 +298,25 @@ def create_ICs_from_time_means(
 
 
 if __name__ == "__main__":
-    ncpus = 4  # number of CPUs to use for parallelization, don't exceed ncpus from job request
+    ncpus = 4  # number of CPUs to use for parallelization, don't exceed available ncpus
     start_end_years_inc = [2019, 2019]
     year_range_name = f"{start_end_years_inc[0]}-{start_end_years_inc[1]}"
     year_range = range(
         start_end_years_inc[0], start_end_years_inc[1] + 1
     )  # inclusive range
     seasons = {"DJF": [12, 1, 2], "JAS": [7, 8, 9]}
-    models = ["SFNO", "Pangu6", "GraphCastOperational", "FuXi"]
+    models = ["SFNO", "Pangu6", "GraphCastOperational", "FuXi", "FCN", "FCN3"]
     base_data_dir = Path("/N/slate/jmelms/projects/IC")
     raw_data_dir = base_data_dir / "raw"
     for season, months in seasons.items():
         print(f"Processing season {season}")
         dates = generate_dates(year_range, months)
+        all_vars = [var for var in model_info.MASTER_VARIABLE_NAMES if var != "tp06"]
+        all_types = [vtype for var, vtype in zip(model_info.MASTER_VARIABLE_NAMES, model_info.MASTER_VARIABLES_TYPES) if var != "tp06"]
         run_parallel_download(
             dates,
-            model_info.MASTER_VARIABLE_NAMES,
-            model_info.MASTER_VARIABLES_TYPES,
+            all_vars,
+            all_types,
             ncpus,
         )
         save_dir = base_data_dir / f"{season}_{year_range_name}"
@@ -326,8 +326,8 @@ if __name__ == "__main__":
             dir.mkdir(parents=True, exist_ok=True)
         compute_time_mean_from_files(
             dates,
-            model_info.MASTER_VARIABLE_NAMES,
-            model_info.MASTER_VARIABLES_TYPES,
+            all_vars,
+            all_types,
             raw_data_dir,
             time_mean_dir,
         )
@@ -335,30 +335,28 @@ if __name__ == "__main__":
             model_var_names = model_info.MODEL_VARIABLES[model]["names"]
             model_var_types = model_info.MODEL_VARIABLES[model]["types"]
             static_vars = [
-                var for var, var_type in model_var_names if var_type == model_info.IN
+                var for var, var_type in zip(model_var_names, model_var_types) if var_type == model_info.IN
             ]
             # if no model uses tp06, then we won't download it
             # if at least one does, the raw tp fields are downloaded
             # then merged into raw tp06 fields, and handled normally
             # in the "compute_time_mean_from_files" func downstream
             downloaded_tp_raw = False
-            if "total_precipitation_06" in model_var_names:
+            if "tp06" in model_var_names:
                 if not downloaded_tp_raw:
                     tp_dates = generate_tp06_dates(dates)
                     run_parallel_download(
                         tp_dates,
-                        ["total_precipitation_06"],
+                        ["tp"],
                         [model_info.SL],
-                        "single",
                         ncpus,
                     )
                     downloaded_tp_raw = True
                     aggregate_tp_files(tp_dates, raw_data_dir)
                     compute_time_mean_from_files(
                         dates,
-                        ["total_precipitation_06"],
+                        ["tp06"],
                         [model_info.SL],
-                        "single",
                         raw_data_dir,
                         time_mean_dir,
                     )
@@ -369,7 +367,7 @@ if __name__ == "__main__":
             # in the time_means
             if static_vars:  # check whether any need to be downloaded
                 for var in static_vars:
-                    raw_path = raw_data_dir / in_raw_fname(var)
+                    raw_path = raw_data_dir / in_raw_fname(model_info.E2S_TO_CDS[var])
                     if not raw_path.exists():
                         print(
                             FileNotFoundError(

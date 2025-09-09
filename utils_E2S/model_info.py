@@ -166,6 +166,7 @@ CDS_TO_E2S = {
         "total_column_water_vapour": "tcwv",
         "total_precipitation_06": "tp06",
         "land_sea_mask": "lsm",
+        "total_precipitation": "tp",
     }
 
 E2S_TO_CDS = {v: k for k, v in CDS_TO_E2S.items()}

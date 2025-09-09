@@ -39,6 +39,8 @@ for model_name in models:
     ds = xr.open_dataset(nc_output_file)
     tds = xr.open_dataset(tendency_file)
     mean_ds = xr.open_dataset(IC_path)
+    if mean_ds.sizes["lat"] > ds.sizes["lat"]:
+        mean_ds = mean_ds.isel(lat=slice(1, ds.sizes["lat"]+1))
     print("Dividing geopotential Z [m^2/s^2] by 9.8 [m/s^2] to convert to height z [m]")
     for level in model_info.STANDARD_13_LEVELS:
         try:
