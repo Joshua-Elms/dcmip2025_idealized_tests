@@ -269,7 +269,7 @@ locrad = 2000.0
 # scaling amplitude for initial condition (1=climo variance at the base point)
 amp = -1.0
 
-models = ["FCN", "SFNO", "Pangu6x", "FuXi", "FCN3", "GraphCastOperational"]
+models = ["SFNO", "Pangu6", "FuXi", "FCN3", "GraphCastOperational", "FCN"]
 for model in models:
     compute_regression(
         year_range,

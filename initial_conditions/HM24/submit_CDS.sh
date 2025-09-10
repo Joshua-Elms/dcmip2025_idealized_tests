@@ -14,4 +14,4 @@
 #SBATCH -A r00389
 
 source /N/slate/jmelms/projects/earth2studio-cu126/.venv/bin/activate
-python /N/slate/jmelms/projects/dcmip2025_idealized_tests/initial_conditions/download_and_compute_ICs.py
+python /N/slate/jmelms/projects/dcmip2025_idealized_tests/initial_conditions/HM24/download_and_compute_ICs.py

@@ -220,7 +220,7 @@ module.run_experiment('{model_name}', '{str(config_path.resolve())}');
                 cwd=calling_directory,
             )
 
-    print("Experiment completed. Results written to ", exp_dir)
+    print(f"Experiment completed. Results written to {exp_dir}")
 
 
 def run_deterministic_w_perturbations(

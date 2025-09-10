@@ -1,21 +1,22 @@
 experiment_dir: data/
-experiment_name: test_SFNO
-models: ["SFNO"]
-n_timesteps: 4
-debug_run: True
+experiment_name: test
+models: ["FCN", "SFNO", "Pangu6x"]
+n_timesteps: 20
+debug_run: False
 overwrite: True
 tendency_reversion: True
 device: cuda:0
 initial_condition_params:
-  moisture: [42, "nondim"]
-  nlat: [721, "nondim"]
-  nlev: [102, "nondim"]
-  zb: [2.0, "nondim"]
-  zgamma: [0.005, "K m^-1"]
-  zn: [3, "nondim"]
-  zrh0: [0.8, "%"]
-  zt0: [288, "K"]
-  zu0: [40, "m s^-1"]
+  moisture: 42
+  nlat: 721
+  nlev: 102
+  zb: 2.0
+  zgamma: 0.005
+  zn: 3
+  zrh0: 0.8
+  zt0: 288
+  zu0: 40
+  fort_executable_path: /N/slate/jmelms/projects/dcmip2025_idealized_tests/initial_conditions/Bouvier/generate_csv_initial_conditions.out
 perturbation_params:
   enabled: true
   u_wind_pert_base: 1
@@ -23,12 +24,11 @@ perturbation_params:
   center_latitude: 40
   center_longitude: 20
 processor_params:
+  metadata_dir: /N/slate/jmelms/projects/dcmip2025_idealized_tests/initial_conditions/Bouvier/metadata
   all_plevels_fname: levels_full.txt
   latitudes_fname: latitude.npy
   longitudes_fname: longitude.npy
   model_plevels_fname: levels_model.txt
-  metadata_dir: /glade/u/home/jmelms/projects/dcmip2025_idealized_tests/experiments/C.bouvier_baroclinic_wave/initial_conditions/metadata
-  fort_executable_path: /glade/u/home/jmelms/projects/dcmip2025_idealized_tests/experiments/C.bouvier_baroclinic_wave/initial_conditions/gen_IC_FCN.out
 experiment_subdirectories: 
   - "plots"
   - "auxiliary"

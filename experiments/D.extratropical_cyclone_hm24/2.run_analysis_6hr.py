@@ -1,14 +1,10 @@
+from utils import vis, general, model_info
 import xarray as xr
-import datetime as dt
 import numpy as np
-from utils_E2S import vis
-from pathlib import Path
 import matplotlib.pyplot as plt
-import cartopy.crs as ccrs
 import cartopy.feature as cfeature
-import numpy as np
-import yaml
-from utils_E2S import general, model_info
+import cartopy.crs as ccrs
+from pathlib import Path
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -17,8 +13,10 @@ print("Visualizing results of HM24 ETC Experiment")
 config = general.read_config(Path("0.config.yaml"))
     
 # unpack config & set paths
-season = config["IC_season"]
+IC_params = config["initial_condition_params"]
+season = IC_params["season"]
 models = config["models"]
+pert_params = config["perturbation_params"]
 output_dir = Path(config["experiment_dir"]) / config["experiment_name"]
 plot_dir = output_dir / "plots"
 
@@ -31,8 +29,8 @@ for model_name in models:
     if model_name == "Pangu24":
         exit()
     print(f"Visualizing {model_name}")
-    IC_path = Path(config["HM24_IC_dir"]) / f"{model_name}.nc"
-    perturbation_path = Path(config["perturbation_dir"]) / f"{season}_40N_150E_z-regression_{model_name}.nc"
+    IC_path = Path(IC_params["HM24_IC_dir"]) / f"{model_name}.nc"
+    perturbation_path = Path(pert_params["perturbation_dir"]) / f"{season}_40N_150E_z-regression_{model_name}.nc"
     nc_output_file = output_dir / f"output_{model_name}.nc"
     tendency_file = output_dir / "auxiliary" / f"tendency_{model_name}.nc"
     IC_ds = xr.open_dataset(IC_path)
@@ -50,6 +48,20 @@ for model_name in models:
             mean_ds[levstr] = mean_ds[levstr] / (g) # convert to geopot. height
         except KeyError:
             continue
+        
+    print("Dividing surface pressure and mean sea level pressure by 100 to convert from Pa to hPa")
+    try:
+        ds["sp"] = ds["sp"] / 100.0  # Pa to hPa
+        mean_ds["sp"] = mean_ds["sp"] / 100.0  # Pa to hPa
+    except KeyError:
+        pass
+    
+    # mean sea level pressure processing
+    try:
+        ds["msl"] = ds["msl"] / 100.0  # Pa to hPa
+        mean_ds["msl"] = mean_ds["msl"] / 100.0  # Pa to hPa
+    except KeyError:
+        pass
 
     print(f"Loaded data from {model_name}, beginning visualization.")
     

@@ -9,3 +9,5 @@ E2S_P6x/*
 plots/
 *.err
 initial_conditions/make_HM24_ICs/outputs/*.png
+fort_output.csv
+data/

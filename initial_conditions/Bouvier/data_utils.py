@@ -8,17 +8,17 @@ import logging
 
 
 def run_fortran_executable(
-    executable_path,
-    nlat,
-    nlev,
-    zn,
-    zb,
-    zrh0,
-    zt0,
-    zu0,
-    zgamma,
-    moisture,
-    filename: Path,
+    fort_executable_path: str,
+    output_filename: str,
+    moisture: int,
+    nlat: int,
+    nlev: int,
+    zn: float,
+    zb: float,
+    zrh0: float,
+    zt0: float,
+    zu0: float,
+    zgamma: float,
 ):
     """
     WARNING!!!
@@ -54,15 +54,15 @@ def run_fortran_executable(
         str(zu0),
         str(zgamma),
         str(moisture),
-        filename,
+        output_filename,
     ]
     # fortran refuses to write over extant file ... fine.
-    if filename.exists():
+    if Path(output_filename).exists():
         return None, "CSV already exists, skipping execution."
 
     try:
         result = subprocess.run(
-            [executable_path] + args, text=True, capture_output=True, check=True
+            [fort_executable_path] + args, text=True, capture_output=True, check=True
         )
         return result.stdout, result.stderr
     except subprocess.CalledProcessError as e:
@@ -127,7 +127,7 @@ def compute_tcwv(q: np.ndarray, lev: np.ndarray) -> np.ndarray:
 
 def generate_superset_of_initial_conditions(
     csv_path: Path,
-    metadata_dir: Path,
+    metadata_dir: str,
     latitudes_fname: str,
     longitudes_fname: str,
     all_plevels_fname: str,
@@ -152,7 +152,7 @@ def generate_superset_of_initial_conditions(
 
     # read latitude and vertical levels data
     lat, lon, (plev, etalev), keep_plev = read_metadata(
-        metadata_dir,
+        Path(metadata_dir),
         latitudes_fname,
         longitudes_fname,
         all_plevels_fname,
@@ -214,7 +214,6 @@ def generate_superset_of_initial_conditions(
 
         for i, lev in enumerate(keep_plev):
             ds_out[f"{lname}{lev}"] = xr.DataArray(sub[:, i], dims=("lat",))
-            print(f"Mean of {lname}{lev}: {ds_out[f'{lname}{lev}'].mean().item()}")
 
     # add height level variables to dataset, all at lowest model level [0] or 1013.25 hPa
     u = df["ZU"].values.reshape(nlat, nlev)
