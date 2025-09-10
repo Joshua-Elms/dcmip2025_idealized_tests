@@ -1,10 +1,9 @@
+from utils import general
+from torch.cuda import mem_get_info
+from earth2studio.io import XarrayBackend
 import xarray as xr
 import numpy as np
 from pathlib import Path
-import numpy as np
-from torch.cuda import mem_get_info
-from utils_E2S import general
-from earth2studio.io import XarrayBackend
 import warnings
 
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -20,10 +19,12 @@ def run_experiment(model_name: str, config_path: str) -> str:
     )
 
     # unpack config & set paths
-    season = config["IC_season"]
-    IC_path = Path(config["HM24_IC_dir"]) / f"{model_name}.nc"
+    IC_params = config["initial_condition_params"]
+    season = IC_params["season"]
+    IC_path = Path(IC_params["HM24_IC_dir"]) / f"{model_name}.nc"
+    pert_params = config["perturbation_params"]
     perturbation_path = (
-        Path(config["perturbation_dir"])
+        Path(pert_params["perturbation_dir"])
         / f"{season}_40N_150E_z-regression_{model_name}.nc"
     )
     output_dir = Path(config["experiment_dir"]) / config["experiment_name"]
@@ -32,8 +33,9 @@ def run_experiment(model_name: str, config_path: str) -> str:
 
     # load the model
     model = general.load_model(model_name)
-    if model_name in ["SFNO", "GraphCastOperational"]:
-        model.const_sza = True
+    
+    # some models (SFNO, FCN3, ...) need to be told to hold the solar zenith angle constant
+    model.const_sza = True
 
     # interface between model and data
     xr_io = XarrayBackend()
@@ -44,18 +46,17 @@ def run_experiment(model_name: str, config_path: str) -> str:
     data_source = general.DataSet(IC_ds, model_name)
 
     # read and preprocess initial perturbation
-    pert_level_hPa = config["perturbation_params"]["perturb_level_hPa"]
-    amp = config["perturbation_params"]["amp"]
+    pert_var = pert_params["pert_var"]
+    amp = pert_params["amp"]
     pert = xr.open_dataset(perturbation_path)
     pert = pert * amp
-    keep_var = f"z{pert_level_hPa}"
-    if keep_var not in pert.data_vars:
+    if pert_var not in pert.data_vars:
         raise ValueError(
-            f"Perturbation variable {keep_var} not found in perturbation file {perturbation_path}"
+            f"Perturbation variable {pert_var} not found in perturbation file {perturbation_path}"
         )
-    print(f"Perturbing {keep_var} only")
+    print(f"Perturbing {pert_var} only")
     for var in pert.data_vars:
-        if var != keep_var:
+        if var != pert_var:
             pert[var] = 0
 
     # run experiment

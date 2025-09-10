@@ -1,4 +1,4 @@
-experiment_dir: /N/slate/jmelms/projects/dcmip2025_idealized_tests/experiments/A.mass_conservation/data
+experiment_dir: data/
 experiment_name: small_models_nt=120
 ic_dates: ["2018/01/01 12:00"]
 models: ["FuXiLong", "Pangu6x", "SFNO"]

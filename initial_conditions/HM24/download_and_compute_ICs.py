@@ -4,14 +4,14 @@
 3. Select a subset of time mean variables to save into a new dataset for each model IC
 """
 
+from utils import model_info
 import cdsapi
-from calendar import monthrange
-import datetime
-import numpy as np
-from pathlib import Path
-import multiprocessing as mp
 import xarray as xr
-from utils_E2S import model_info
+import numpy as np
+import multiprocessing as mp
+import datetime
+from calendar import monthrange
+from pathlib import Path
 
 
 def sl_raw_fname(var: str, date: str) -> str:

@@ -12,16 +12,13 @@ Originator: Greg Hakim
 
 """
 
+from utils import general, model_info
+import download_and_compute_ICs as IC
 import numpy as np
 import xarray as xr
-import os
-from scipy.stats import linregress
-from utils_E2S import general
 from pathlib import Path
-import download_and_compute_ICs as IC
-import multiprocessing as mp
+from scipy.stats import linregress
 from time import perf_counter
-from utils_E2S import model_info
 
 
 def compute_regression(
@@ -56,7 +53,7 @@ def compute_regression(
     var_names = model_info.MODEL_VARIABLES.get(model)["names"]
     var_types = model_info.MODEL_VARIABLES.get(model)["types"]
     nvars = len(var_names)
-    
+
     # figure out which variables are in this model
     params_pl, params_sl, params_invariant = [], [], []
 
@@ -82,14 +79,15 @@ def compute_regression(
         print(f"Using {independent_var} as independent variable for regression.")
     except ValueError:
         raise ValueError(
-            f"Independent variable {independent_var} not found in model {model} variables.")
+            f"Independent variable {independent_var} not found in model {model} variables."
+        )
 
     # figure out which files need to be opened for this data
     dates = IC.generate_dates(year_range, ic_months)
     n_times = len(dates)
     print(f"n_times: {n_times}, dates: {dates}")
-    raw_paths_by_var = {var:[] for var in relevant_vars}
-    
+    raw_paths_by_var = {var: [] for var in relevant_vars}
+
     for date in dates:
         for vp in params_pl:
             v, p = vp[0], vp[1:]
@@ -143,7 +141,9 @@ def compute_regression(
         start = perf_counter()
         files = raw_paths_by_var[var]
         raw_ds = xr.open_mfdataset(files, combine="nested", parallel=True)
-        print(f"Variable {var:<5} ({i+1:02}/{nvars_rel}) took {perf_counter()-start:.2f} s to open {len(files)} files")
+        print(
+            f"Variable {var:<5} ({i+1:02}/{nvars_rel}) took {perf_counter()-start:.2f} s to open {len(files)} files"
+        )
         if i < nvars_pl:  # pressure levels
             v, p = var[0], var[1:]
             regdat[i] = (
@@ -238,11 +238,11 @@ def compute_regression(
 # START: parameters and call to compute_regression
 #
 
-# base_dir 
+# base_dir
 base_dir = Path("/N/slate/jmelms/projects/IC")
 
 # set dates
-start_end_years_inc = [2019, 2019]
+start_end_years_inc = [2015, 2019]
 year_range = range(
     start_end_years_inc[0], start_end_years_inc[1] + 1
 )  # inclusive range
@@ -255,7 +255,10 @@ ic_str = "DJF"
 rpath = base_dir / "raw"
 
 # write regression results here:
-opath = base_dir / f"{ic_str}_{start_end_years_inc[0]}-{start_end_years_inc[1]}/reg_pert_files"
+opath = (
+    base_dir
+    / f"{ic_str}_{start_end_years_inc[0]}-{start_end_years_inc[1]}/reg_pert_files"
+)
 opath.mkdir(parents=False, exist_ok=True)
 
 # set lat/lon of perturbation in degrees N, E

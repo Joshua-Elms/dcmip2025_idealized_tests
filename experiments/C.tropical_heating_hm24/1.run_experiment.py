@@ -1,10 +1,9 @@
+from utils import general
+from torch.cuda import mem_get_info
+from earth2studio.io import XarrayBackend
 import xarray as xr
 import numpy as np
 from pathlib import Path
-import numpy as np
-from torch.cuda import mem_get_info
-from utils_E2S import general, model_info
-from earth2studio.io import XarrayBackend
 import warnings
 
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -20,7 +19,7 @@ def run_experiment(model_name: str, config_path: str) -> str:
     )
 
     # unpack config & set paths
-    IC_path = Path(config["HM24_IC_dir"]) / f"{model_name}.nc"
+    IC_path = Path(config["initial_condition_params"]["HM24_IC_dir"]) / f"{model_name}.nc"
     output_dir = Path(config["experiment_dir"]) / config["experiment_name"]
     nc_output_file = output_dir / f"output_{model_name}.nc"
     tendency_file = output_dir / "auxiliary" / f"tendency_{model_name}.nc"
@@ -28,6 +27,8 @@ def run_experiment(model_name: str, config_path: str) -> str:
 
     # load the model
     model = general.load_model(model_name)
+    
+    # some models (SFNO, FCN3, ...) need to be told to hold the solar zenith angle constant
     model.const_sza = True
 
     # interface between model and data

@@ -127,7 +127,7 @@ MODEL_VARIABLES = dict(
     ),
 )
 
-# these are just alternative names for the same models
+# these are just alternative versions of the same models
 MODEL_VARIABLES["FuXiShort"] = MODEL_VARIABLES["FuXi"]
 MODEL_VARIABLES["FuXiMedium"] = MODEL_VARIABLES["FuXi"]
 MODEL_VARIABLES["FuXiLong"] = MODEL_VARIABLES["FuXi"]

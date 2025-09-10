@@ -1,7 +1,7 @@
-import requests
-import xarray as xr
-from pathlib import Path
 from download_and_compute_ICs import in_raw_fname
+import xarray as xr
+import requests
+from pathlib import Path
 
 url = "https://storage.googleapis.com/dm_graphcast/graphcast/dataset/source-era5_date-2022-01-01_res-0.25_levels-13_steps-01.nc"
 raw_data_dir = Path("/N/slate/jmelms/projects/IC/raw")

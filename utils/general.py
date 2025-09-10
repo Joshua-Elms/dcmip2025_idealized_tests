@@ -1,22 +1,22 @@
-from collections.abc import Callable
-import xarray as xr
-from datetime import datetime
-import numpy as np
+from utils import model_info
 from earth2studio.utils.type import TimeArray, VariableArray
-from earth2studio.data.utils import prep_data_array
 from earth2studio.models.px.base import PrognosticModel
-import earth2studio.models.px
+from earth2studio.data.utils import prep_data_array
 from earth2studio.io import XarrayBackend
 import earth2studio.run as run
-from pathlib import Path
-import datetime as dt
+import earth2studio.models.px
+import xarray as xr
+import numpy as np
+import torch
 import yaml
-from utils_E2S import model_info
 import shutil
 import subprocess
-from dotenv import load_dotenv
+import datetime as dt
+from pathlib import Path
+from datetime import datetime
 from time import perf_counter
-import torch
+from dotenv import load_dotenv
+from collections.abc import Callable
 
 
 class DataSet:

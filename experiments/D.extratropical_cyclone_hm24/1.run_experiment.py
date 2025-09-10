@@ -1,9 +1,9 @@
+from utils import general
+from torch.cuda import mem_get_info
+from earth2studio.io import XarrayBackend
 import xarray as xr
 import numpy as np
 from pathlib import Path
-from torch.cuda import mem_get_info
-from utils_E2S import general
-from earth2studio.io import XarrayBackend
 import warnings
 
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -19,10 +19,12 @@ def run_experiment(model_name: str, config_path: str) -> str:
     )
 
     # unpack config & set paths
-    season = config["IC_season"]
-    IC_path = Path(config["HM24_IC_dir"]) / f"{model_name}.nc"
+    IC_params = config["initial_condition_params"]
+    season = IC_params["season"]
+    IC_path = Path(IC_params["HM24_IC_dir"]) / f"{model_name}.nc"
+    pert_params = config["perturbation_params"]
     perturbation_path = (
-        Path(config["perturbation_dir"])
+        Path(pert_params["perturbation_dir"])
         / f"{season}_40N_150E_z-regression_{model_name}.nc"
     )
     output_dir = Path(config["experiment_dir"]) / config["experiment_name"]
@@ -31,6 +33,8 @@ def run_experiment(model_name: str, config_path: str) -> str:
 
     # load the model
     model = general.load_model(model_name)
+    
+    # some models (SFNO, FCN3, ...) need to be told to hold the solar zenith angle constant
     model.const_sza = True
 
     # interface between model and data
@@ -44,7 +48,7 @@ def run_experiment(model_name: str, config_path: str) -> str:
     # read and preprocess initial perturbation
     pert = xr.open_dataset(perturbation_path)
     pert = general.sort_latitudes(pert, model_name, input=True)
-    amp = config["perturbation_params"]["amp"]
+    amp = pert_params["amp"]
     pert = pert * amp
 
     # run experiment
