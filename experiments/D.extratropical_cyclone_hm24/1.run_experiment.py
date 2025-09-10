@@ -1,7 +1,6 @@
 import xarray as xr
 import numpy as np
 from pathlib import Path
-import numpy as np
 from torch.cuda import mem_get_info
 from utils_E2S import general
 from earth2studio.io import XarrayBackend
@@ -44,6 +43,7 @@ def run_experiment(model_name: str, config_path: str) -> str:
 
     # read and preprocess initial perturbation
     pert = xr.open_dataset(perturbation_path)
+    pert = general.sort_latitudes(pert, model_name, input=True)
     amp = config["perturbation_params"]["amp"]
     pert = pert * amp
 

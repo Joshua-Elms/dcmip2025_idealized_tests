@@ -1,0 +1,16 @@
+experiment_dir: /N/slate/jmelms/projects/dcmip2025_idealized_tests/experiments/D.extratropical_cyclone_hm24/data
+experiment_name: Pangu_FCN
+HM24_IC_dir: /N/slate/jmelms/projects/IC/DJF_2019-2019/IC_files
+perturbation_dir: /N/slate/jmelms/projects/IC/DJF_2019-2019/reg_pert_files
+IC_season: DJF
+tendency_reversion: True
+device: cuda:0
+n_timesteps: 16
+debug_run: False
+models: ["Pangu6x", "FCN"]
+overwrite: True
+perturbation_params:
+  amp: 1
+experiment_subdirectories: 
+  - "plots"
+  - "auxiliary"

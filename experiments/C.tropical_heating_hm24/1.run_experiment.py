@@ -3,7 +3,7 @@ import numpy as np
 from pathlib import Path
 import numpy as np
 from torch.cuda import mem_get_info
-from utils_E2S import general
+from utils_E2S import general, model_info
 from earth2studio.io import XarrayBackend
 import warnings
 
@@ -28,8 +28,7 @@ def run_experiment(model_name: str, config_path: str) -> str:
 
     # load the model
     model = general.load_model(model_name)
-    if model_name in ["SFNO", "GraphCastOperational"]:
-        model.const_sza = True
+    model.const_sza = True
 
     # interface between model and data
     xr_io = XarrayBackend()
@@ -53,15 +52,15 @@ def run_experiment(model_name: str, config_path: str) -> str:
     # for any model with multiple input timesteps
     # we should only perturb the final one in the output
     heating_ds = general.create_initial_condition(model)
-    model_levels = general.model_levels[model_name]
     model_coords = {
         k: v for k, v in model.input_coords().items() if k in ["lat", "lon"]
     }
     model_coords["time"] = np.atleast_1d(
         np.datetime64("2000-01-01")
     )  # add time coordinate
-    perturb_levels = model_levels[(model_levels <= 1000) & (model_levels >= 200)]
-    perturb_variables = [f"t{lev}" for lev in perturb_levels]
+    tvars = [var for var in model.input_variables() if var.startswith("t") and var[1:].isdigit()]
+    tvar_levs = [int(var[1:]) for var in tvars]
+    perturb_variables = tvars[(tvar_levs <= 1000) & (tvar_levs >= 200)]
     for var in perturb_variables:
         heating_ds[var] = xr.DataArray(
             heating, model_coords, dims=["time", "lat", "lon"]

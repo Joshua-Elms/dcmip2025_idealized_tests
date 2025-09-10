@@ -7,7 +7,7 @@ import calendar
 from utils import inference_sfno
 from utils_E2S import general
 import math
-from utils import vis
+from utils_E2S import vis
 from matplotlib import colormaps
 
 ### Set up and parameter selection ########
