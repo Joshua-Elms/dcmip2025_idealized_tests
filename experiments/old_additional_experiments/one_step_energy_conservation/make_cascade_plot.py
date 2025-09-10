@@ -4,12 +4,14 @@ import numpy as np
 import yaml
 import matplotlib.pyplot as plt
 import datetime as dt
-from utils import inference_sfno, vis
+from utils import inference_sfno
 import scipy
 from time import perf_counter
 import torch
 from matplotlib import colormaps
 from matplotlib.colors import BoundaryNorm
+
+from utils_E2S import vis
 
 ds = xr.open_dataset("data/processed_output_2018_each_month.nc")
 
