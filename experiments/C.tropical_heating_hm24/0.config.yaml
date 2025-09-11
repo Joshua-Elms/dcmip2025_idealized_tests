@@ -1,13 +1,13 @@
 experiment_dir: data/
-experiment_name: test_new_utils
-models: ["SFNO"] # "SFNO", "GraphCastOperational"
-n_timesteps: 10
+experiment_name: test
+models: ["FCN", "SFNO", "Pangu6x", "FuXiLong"]
+n_timesteps: 4
 device: cuda:0
 tendency_reversion: True
-debug_run: True
+debug_run: False
 overwrite: True
 initial_condition_params:
-  HM24_IC_dir: /N/slate/jmelms/projects/HM24_ICs/DJF_2018-2019/IC_files
+  HM24_IC_dir: /N/slate/jmelms/projects/IC/DJF_2015-2019/IC_files
 perturbation_params:
   amp: 1.0
   k: 6
@@ -18,4 +18,3 @@ perturbation_params:
 experiment_subdirectories: 
   - "plots"
   - "auxiliary"
-  

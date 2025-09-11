@@ -1,11 +1,9 @@
-from pathlib import Path
-from utils_E2S import general
-import xarray as xr
+from utils import general, vis
 import matplotlib.pyplot as plt
-from utils_E2S import vis
-import numpy as np
 import cartopy.crs as ccrs
-import cartopy.feature as cfeature
+from pathlib import Path
+import xarray as xr
+import numpy as np
 
 
 

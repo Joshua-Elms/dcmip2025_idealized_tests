@@ -22,7 +22,7 @@ SL_VARIABLES = ["u10m", "v10m", "u100m", "v100m", "t2m", "sp", "msl", "tcwv", "t
 PL_VARIABLES = [f"{var}{level}" for var in ["u", "v", "t", "q", "r", "w", "z"] for level in STANDARD_13_LEVELS]
 IN_VARIABLES = ["z", "lsm"]
 
-MASTER_VARIABLE_NAMES =  SL_VARIABLES + PL_VARIABLES + IN_VARIABLES
+MASTER_VARIABLES_NAMES =  SL_VARIABLES + PL_VARIABLES + IN_VARIABLES
 MASTER_VARIABLES_TYPES = [SL for _ in SL_VARIABLES] + [PL for _ in PL_VARIABLES] + [IN for _ in IN_VARIABLES]
 
 MODEL_VARIABLES = dict(
