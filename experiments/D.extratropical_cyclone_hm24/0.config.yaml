@@ -1,17 +1,17 @@
 experiment_dir: data/
-experiment_name: all_models_nt=16
+experiment_name: all_models_test_TR
 tendency_reversion: True
 device: cuda:0
-n_timesteps: 16
+n_timesteps: 5
 debug_run: False
-models: ["Pangu6x", "FCN", "SFNO", "FuXiShort"]
+models: ["Pangu6x", "Pangu24", "FCN", "SFNO", "FuXiShort", "FuXi"]
 overwrite: True
 initial_condition_params:
   HM24_IC_dir: /N/slate/jmelms/projects/IC/DJF_2015-2019/IC_files
   season: DJF
 perturbation_params:
   perturbation_dir: /N/slate/jmelms/projects/IC/DJF_2015-2019/reg_pert_files
-  amp: 1
+  amp: 0
 experiment_subdirectories: 
   - "plots"
   - "auxiliary"

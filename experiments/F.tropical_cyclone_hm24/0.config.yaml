@@ -1,0 +1,17 @@
+experiment_dir: data/
+experiment_name: test
+tendency_reversion: True
+device: cuda:0
+n_timesteps: 16
+debug_run: True
+models: ["Pangu6x"]
+overwrite: True
+initial_condition_params:
+  HM24_IC_dir: /N/slate/jmelms/projects/IC/JAS_2015-2019/IC_files
+  season: JAS
+perturbation_params:
+  perturbation_dir: /N/slate/jmelms/projects/IC/JAS_2015-2019/reg_pert_files
+  amp_vec: [0.1, 0.5, 1, 2, 5, 10]
+experiment_subdirectories: 
+  - "plots"
+  - "auxiliary"
