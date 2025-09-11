@@ -46,12 +46,16 @@ def compute_regression(
         amp (float): Scaling amplitude for the initial condition (1 = climo variance at the base point).
         rpath (Path): Path to the raw data.
         opath (Path): Path to the directory where the regression results will be saved.
-        model (str): The model to use for regression, from: ["SFNO", "Pangu6", "GraphCastOperational", "FuXi"].
+        model (str): The model to use for regression, from: ["super", "SFNO", "Pangu6", "GraphCastOperational", "FuXi"]. "super" is all variables.
         independent_var (str): Variable to regress against, e.g. 'z500' or 'msl'.
     """
-
-    var_names = model_info.MODEL_VARIABLES.get(model)["names"]
-    var_types = model_info.MODEL_VARIABLES.get(model)["types"]
+    if model == "super":
+        var_names = model_info.MASTER_VARIABLES_NAMES
+        var_types = model_info.MASTER_VARIABLES_TYPES
+    else:
+        var_names = model_info.MODEL_VARIABLES.get(model)["names"]
+        var_types = model_info.MODEL_VARIABLES.get(model)["types"]
+        
     nvars = len(var_names)
 
     # figure out which variables are in this model
@@ -140,7 +144,12 @@ def compute_regression(
     for i, var in enumerate(relevant_vars):
         start = perf_counter()
         files = raw_paths_by_var[var]
-        raw_ds = xr.open_mfdataset(files, combine="nested", parallel=True)
+        # raw_ds = xr.open_mfdataset(files, combine="nested", parallel=True)
+        # above open_mfdataset approach very slow (time complexity seems at least quadratic in nfiles)
+        # instead, just open first and manually concatenate
+        raw_ds = xr.open_dataset(files[0])
+        for f in files[1:]:
+            raw_ds = xr.concat([raw_ds, xr.open_dataset(f)], dim="valid_time")
         print(
             f"Variable {var:<5} ({i+1:02}/{nvars_rel}) took {perf_counter()-start:.2f} s to open {len(files)} files"
         )
@@ -183,6 +192,7 @@ def compute_regression(
     start = perf_counter()
     regf = np.zeros([nvars_rel, latwin, lonwin])
     for var in range(nvars_rel):
+        print(f"regressing variable {var+1:02}/{nvars_rel}: {relevant_vars[var]:<5}") # {var:<5} ({i+1:02}/{nvars_rel})
         for j in range(latwin):
             for i in range(lonwin):
                 slope, intercept, r_value, p_value, std_err = linregress(
@@ -232,6 +242,8 @@ def compute_regression(
     output_ds.to_netcdf(rgfile, mode="w", format="NETCDF4")
 
     print(f"Regression fields saved to {rgfile}")
+    
+    return output_ds
 
 
 #
@@ -269,20 +281,33 @@ locrad = 2000.0
 # scaling amplitude for initial condition (1=climo variance at the base point)
 amp = -1.0
 
+if (opath/f"{ic_str}_{int(ylat)}N_{int(xlon)}E_z-regression_super.nc").exists():
+    print(f"Regression file already exists for {ylat}N, {xlon}E. Skipping computation.")
+    super_ds = xr.open_dataset(opath/f"{ic_str}_{int(ylat)}N_{int(xlon)}E_z-regression_super.nc")
+else:
+    super_ds = compute_regression(
+            year_range,
+            ic_months,
+            ic_str,
+            ylat,
+            xlon,
+            locrad,
+            amp,
+            rpath,
+            opath,
+            model="super",
+        )
+    
 models = ["SFNO", "Pangu6", "FuXi", "FCN3", "GraphCastOperational", "FCN"]
 for model in models:
-    compute_regression(
-        year_range,
-        ic_months,
-        ic_str,
-        ylat,
-        xlon,
-        locrad,
-        amp,
-        rpath,
-        opath,
-        model=model,
-    )
+    model_var_names = model_info.MODEL_VARIABLES.get(model)["names"]
+    model_ds = super_ds[model_var_names]
+    save_file = opath / f"{ic_str}_{int(ylat)}N_{int(xlon)}E_z-regression_{model}.nc"
+    if save_file.exists():
+        print(f"Warning: {save_file} already exists. Overwriting.")
+        save_file.unlink()  # remove the existing file
+    model_ds.to_netcdf(save_file, mode="w", format="NETCDF4")
+    print(f"Saved {model} regression fields to {save_file}")
 
 
 # ic_months = [7, 8, 9]
