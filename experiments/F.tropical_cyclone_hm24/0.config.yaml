@@ -12,6 +12,8 @@ initial_condition_params:
 perturbation_params:
   perturbation_dir: /N/slate/jmelms/projects/IC/JAS_2015-2019/reg_pert_files
   amp_vec: [0.1, 0.5, 1, 2, 5, 10]
+  bounding_box: [270, 330, 5, 55]
+  cmap: "viridis"
 experiment_subdirectories: 
   - "plots"
   - "auxiliary"

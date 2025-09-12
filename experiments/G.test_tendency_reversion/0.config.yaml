@@ -1,0 +1,13 @@
+experiment_dir: data/
+experiment_name: test
+tendency_reversion: True
+device: cuda:0
+n_timesteps: 4
+debug_run: False
+models: ["Pangu6", "Pangu24", "FCN", "SFNO", "FuXi", "GraphCastOperational"]
+overwrite: True
+initial_condition_params:
+  ic_date: "2018-01-01T00:00"
+experiment_subdirectories: 
+  - "plots"
+  - "auxiliary"

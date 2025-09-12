@@ -22,44 +22,43 @@ def run_experiment(model_name: str, config_path: str) -> str:
 
     # set output paths
     output_dir = Path(config["experiment_dir"]) / config["experiment_name"]
+    tendency_file = output_dir / "auxiliary" / f"{model_name}_tendency.nc"
     nc_output_file = output_dir / f"{model_name}_output.nc"
 
     # load the model
     model = general.load_model(model_name)
 
     # load the initial condition times
-    ic_dates = [
-        dt.datetime.strptime(str_date, "%Y-%m-%dT%H:%M")
-        for str_date in config["ic_dates"]
-    ]
+    ic_date = np.datetime64(config["initial_condition_params"]["ic_date"])
 
     # interface between model and data
     xr_io = XarrayBackend()
 
     # get ERA5 data from the ECMWF CDS
     data_source = CDS()
+    
+    # run experiment
+    run_kwargs = {
+        "time": np.atleast_1d(ic_date),
+        "nsteps": config["n_timesteps"],
+        "prognostic": model,
+        "data": data_source,
+        "io": xr_io,
+        "device": config["device"],
+    }
 
-    # run the model for all initial conditions at once
-    ds = run.deterministic(
-        time=np.atleast_1d(ic_dates),
-        nsteps=config["n_timesteps"],
-        prognostic=model,
-        data=data_source,
-        io=xr_io,
-        device=config["device"],
-    ).root
+    ds = general.run_deterministic_w_perturbations(
+        run_kwargs,
+        config["tendency_reversion"],
+        model_name,
+        tendency_file,
+    )
 
     # for clarity
     ds = ds.rename({"time": "init_time"})
 
-    # only keep surface pressure variables
-    keep_vars = config["keep_vars_dict"][model_name]
-    ds = ds[keep_vars]
-
-    # postprocess data
-    for var in keep_vars:
-        ds[f"MEAN_{var}"] = general.latitude_weighted_mean(ds[var], ds.lat)
-        ds[f"IC_MEAN_{var}"] = ds[f"MEAN_{var}"].mean(dim="init_time")
+    # only keep a few common vars for testing
+    ds = ds[["msl", "t2m", "z500"]]
 
     # add model dimension to enable opening with open_mfdataset
     ds = ds.assign_coords(model=model_name)

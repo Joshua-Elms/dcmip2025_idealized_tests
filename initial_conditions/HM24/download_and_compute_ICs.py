@@ -311,8 +311,8 @@ if __name__ == "__main__":
     for season, months in seasons.items():
         print(f"Processing season {season}")
         dates = generate_dates(year_range, months)
-        all_vars = [var for var in model_info.MASTER_VARIABLE_NAMES if var != "tp06"]
-        all_types = [vtype for var, vtype in zip(model_info.MASTER_VARIABLE_NAMES, model_info.MASTER_VARIABLES_TYPES) if var != "tp06"]
+        all_vars = [var for var in model_info.MASTER_VARIABLES_NAMES if var != "tp06"]
+        all_types = [vtype for var, vtype in zip(model_info.MASTER_VARIABLES_NAMES, model_info.MASTER_VARIABLES_TYPES) if var != "tp06"]
         run_parallel_download(
             dates,
             all_vars,
