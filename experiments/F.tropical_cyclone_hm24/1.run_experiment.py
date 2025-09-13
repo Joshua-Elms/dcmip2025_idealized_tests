@@ -1,4 +1,4 @@
-from utils import general
+from utils import general, model_info
 from torch.cuda import mem_get_info
 from earth2studio.io import XarrayBackend
 import xarray as xr
@@ -25,7 +25,7 @@ def run_experiment(model_name: str, config_path: str) -> str:
     pert_params = config["perturbation_params"]
     perturbation_path = (
         Path(pert_params["perturbation_dir"])
-        / f"{season}_20N_320E_z-regression_{model_name}.nc"
+        / f"{season}_15N_320E_z-regression_{model_name}.nc"
     )
     output_dir = Path(config["experiment_dir"]) / config["experiment_name"]
     nc_output_file = output_dir / f"output_{model_name}.nc"
@@ -36,32 +36,33 @@ def run_experiment(model_name: str, config_path: str) -> str:
     
     # some models (SFNO, FCN3, ...) need to be told to hold the solar zenith angle constant
     model.const_sza = True
-
-    # interface between model and data
-    xr_io = XarrayBackend()
-
+    
+    # figure out which variables to keep, given that this model may not output 
+    # all variables requested in config
+    model_vars = model_info.MODEL_VARIABLES[model_name]["names"]
+    keep_vars = [var for var in config["keep_vars"] if var in model_vars]
+    
     # load the time-mean initial condition from HM24
     IC_ds = xr.open_dataset(IC_path)
     IC_ds = general.sort_latitudes(IC_ds, model_name, input=True)
-    data_source = general.DataSet(IC_ds, model_name)
 
     # read and preprocess initial perturbation
     pert = xr.open_dataset(perturbation_path)
     pert = general.sort_latitudes(pert, model_name, input=True)
-    amp_vec = pert_params["amp"]
-
-    # run experiment in loop, applying diff pert amplitude each iteration
-    run_kwargs = {
-        "time": np.atleast_1d(np.datetime64("2000-01-01")),
-        "nsteps": config["n_timesteps"],
-        "prognostic": model,
-        "data": data_source,
-        "io": xr_io,
-        "device": config["device"],
-    }
+    amp_vec = pert_params["amp_vec"]
     
     ds_list = []
     for i, amp in enumerate(amp_vec):
+        breakpoint()
+        # run experiment in loop, applying diff pert amplitude each iteration
+        run_kwargs = {
+            "time": np.atleast_1d(np.datetime64("2000-01-01")),
+            "nsteps": config["n_timesteps"],
+            "prognostic": model,
+            "data": general.DataSet(IC_ds, model_name),
+            "io": XarrayBackend(),
+            "device": config["device"],
+        }
         print(f"Running with perturbation amplitude {amp} ({i+1} of {len(amp_vec)})")
         pert_scaled = pert.copy() * amp
 
@@ -71,7 +72,7 @@ def run_experiment(model_name: str, config_path: str) -> str:
             model_name,
             tendency_file,
             initial_perturbation=pert_scaled,
-        )
+        )[keep_vars]
         
         # add amplitude dimension
         ds = ds.expand_dims({"amplitude": [amp]})

@@ -22,7 +22,7 @@ plot_dir = output_dir / "plots"
 
 # convenience vars
 n_timesteps = config["n_timesteps"]
-amp_vec = pert_params["amplitude_vector"]
+amp_vec = pert_params["amp_vec"]
 g = 9.81 # m/s^2
 cmap_str = pert_params.get("cmap", "viridis")
 cmap = plt.get_cmap(cmap_str, len(amp_vec))
@@ -74,7 +74,7 @@ for model_name in models:
     #
     
     bounding_box = pert_params["bounding_box"] # [lon_min, lon_max, lat_min, lat_max]
-    regional_msl = ds[["msl"]].sel(lon=slice(bounding_box[0], bounding_box[1]), lat=slice(bounding_box[2], bounding_box[3]))
+    regional_msl = ds["msl"].sel(lon=slice(bounding_box[0], bounding_box[1]), lat=slice(bounding_box[2], bounding_box[3]))
     
     projection = ccrs.Robinson(central_longitude=-90.)
 
@@ -91,15 +91,56 @@ for model_name in models:
         track_lons = []
         track_lats = []
         for t, time in enumerate(np.arange(0, n_timesteps+1, 6)):
-            dat = regional_msl.sel(time=np.timedelta64(time, "h"), amplitude=amp).squeeze().values
+            dat = regional_msl.sel(lead_time=np.timedelta64(time, "h"), amplitude=amp).squeeze().values
+            # if amp ==
             # find min mslp location
             min_idx = np.unravel_index(np.argmin(dat, axis=None), dat.shape)
             min_lat = regional_msl.lat.values[min_idx[0]]
             min_lon = regional_msl.lon.values[min_idx[1]]
             track_lats.append(min_lat)
             track_lons.append(min_lon)
-        ax.plot(track_lons, track_lats, marker='o', label=f"Amp {amp}", linecolor=cmap(i), transform=ccrs.PlateCarree())
+        ax.plot(track_lons, track_lats, marker='o', label=f"Amp {amp}", color=cmap(i), transform=ccrs.PlateCarree())
 
+    plt.savefig(plot_dir / f"{model_name}_TC_tracks.png", dpi=300, bbox_inches='tight')
+        
+    # MSLP anomalies (global)
+    titles = [f"{model_name.upper()}: MSLP Anomalies from JAS at t={t*6} hours" for t in range(0, n_timesteps+1)]
+    data = ds["msl"].sel(amplitude=10).squeeze() - mean_ds["msl"].squeeze()
+    plot_var = f"msl_global_{model_name}"
+    vis.create_and_plot_variable_gif(
+        data=data,
+        plot_var=plot_var,
+        iter_var="lead_time",
+        iter_vals=np.arange(0, n_timesteps+1),
+        plot_dir=plot_dir,
+        units="m",
+        cmap="bwr",
+        titles=titles,
+        keep_images=False,
+        dpi=300,
+        fps=2, 
+        vlims=(-50, 50),  # Set vlims for better visualization
+        extent=[270, 330, 5, 55],
+        central_longitude=180.0,
+        fig_size = (7.5, 3.5),
+        adjust = {
+            "top": 0.97,
+            "bottom": 0.01,
+            "left": 0.09,
+            "right": 0.87,
+            "hspace": 0.0,
+            "wspace": 0.0,
+        },
+        cbar_kwargs = {
+            "rotation": "horizontal",
+            "y": -0.02,
+            "horizontalalignment": "right",
+            "labelpad": -34.5,
+            "fontsize": 9
+        },
+    )
+
+    print(f"Made {plot_var}.gif.")
     #
     ### End Tropical Cyclone Visualizations ###
     #

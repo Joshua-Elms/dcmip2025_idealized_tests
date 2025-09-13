@@ -222,7 +222,7 @@ for model_name in models:
     
     print(f"Made {plot_var}.gif.")
     
-    # Z500 anomalies (global)
+    # MSLP anomalies (global)
     titles = [f"{model_name.upper()}: MSLP at t={t*6} hours" for t in range(0, n_timesteps+1)]
     data = ds["msl"].squeeze()
     plot_var = f"msl_global_{model_name}"
@@ -238,7 +238,7 @@ for model_name in models:
         keep_images=False,
         dpi=300,
         fps=2, 
-        vlims=(95000, 103000),  # Set vlims for better visualization
+        vlims=(950, 1030),  # Set vlims for better visualization
         central_longitude=180.0,
         fig_size = (7.5, 3.5),
         adjust = {
