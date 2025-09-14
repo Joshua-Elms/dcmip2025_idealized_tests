@@ -277,6 +277,8 @@ def create_ICs_from_time_means(
 
         elif var_type == model_info.SL:
             file_path = time_mean_dir / sl_time_mean_fname(variable)
+        elif var_type == model_info.IN:
+            file_path = time_mean_dir / in_time_mean_fname(variable)
         ds[variable] = xr.open_dataarray(file_path).squeeze(drop=True)
     # make it match the E2S format
     ds = ds.rename(

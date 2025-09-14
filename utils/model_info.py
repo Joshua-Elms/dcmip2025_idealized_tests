@@ -134,18 +134,19 @@ MODEL_VARIABLES["FuXiLong"] = MODEL_VARIABLES["FuXi"]
 MODEL_VARIABLES["Pangu6x"] = MODEL_VARIABLES["Pangu6"]
 MODEL_VARIABLES["Pangu24"] = MODEL_VARIABLES["Pangu6"]
 
+# these should be found in model input_coords here: /N/slate/jmelms/projects/earth2studio-cu126/earth2studio/models/px/sfno.py
 MODEL_LATITUDE_ORDERING = dict(
-    SFNO = "ascending",
-    FCN3 = "ascending",    
-    FCN = "ascending",
-    Pangu6 = "descending",
-    Pangu6x = "descending",
-    Pangu24 = "descending",
-    FuXi = "descending",
-    FuXiShort = "descending",
-    FuXiMedium = "descending",
-    FuXiLong = "descending",
-    GraphCastOperational = "descending",
+    SFNO = "descending",                # should be descending
+    FCN3 = "descending",                # should be descending
+    FCN = "descending",                 # should be descending
+    Pangu6 = "descending",              # should be descending
+    Pangu6x = "descending",             # should be descending
+    Pangu24 = "descending",             # should be descending
+    FuXi = "descending",                # should be descending
+    FuXiShort = "descending",           # should be descending
+    FuXiMedium = "descending",          # should be descending
+    FuXiLong = "descending",            # should be descending
+    GraphCastOperational = "ascending", # should be ascending
 )
 
 CDS_TO_E2S = {

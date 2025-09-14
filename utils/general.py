@@ -282,9 +282,8 @@ def run_deterministic_w_perturbations(
         states = []
 
         def append_state(x, coords):
-            """Appends the states to a list. Only add final lead_time if more than one.
-            See dimenions here:"""
-            states.append(x.clone().cpu()[..., -1:, :, :, :])
+            """Appends the states to a list."""
+            states.append(x.clone().cpu())
             return x, coords
 
         model.rear_hook = append_state
@@ -652,9 +651,11 @@ def gen_baroclinic_wave_perturbation(
 
 def sort_latitudes(ds: xr.Dataset, model_name: str, input: bool):
     
-    lat_direction = "ascending"
+    default_lat_direction = "ascending"
     if input:
         lat_direction = model_info.MODEL_LATITUDE_ORDERING[model_name]
+    else:
+        lat_direction = default_lat_direction
     lat = ds["lat"]
     if lat_direction == "ascending":
         if lat[0] > lat[-1]:
