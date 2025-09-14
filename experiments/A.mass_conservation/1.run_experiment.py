@@ -1,5 +1,6 @@
 from utils import general, model_info
 from torch.cuda import mem_get_info
+import xarray as xr
 from earth2studio.io import XarrayBackend
 from earth2studio.data import CDS
 import earth2studio.run as run
@@ -38,27 +39,36 @@ def run_experiment(model_name: str, config_path: str) -> str:
     model_vars = model_info.MODEL_VARIABLES[model_name]["names"]
     keep_vars = [var for var in config["keep_vars"] if var in model_vars]
 
-    # interface between model and data
-    xr_io = XarrayBackend()
+    ds_list = []
+    
+    # have to iterate like this to work w/ GraphCastOperational
+    for ic_date in ic_dates:
+        # interface between model and data
+        xr_io = XarrayBackend()
 
-    # get ERA5 data from the ECMWF CDS
-    data_source = CDS()
+        # get ERA5 data from the ECMWF CDS
+        data_source = CDS()
 
-    # run the model for all initial conditions at once
-    ds = run.deterministic(
-        time=np.atleast_1d(ic_dates),
-        nsteps=config["n_timesteps"],
-        prognostic=model,
-        data=data_source,
-        io=xr_io,
-        device=config["device"],
-    ).root
+        # run the model for all initial conditions at once
+        ds = run.deterministic(
+            time=np.atleast_1d(ic_dates),
+            nsteps=config["n_timesteps"],
+            prognostic=model,
+            data=data_source,
+            io=xr_io,
+            device=config["device"],
+        ).root
 
-    # for clarity
-    ds = ds.rename({"time": "init_time"})
+        # for clarity
+        ds = ds.rename({"time": "init_time"})
 
-    # only keep desired variables, runs too large otherwise
-    ds = ds[keep_vars]
+        # only keep desired variables, runs too large otherwise
+        ds = ds[keep_vars]
+        
+        ds_list.append(ds)
+
+    # concatenate along init_time dimension
+    ds = xr.concat(ds_list, dim="init_time")
 
     # postprocess data
     for var in keep_vars:
