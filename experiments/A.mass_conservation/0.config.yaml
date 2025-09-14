@@ -1,20 +1,11 @@
 experiment_dir: data/
-experiment_name: small_models_nt=120
-ic_dates: ["2018/01/01 12:00"]
-models: ["FuXiLong", "Pangu6x", "SFNO"]
+experiment_name: results_batch_1
+ic_dates: ["2015-01-01T12:00", "2015-07-01T12:00", "2020-01-01T12:00", "2020-07-01T12:00"]
+models: ["GraphCastOperational", "FuXi", "FuXiShort", "FuXiMedium", "FuXiLong", "FCN", "SFNO", "FCN3", "Pangu6", "Pangu6x"]
 n_timesteps: 120
 device: cuda:0
 debug_run: false
 overwrite: true
-keep_vars_dict: 
-  SFNO: ["sp", "msl"]
-  Pangu6: ["msl"]
-  Pangu24: ["msl"]
-  Pangu6x: ["msl"]
-  GraphCastOperational: ["msl"]
-  FuXi: ["msl"]
-  FuXiShort: ["msl"]
-  FuXiMedium: ["msl"]
-  FuXiLong: ["msl"]
+keep_vars: ["sp", "msl"]
 experiment_subdirectories: 
   - "plots"

@@ -1,4 +1,4 @@
-from utils import general
+from utils import general, model_info
 from torch.cuda import mem_get_info
 from earth2studio.io import XarrayBackend
 from earth2studio.data import CDS
@@ -32,6 +32,11 @@ def run_experiment(model_name: str, config_path: str) -> str:
         dt.datetime.strptime(str_date, "%Y-%m-%dT%H:%M")
         for str_date in config["ic_dates"]
     ]
+    
+    # figure out which variables to keep, given that this model may not output 
+    # all variables requested in config
+    model_vars = model_info.MODEL_VARIABLES[model_name]["names"]
+    keep_vars = [var for var in config["keep_vars"] if var in model_vars]
 
     # interface between model and data
     xr_io = XarrayBackend()
@@ -52,8 +57,7 @@ def run_experiment(model_name: str, config_path: str) -> str:
     # for clarity
     ds = ds.rename({"time": "init_time"})
 
-    # only keep surface pressure variables
-    keep_vars = config["keep_vars_dict"][model_name]
+    # only keep desired variables, runs too large otherwise
     ds = ds[keep_vars]
 
     # postprocess data
