@@ -3,6 +3,7 @@ from torch.cuda import mem_get_info
 from earth2studio.io import XarrayBackend
 from earth2studio.data import CDS
 import earth2studio.run as run
+import xarray as xr
 import numpy as np
 from pathlib import Path
 import datetime as dt
@@ -27,15 +28,24 @@ def run_experiment(model_name: str, config_path: str) -> str:
 
     # load the model
     model = general.load_model(model_name)
+    model.const_sza = True
 
-    # load the initial condition times
-    ic_date = np.datetime64(config["initial_condition_params"]["ic_date"])
+    # ic is either a date (use CDS) or a path to a netcdf file (use Xarray)
+    ic_val = config["initial_condition_params"]["ic"]
+    if ic_val.startswith("dt"):
+        # load the initial condition times
+        ic_date = np.datetime64(ic_val[3:])
+        # get ERA5 data from the ECMWF CDS
+        data_source = CDS()
+    elif ic_val.startswith("xr"):
+        ic_file = Path(ic_val[3:]) / f"{model_name}.nc"
+        IC_ds = general.sort_latitudes(xr.open_dataset(ic_file), model_name, input=True)
+        ic_date = IC_ds["time"].values[-1] # use last time in file for cases where multiple times present, e.g. FuXi
+        # make data into custom data source
+        data_source = general.DataSet(IC_ds, model_name)
 
     # interface between model and data
     xr_io = XarrayBackend()
-
-    # get ERA5 data from the ECMWF CDS
-    data_source = CDS()
     
     # run experiment
     run_kwargs = {
