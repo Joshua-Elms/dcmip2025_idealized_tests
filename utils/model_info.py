@@ -172,6 +172,34 @@ CDS_TO_E2S = {
 
 E2S_TO_CDS = {v: k for k, v in CDS_TO_E2S.items()}
 
+MODEL_HISTORY_STEPS = {
+    "SFNO": 1,
+    "Pangu6": 1,
+    "Pangu6x": 1,
+    "Pangu24": 1,
+    "GraphCastOperational": 2,
+    "FuXi": 2,
+    "FuXiShort": 2,
+    "FuXiMedium": 2,
+    "FuXiLong": 2,
+    "FCN3": 1,
+    "FCN": 1,
+}
+
+MODEL_TIME_STEP_HOURS = {
+    "SFNO": 6,
+    "Pangu6": 6,
+    "Pangu6x": 6,
+    "Pangu24": 24,
+    "GraphCastOperational": 6,
+    "FuXi": 6,
+    "FuXiShort": 6,
+    "FuXiMedium": 6,
+    "FuXiLong": 6,
+    "FCN3": 6,
+    "FCN": 6,
+    }
+
 if __name__=="__main__":
     # following is just a useful check to make sure lists are of same length
     for m, v in MODEL_VARIABLES.items():

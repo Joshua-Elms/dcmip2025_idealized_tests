@@ -59,24 +59,27 @@ def run_experiment(model_name: str, config_path: str) -> str:
             device=config["device"],
         ).root
 
-        # for clarity
-        ds = ds.rename({"time": "init_time"})
-
         # only keep desired variables, runs too large otherwise
         ds = ds[keep_vars]
         
         ds_list.append(ds)
 
-    # concatenate along init_time dimension
-    ds = xr.concat(ds_list, dim="init_time")
+    # concatenate along time dimension
+    ds = xr.concat(ds_list, dim="time")
 
     # postprocess data
     for var in keep_vars:
         ds[f"MEAN_{var}"] = general.latitude_weighted_mean(ds[var], ds.lat)
-        ds[f"IC_MEAN_{var}"] = ds[f"MEAN_{var}"].mean(dim="init_time")
+        ds[f"IC_MEAN_{var}"] = ds[f"MEAN_{var}"].mean(dim="time")
 
     # add model dimension to enable opening with open_mfdataset
     ds = ds.assign_coords(model=model_name)
+    
+    # sort by latitude
+    ds = general.sort_latitudes(ds, model_name, input=False)
+    
+    # for clarity
+    ds = ds.rename({"time": "init_time"})
 
     # save data
     ds.to_netcdf(nc_output_file)

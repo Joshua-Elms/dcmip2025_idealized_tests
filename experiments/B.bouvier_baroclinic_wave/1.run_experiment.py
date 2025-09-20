@@ -56,6 +56,12 @@ def run_experiment(model_name: str, config_path: str) -> str:
         )
     super_IC_ds = xr.open_dataset(super_IC_path)
     IC_ds = super_IC_ds[model_info.MODEL_VARIABLES[model_name]["names"]]   
+    n_history_steps = model_info.MODEL_HISTORY_STEPS[model_name]
+    if n_history_steps > 1:
+        # tile initial conditions n times along "time" dimension to create history
+        IC_ds = xr.concat([IC_ds] * n_history_steps, dim="time")
+        lead_times = np.arange(0, -n_history_steps, -1) * np.timedelta64(model_info.MODEL_TIME_STEP_HOURS[model_name], "h")
+        IC_ds["time"] = IC_ds["time"].values + lead_times
     print(f"Grabbed subset of variables from super IC dataset.")
 
     # prepare data source

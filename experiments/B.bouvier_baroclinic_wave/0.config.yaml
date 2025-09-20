@@ -1,6 +1,6 @@
 experiment_dir: data/
 experiment_name: test
-models: ["FCN", "SFNO", "Pangu6x"]
+models: ["FuXiShort", "FCN", "SFNO", "FCN3", "Pangu6x"]
 n_timesteps: 20
 debug_run: False
 overwrite: True
@@ -19,7 +19,7 @@ initial_condition_params:
   fort_executable_path: /N/slate/jmelms/projects/dcmip2025_idealized_tests/initial_conditions/Bouvier/generate_csv_initial_conditions.out
 perturbation_params:
   enabled: true
-  u_wind_pert_base: 1
+  u_wind_pert_base: 20
   localization_radius: 637100
   center_latitude: 40
   center_longitude: 20
