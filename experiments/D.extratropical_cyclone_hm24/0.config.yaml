@@ -1,10 +1,10 @@
 experiment_dir: data/
-experiment_name: all_test_esp_FuXi
+experiment_name: results_batch_1
 tendency_reversion: True
 device: cuda:0
-n_timesteps: 16
+n_timesteps: 20
 debug_run: False
-models: ["Pangu6x", "FCN", "SFNO", "FuXiShort", "FuXi", "FCN3"]
+models: ["Pangu6x", "Pangu24", "FCN", "SFNO", "FuXiShort", "FuXiMedium", "FuXi", "FCN3"]
 overwrite: True
 initial_condition_params:
   HM24_IC_dir: /N/slate/jmelms/projects/IC/DJF_2015-2019/IC_files

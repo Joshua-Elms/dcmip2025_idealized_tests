@@ -4,10 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import datetime as dt
 import calendar
-from utils import inference_sfno
-from utils_E2S import general
+from utils import general, vis
 import math
-from utils_E2S import vis
 from matplotlib import colormaps
 
 ### Set up and parameter selection ########
@@ -21,14 +19,14 @@ models = config["models"]
 plot_var = "msl" # choose either "msl" or "sp", can only use "sp" if models = ["sfno"] (other models don't output SP)
 # vis options
 cmap_str = "Dark2" # options here: matplotlib.org/stable/tutorials/colors/colormaps.html
-day_interval_x_ticks = 2 # how many days between x-ticks on the plot
-standardized_ylims = (1010, 1014) # y-limits for the plot, set to None to use the model output min/max
+day_interval_x_ticks = 15 # how many days between x-ticks on the plot
+standardized_ylims = None # y-limits for the plot, set to None to use the model output min/max, normally (1010, 1014)
 
 # set up directories
 exp_dir = Path(config["experiment_dir"]) / config["experiment_name"]
 plot_dir = exp_dir / "plots" # where to save plots
 
-ic_dates = [dt.datetime.strptime(str_date, "%Y/%m/%d %H:%M") for str_date in config["ic_dates"]]
+ic_dates = [dt.datetime.strptime(str_date, "%Y-%m-%dT%H:%M") for str_date in config["ic_dates"]]
 lead_times = np.arange(0, config["n_timesteps"] + 1) * 6  # in hours
 n_ics = len(ic_dates)
 n_timesteps = config["n_timesteps"]
@@ -73,7 +71,10 @@ for model in models:
         val_range = standardized_ylims
         print(f"Using standardized y-limits: {val_range}")
     else:
-        val_range = (math.floor(ens_mean.min()), math.ceil(ens_mean.max()))
+        try: 
+            val_range = (math.floor(ens_mean.min()), math.ceil(ens_mean.max()))
+        except OverflowError: # in case of NaNs
+            val_range = (980, 1040) # wide range to cover non-conservative models that would cause a blowup here
         print(f"Using model output min/max for y-limits ({model}): {val_range}")
     val_diff = val_range[1] - val_range[0]
     if val_diff < 2.0:
@@ -85,6 +86,7 @@ for model in models:
     ax.set_xlabel("Simulation Time (days)", fontsize=fontsize)
     ax.set_ylabel(ylab, fontsize=fontsize)
     ax.set_xlim(xmin=-3, xmax=lead_times[-1]+3)
+    ax.set_ylim(val_range[0]-0.1*val_diff, val_range[1]+0.1*val_diff)
     fig.suptitle(title, fontsize=28)
     ax.grid()
     ax.set_facecolor("#FFFFFF")
@@ -94,40 +96,40 @@ for model in models:
     print(f"Saved figure to {plot_dir / save_title}")
     ###########################################
     
-    ### plot MSLP as a sanity check ###
-    titles = [f"{model.upper()}: MSLP init {ic_dates[-1].strftime('%d-%m-%Y %Hz')} @ {(t/4):.2f} days lead time" for t in np.arange(0, n_timesteps+1)]
-    data = ds["msl"].isel(init_time=-1).squeeze()  # select final init time
-    gif_plot_var = f"MSLP_{model}"
-    vis.create_and_plot_variable_gif(
-        data=data,
-        plot_var=gif_plot_var,
-        iter_var="lead_time",
-        iter_vals=np.arange(0, n_timesteps+1),
-        plot_dir=plot_dir,
-        units="hPa",
-        cmap="bwr",
-        titles=titles,
-        keep_images=False,
-        dpi=300,
-        fps=8, 
-        fig_size=(8, 4),
-        vlims=(950, 1076),  # Set vlims for better visualization
-        central_longitude=180.0,
-        adjust = {
-        "top": 0.93,
-        "bottom": 0.03,
-        "left": 0.09,
-        "right": 0.87,
-        "hspace": 0.0,
-        "wspace": 0.0,
-        },
-        cbar_kwargs={
-            "rotation": "horizontal",
-            "y": -0.015,
-            "horizontalalignment": "right",
-            "labelpad": -29,
-            "fontsize": 9
-        },
-    )
-    print(f"Made {gif_plot_var}.gif.")
+    # ### plot MSLP as a sanity check ###
+    # titles = [f"{model.upper()}: MSLP init {ic_dates[-1].strftime('%d-%m-%Y %Hz')} @ {(t/4):.2f} days lead time" for t in np.arange(0, n_timesteps+1)]
+    # data = ds["msl"].isel(init_time=-1).squeeze()  # select final init time
+    # gif_plot_var = f"MSLP_{model}"
+    # vis.create_and_plot_variable_gif(
+    #     data=data,
+    #     plot_var=gif_plot_var,
+    #     iter_var="lead_time",
+    #     iter_vals=np.arange(0, n_timesteps+1),
+    #     plot_dir=plot_dir,
+    #     units="hPa",
+    #     cmap="bwr",
+    #     titles=titles,
+    #     keep_images=False,
+    #     dpi=300,
+    #     fps=8, 
+    #     fig_size=(8, 4),
+    #     vlims=(950, 1076),  # Set vlims for better visualization
+    #     central_longitude=180.0,
+    #     adjust = {
+    #     "top": 0.93,
+    #     "bottom": 0.03,
+    #     "left": 0.09,
+    #     "right": 0.87,
+    #     "hspace": 0.0,
+    #     "wspace": 0.0,
+    #     },
+    #     cbar_kwargs={
+    #         "rotation": "horizontal",
+    #         "y": -0.015,
+    #         "horizontalalignment": "right",
+    #         "labelpad": -29,
+    #         "fontsize": 9
+    #     },
+    # )
+    # print(f"Made {gif_plot_var}.gif.")
     

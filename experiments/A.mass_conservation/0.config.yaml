@@ -1,8 +1,8 @@
 experiment_dir: data/
-experiment_name: results_batch_1
-ic_dates: ["2015-01-01T12:00", "2015-07-01T12:00", "2020-01-01T12:00", "2020-07-01T12:00"]
-models: ["GraphCastOperational", "FuXi", "FuXiShort", "FuXiMedium", "FuXiLong", "FCN", "SFNO", "FCN3", "Pangu6", "Pangu6x"]
-n_timesteps: 90
+experiment_name: results_batch_2_GCO
+ic_dates: ["2015-01-01T12:00", "2015-07-01T12:00"]
+models: ["GraphCastOperational"]
+n_timesteps: 720
 device: cuda:0
 debug_run: false
 overwrite: true

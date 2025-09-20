@@ -51,7 +51,7 @@ def run_experiment(model_name: str, config_path: str) -> str:
 
         # run the model for all initial conditions at once
         ds = run.deterministic(
-            time=np.atleast_1d(ic_dates),
+            time=np.atleast_1d(ic_date),
             nsteps=config["n_timesteps"],
             prognostic=model,
             data=data_source,
