@@ -1,7 +1,7 @@
 from utils import general, model_info
 from torch.cuda import mem_get_info
 import xarray as xr
-from earth2studio.io import XarrayBackend
+from earth2studio.io import XarrayBackend, NetCDF4Backend
 from earth2studio.data import CDS
 import earth2studio.run as run
 import numpy as np
@@ -30,21 +30,24 @@ def run_experiment(model_name: str, config_path: str) -> str:
 
     # load the initial condition times
     ic_dates = [
-        dt.datetime.strptime(str_date, "%Y-%m-%dT%H:%M")
+        dt.datetime.strptime(str_date, "%Y-%m-%dT%Hz")
         for str_date in config["ic_dates"]
     ]
+    tmp_output_files = [output_dir / f"{model_name}_output_{ic_date.strftime('%Y%m%dT%H')}_tmp.nc" for ic_date in ic_dates]
     
     # figure out which variables to keep, given that this model may not output 
     # all variables requested in config
     model_vars = model_info.MODEL_VARIABLES[model_name]["names"]
-    keep_vars = [var for var in config["keep_vars"] if var in model_vars]
-
+    keep_vars = [var for var in config["keep_vars"] if var in model_vars + ["ssp"]]
+    req_vars = ["msl", "t2m", "t1000"]
+    
     ds_list = []
     
     # have to iterate like this to work w/ GraphCastOperational
-    for ic_date in ic_dates:
+    for i, ic_date in enumerate(ic_dates):
+
         # interface between model and data
-        xr_io = XarrayBackend()
+        io = NetCDF4Backend(tmp_output_files[i])
 
         # get ERA5 data from the ECMWF CDS
         data_source = CDS()
@@ -55,18 +58,34 @@ def run_experiment(model_name: str, config_path: str) -> str:
             nsteps=config["n_timesteps"],
             prognostic=model,
             data=data_source,
-            io=xr_io,
+            io=io,
             device=config["device"],
-        ).root
+        )
 
-        # only keep desired variables, runs too large otherwise
-        ds = ds[keep_vars]
+    # read relevant data from temporary output file, then delete
+    breakpoint() # this will need testing; check combine_dim for open_mfdataset
+
+    ds = xr.open_mfdataset(tmp_output_files)[list(set(keep_vars + req_vars) - {"ssp"})].load()
+    for tmp_file in tmp_output_files:
+        tmp_file.unlink()  # delete temporary file
+
+    # add synthetic SP variable if requested
+    if "ssp" in config["keep_vars"]:
+        assert all(var in ds.data_vars for var in req_vars), f"Missing required variables for ssp calculation: {req_vars}"
+        Zs = xr.open_dataset(config["surface_geopotential_path"])["geopotential"]
+        g = 9.80665  # m/s^2
+        zs = Zs / g  # convert to height in m
+        zs = zs.rename({"longitude": "lon", "latitude": "lat"})
+        Rd = 287.05  # J/(kg*K)
+        T0 = ds["t1000"] # and we don't have t1013 so must use t1000 for T at MSLP level
+        p0 = ds["msl"]  # in Pa
+        lapse_rate = 0.0065 # K/m
+        exponent = g / (Rd * lapse_rate)
+        ssp = p0 * (1 - lapse_rate * zs / T0) ** exponent
+        ds["ssp"] = ssp
         
-        ds_list.append(ds)
-
-    # concatenate along time dimension
-    ds = xr.concat(ds_list, dim="time")
-
+    ds = ds[keep_vars]
+        
     # postprocess data
     for var in keep_vars:
         ds[f"MEAN_{var}"] = general.latitude_weighted_mean(ds[var], ds.lat)

@@ -17,9 +17,11 @@ config = general.read_config(config_path)
 # get models and parameters from config
 models = config["models"] 
 plot_var = "msl" # choose either "msl" or "sp", can only use "sp" if models = ["sfno"] (other models don't output SP)
+plot_type = 5 * 4 # either "raw" for pure data from the line or int for rolling mean window of that many previous timesteps
 # vis options
 cmap_str = "Dark2" # options here: matplotlib.org/stable/tutorials/colors/colormaps.html
-day_interval_x_ticks = 15 # how many days between x-ticks on the plot
+day_interval_x_ticks = 7 # how many days between x-ticks on the plot
+spec_int = 5e-4
 standardized_ylims = None # y-limits for the plot, set to None to use the model output min/max, normally (1010, 1014)
 
 # set up directories
@@ -48,7 +50,7 @@ for model in models:
     ### Plot the results ######################
     title = f"Simulated Pressure Trends\n{model.upper()}"
     save_title = f"{plot_var.lower()}_trends_{model}.png"
-    ylab = "Lat-weighted SP (hPa)" if plot_var == "sp" else "Lat-weighted MSLP (hPa)"
+    ylab = "Lat-weighted SP (hPa)" if plot_var == "sp" else  "Lat-weighted SSP (hPa)" if plot_var == "ssp" else "Lat-weighted MSLP (hPa)"
     linewidth = 2
     fontsize = 24
     smallsize = 20
@@ -59,12 +61,24 @@ for model in models:
 
     fig, ax = plt.subplots(figsize=(12.5, 6.5))
     for i, ic in enumerate(ic_dates):
-        model_linedat = ds[f"MEAN_{plot_var}"].isel(init_time=i).squeeze()
+        if plot_type == "raw":
+            model_linedat = ds[f"MEAN_{plot_var}"].isel(init_time=i).squeeze()
+        else:
+            model_linedat_raw = ds[f"MEAN_{plot_var}"].isel(init_time=i).squeeze().values
+            # compute rolling difference
+            assert plot_type < len(model_linedat_raw), f"Rolling mean window too large for data length ({len(model_linedat_raw)})"
+            # if len(lead_times) == len(model_linedat_raw):
+            #     lead_times = lead_times[plot_type:]
+            starts = model_linedat_raw[:-plot_type]
+            stops = model_linedat_raw[plot_type:]
+            model_linedat = (stops - starts) / (plot_type * 6)
+            model_linedat = np.concatenate((np.full(plot_type, np.nan), model_linedat))
+
         color = qual_colors[i]
         ax.plot(lead_times, model_linedat, color=color, linewidth=linewidth, label=f"Forecast init   {ic.strftime('%Y-%m-%d %Hz')}", linestyle=fcst_linestyle)
         
     ens_mean = ds[f"IC_MEAN_{plot_var}"].squeeze()
-    ax.plot(lead_times, ens_mean, color="red", linewidth=2*linewidth, label="Mean of forecast lines", linestyle=fcst_linestyle)
+    # ax.plot(lead_times, ens_mean, color="red", linewidth=2*linewidth, label="Mean of forecast lines", linestyle=fcst_linestyle)
        
     ax.set_xticks(lead_times[::4*day_interval_x_ticks], (lead_times[::4*day_interval_x_ticks]//(24)), fontsize=smallsize)
     if standardized_ylims:
@@ -81,12 +95,15 @@ for model in models:
         ytick_interval = 0.5
     else:
         ytick_interval = 2.0
-    yticks = np.arange(val_range[0], val_range[1]+ytick_interval, ytick_interval)
+    if plot_type == "raw":
+        yticks = np.arange(val_range[0], val_range[1]+ytick_interval, ytick_interval)
+    else:
+        yticks = np.arange(-3*spec_int, 3.1*spec_int+spec_int, spec_int)
     ax.set_yticks(yticks, yticks, fontsize=smallsize)
     ax.set_xlabel("Simulation Time (days)", fontsize=fontsize)
     ax.set_ylabel(ylab, fontsize=fontsize)
     ax.set_xlim(xmin=-3, xmax=lead_times[-1]+3)
-    ax.set_ylim(val_range[0]-0.1*val_diff, val_range[1]+0.1*val_diff)
+    # ax.set_ylim(val_range[0]-0.1*val_diff, val_range[1]+0.1*val_diff)
     fig.suptitle(title, fontsize=28)
     ax.grid()
     ax.set_facecolor("#FFFFFF")

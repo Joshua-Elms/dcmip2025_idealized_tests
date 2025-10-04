@@ -1,8 +1,10 @@
 experiment_dir: data/
-experiment_name: results_batch_2
-ic_dates: ["2015-01-01T12:00", "2015-07-01T12:00"]
-models: ["FuXi", "FuXiShort", "FCN", "SFNO", "FCN3", "Pangu6", "Pangu6x", "GraphCastOperational"]
-n_timesteps: 720
+experiment_name: switch_to_NCIO
+ic_dates: [
+  '2010-01-01T00z', '2010-01-01T12z', 
+  ]
+models: ["SFNO"]
+n_timesteps: 5
 device: cuda:0
 debug_run: false
 overwrite: true
