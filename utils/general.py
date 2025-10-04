@@ -176,18 +176,15 @@ def run_experiment_controller(
     """
     # load config file
     config = read_config(config_path)
-    print(
-        f"Running experiment '{config['experiment_name']}' with models: {config['models']}"
-    )
+    print(f"Experiment name:'{config['experiment_name']}'")
+    print(f"Models: {config['models']}")
 
     # get ready to output data to disk
     exp_dir = prepare_output_directory(config)
 
     # see whether debug run or full run
     if config["debug_run"]:
-        print(
-            "Running in debug mode. The experiment function will be invoked directly instead of via subprocess."
-        )
+        print("Running in mode: debug")
         if len(config["models"]) != 1:
             raise ValueError(
                 "In debug mode, only one model can be run at a time. Please set 'debug_run' to False or choose a single model in the config. Exiting."
@@ -195,9 +192,7 @@ def run_experiment_controller(
         status = run_experiment(config["models"][0], str(config_path.resolve()))
 
     else:
-        print(
-            "Running in full mode. The 'experiment_func' will be invoked for each model via subprocess."
-        )
+        print("Running in mode: full")
         # loop over models and run the experiment for each
         for model_name in config["models"]:
             # code in third arg from: https://stackoverflow.com/questions/27189044/import-with-dot-name-in-python
