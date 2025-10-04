@@ -301,13 +301,13 @@ def create_ICs_from_time_means(
 
 if __name__ == "__main__":
     ncpus = 4  # number of CPUs to use for parallelization, don't exceed available ncpus
-    start_end_years_inc = [2015, 2019]
+    start_end_years_inc = [1979, 2019]
     year_range_name = f"{start_end_years_inc[0]}-{start_end_years_inc[1]}"
     year_range = range(
         start_end_years_inc[0], start_end_years_inc[1] + 1
     )  # inclusive range
     seasons = {"DJF": [12, 1, 2], "JAS": [7, 8, 9]}
-    models = ["SFNO", "Pangu6", "GraphCastOperational", "FuXi", "FCN", "FCN3"]
+    models = ["SFNO", "Pangu6", "Pangu6x", "Pangu24", "GraphCastOperational", "FuXi", "FuXiShort", "FuXiMedium", "FuXiLong", "FCN", "FCN3"]
     base_data_dir = Path("/N/slate/jmelms/projects/IC")
     raw_data_dir = base_data_dir / "raw"
     for season, months in seasons.items():
