@@ -1,10 +1,10 @@
 experiment_dir: data/
-experiment_name: results_batch_1
+experiment_name: test_rh_to_q_calc
 tendency_reversion: True
 device: cuda:0
 n_timesteps: 20
 debug_run: False
-models: ["Pangu6x", "Pangu24", "FCN", "SFNO", "FuXiShort", "FuXiMedium", "FuXi", "FCN3"]
+models: ["FCN", "FuXiShort", "SFNO"]
 overwrite: True
 initial_condition_params:
   HM24_IC_dir: /N/slate/jmelms/projects/IC/DJF_2015-2019/IC_files

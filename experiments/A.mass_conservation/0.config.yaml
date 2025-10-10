@@ -1,13 +1,24 @@
 experiment_dir: data/
-experiment_name: switch_to_NCIO
+experiment_name: results_batch_3_all_but_GCO
 ic_dates: [
   '2010-01-01T00z', '2010-01-01T12z', 
+  '2010-04-01T00z', '2010-04-01T12z', 
+  '2010-07-01T00z', '2010-07-01T12z', 
+  '2010-10-01T00z', '2010-10-01T12z', 
+  '2015-01-01T00z', '2015-01-01T12z', 
+  '2015-04-01T00z', '2015-04-01T12z', 
+  '2015-07-01T00z', '2015-07-01T12z', 
+  '2015-10-01T00z', '2015-10-01T12z', 
+  '2020-01-01T00z', '2020-01-01T12z', 
+  '2020-04-01T00z', '2020-04-01T12z', 
+  '2020-07-01T00z', '2020-07-01T12z', 
+  '2020-10-01T00z', '2020-10-01T12z'
   ]
-models: ["SFNO"]
-n_timesteps: 5
+models: ["FuXi", "FuXiShort", "FCN", "SFNO", "FCN3", "Pangu6", "Pangu6x"]
+n_timesteps: 240
 device: cuda:0
 debug_run: false
-overwrite: true
+overwrite: True # change to false!
 keep_vars: ["sp", "msl"]
 experiment_subdirectories: 
   - "plots"

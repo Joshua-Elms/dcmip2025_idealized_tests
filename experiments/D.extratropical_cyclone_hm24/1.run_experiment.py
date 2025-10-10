@@ -4,6 +4,7 @@ from earth2studio.io import XarrayBackend
 import xarray as xr
 import numpy as np
 from pathlib import Path
+import metpy
 import warnings
 
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -77,7 +78,27 @@ def run_experiment(model_name: str, config_path: str) -> str:
 
     # sort output
     ds = general.sort_latitudes(ds, model_name, input=False)
-
+    
+    # if not present in output, derive specific humidity from relative humidity
+    r_levels = [var for var in ds.data_vars if var.startswith("r") and var[1:].isdigit()]
+    q_levels = [var.replace("r", "q") for var in r_levels]
+    
+    for r_var, q_var in zip(r_levels, q_levels):
+        if q_var in ds.data_vars or f"t{r_var[1:]}" not in ds.data_vars:
+            # Skip if specific humidity already present or if temperature at that level is missing
+            continue
+        print(f"Deriving {q_var} from {r_var}")
+        plev = int(r_var[1:])
+        plev_hPa = plev * metpy.units.units("hPa")
+        q = metpy.calc.specific_humidity_from_dewpoint(
+            pressure=plev_hPa,
+            dewpoint=metpy.calc.dewpoint_from_relative_humidity(
+                temperature=ds["t" + r_var[1:]] * metpy.units.units.kelvin,
+                relative_humidity=(ds[r_var]/100) * metpy.units.units.percent, 
+            ),
+            phase="auto", # set phase depending on temperature
+        )
+        ds[q_var] = q  # convert to kg/kg and drop units
     # save data
     ds.to_netcdf(nc_output_file)
 

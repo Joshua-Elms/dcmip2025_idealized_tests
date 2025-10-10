@@ -134,7 +134,7 @@ for model_name in models:
 
             ax[axi].set_extent([140, 260, 20, 70],crs=ccrs.PlateCarree()) # Pacific
 
-            ax[axi].text(130,20,f"{panel_label[axi]}:{it*6}hrs",transform=ccrs.PlateCarree())
+            ax[axi].text(130,20,f"{panel_label[axi]}:{it}hrs",transform=ccrs.PlateCarree())
 
         fig.tight_layout()
         plt.savefig(plot_dir/f'IVP_500_{model_name}.pdf',dpi=300,bbox_inches='tight')
@@ -144,162 +144,162 @@ for model_name in models:
     if model_name == "Pangu24":
         continue # diff timestep, skip rest of analysis for now
 
-    ### make gifs
-    # Z500 anomalies (global)
-    titles = [f"{model_name.upper()}: $Z_{{500}}$ Anomalies from {season} Climatology at t={t*6} hours" for t in range(0, n_timesteps+1)]
-    data = ds["z500"].squeeze() - (mean_ds["z500"]).squeeze()
-    plot_var = f"z500_anom_global_{model_name}"
-    vis.create_and_plot_variable_gif(
-        data=data,
-        plot_var=plot_var,
-        iter_var="lead_time",
-        iter_vals=np.arange(0, n_timesteps+1),
-        plot_dir=plot_dir,
-        units="m",
-        cmap="PRGn",
-        titles=titles,
-        keep_images=False,
-        dpi=300,
-        fps=2, 
-        vlims=(-150, 150),  # Set vlims for better visualization
-        central_longitude=180.0,
-        fig_size = (7.5, 3.5),
-        adjust = {
-            "top": 0.97,
-            "bottom": 0.01,
-            "left": 0.09,
-            "right": 0.87,
-            "hspace": 0.0,
-            "wspace": 0.0,
-        },
-        cbar_kwargs = {
-            "rotation": "horizontal",
-            "y": -0.02,
-            "horizontalalignment": "right",
-            "labelpad": -34.5,
-            "fontsize": 9
-        },
-    )
+    # ### make gifs
+    # # Z500 anomalies (global)
+    # titles = [f"{model_name.upper()}: $Z_{{500}}$ Anomalies from {season} Climatology at t={t*6} hours" for t in range(0, n_timesteps+1)]
+    # data = ds["z500"].squeeze() - (mean_ds["z500"]).squeeze()
+    # plot_var = f"z500_anom_global_{model_name}"
+    # vis.create_and_plot_variable_gif(
+    #     data=data,
+    #     plot_var=plot_var,
+    #     iter_var="lead_time",
+    #     iter_vals=np.arange(0, n_timesteps+1),
+    #     plot_dir=plot_dir,
+    #     units="m",
+    #     cmap="PRGn",
+    #     titles=titles,
+    #     keep_images=False,
+    #     dpi=300,
+    #     fps=2, 
+    #     vlims=(-150, 150),  # Set vlims for better visualization
+    #     central_longitude=180.0,
+    #     fig_size = (7.5, 3.5),
+    #     adjust = {
+    #         "top": 0.97,
+    #         "bottom": 0.01,
+    #         "left": 0.09,
+    #         "right": 0.87,
+    #         "hspace": 0.0,
+    #         "wspace": 0.0,
+    #     },
+    #     cbar_kwargs = {
+    #         "rotation": "horizontal",
+    #         "y": -0.02,
+    #         "horizontalalignment": "right",
+    #         "labelpad": -34.5,
+    #         "fontsize": 9
+    #     },
+    # )
 
-    print(f"Made {plot_var}.gif.")
+    # print(f"Made {plot_var}.gif.")
     
-    # Z500 anomalies (regional)
-    titles = [f"{model_name.upper()}: $Z_{{500}}$ Anomalies from {season} Climatology at t={t*6} hours" for t in range(0, n_timesteps+1)]
-    data = ds["z500"].squeeze() - (mean_ds["z500"]).squeeze()
-    plot_var = f"z500_anom_regional_{model_name}"
-    vis.create_and_plot_variable_gif(
-        data=data,
-        plot_var=plot_var,
-        iter_var="lead_time",
-        iter_vals=np.arange(0, n_timesteps+1),
-        plot_dir=plot_dir,
-        units="m",
-        cmap="PRGn",
-        titles=titles,
-        keep_images=False,
-        dpi=300,
-        fps=2, 
-        vlims=(-150, 150),  # Set vlims for better visualization
-        central_longitude=180.0,
-        extent=[120, 280, 0, 70],
-        fig_size = (7.5, 3.5),
-        adjust = {
-            "top": 0.97,
-            "bottom": 0.01,
-            "left": 0.09,
-            "right": 0.87,
-            "hspace": 0.0,
-            "wspace": 0.0,
-        },
-        cbar_kwargs = {
-            "rotation": "horizontal",
-            "y": -0.02,
-            "horizontalalignment": "right",
-            "labelpad": -34.5,
-            "fontsize": 9
-        },
-    )
+    # # Z500 anomalies (regional)
+    # titles = [f"{model_name.upper()}: $Z_{{500}}$ Anomalies from {season} Climatology at t={t*6} hours" for t in range(0, n_timesteps+1)]
+    # data = ds["z500"].squeeze() - (mean_ds["z500"]).squeeze()
+    # plot_var = f"z500_anom_regional_{model_name}"
+    # vis.create_and_plot_variable_gif(
+    #     data=data,
+    #     plot_var=plot_var,
+    #     iter_var="lead_time",
+    #     iter_vals=np.arange(0, n_timesteps+1),
+    #     plot_dir=plot_dir,
+    #     units="m",
+    #     cmap="PRGn",
+    #     titles=titles,
+    #     keep_images=False,
+    #     dpi=300,
+    #     fps=2, 
+    #     vlims=(-150, 150),  # Set vlims for better visualization
+    #     central_longitude=180.0,
+    #     extent=[120, 280, 0, 70],
+    #     fig_size = (7.5, 3.5),
+    #     adjust = {
+    #         "top": 0.97,
+    #         "bottom": 0.01,
+    #         "left": 0.09,
+    #         "right": 0.87,
+    #         "hspace": 0.0,
+    #         "wspace": 0.0,
+    #     },
+    #     cbar_kwargs = {
+    #         "rotation": "horizontal",
+    #         "y": -0.02,
+    #         "horizontalalignment": "right",
+    #         "labelpad": -34.5,
+    #         "fontsize": 9
+    #     },
+    # )
     
-    print(f"Made {plot_var}.gif.")
+    # print(f"Made {plot_var}.gif.")
     
-    # MSLP anomalies (global)
-    titles = [f"{model_name.upper()}: MSLP at t={t*6} hours" for t in range(0, n_timesteps+1)]
-    data = ds["msl"].squeeze()
-    plot_var = f"msl_global_{model_name}"
-    vis.create_and_plot_variable_gif(
-        data=data,
-        plot_var=plot_var,
-        iter_var="lead_time",
-        iter_vals=np.arange(0, n_timesteps+1),
-        plot_dir=plot_dir,
-        units="m",
-        cmap="viridis",
-        titles=titles,
-        keep_images=False,
-        dpi=300,
-        fps=2, 
-        vlims=(950, 1030),  # Set vlims for better visualization
-        central_longitude=180.0,
-        fig_size = (7.5, 3.5),
-        adjust = {
-            "top": 0.97,
-            "bottom": 0.01,
-            "left": 0.09,
-            "right": 0.87,
-            "hspace": 0.0,
-            "wspace": 0.0,
-        },
-        cbar_kwargs = {
-            "rotation": "horizontal",
-            "y": -0.02,
-            "horizontalalignment": "right",
-            "labelpad": -34.5,
-            "fontsize": 9
-        },
-    )
+    # # MSLP anomalies (global)
+    # titles = [f"{model_name.upper()}: MSLP at t={t*6} hours" for t in range(0, n_timesteps+1)]
+    # data = ds["msl"].squeeze()
+    # plot_var = f"msl_global_{model_name}"
+    # vis.create_and_plot_variable_gif(
+    #     data=data,
+    #     plot_var=plot_var,
+    #     iter_var="lead_time",
+    #     iter_vals=np.arange(0, n_timesteps+1),
+    #     plot_dir=plot_dir,
+    #     units="m",
+    #     cmap="viridis",
+    #     titles=titles,
+    #     keep_images=False,
+    #     dpi=300,
+    #     fps=2, 
+    #     vlims=(950, 1030),  # Set vlims for better visualization
+    #     central_longitude=180.0,
+    #     fig_size = (7.5, 3.5),
+    #     adjust = {
+    #         "top": 0.97,
+    #         "bottom": 0.01,
+    #         "left": 0.09,
+    #         "right": 0.87,
+    #         "hspace": 0.0,
+    #         "wspace": 0.0,
+    #     },
+    #     cbar_kwargs = {
+    #         "rotation": "horizontal",
+    #         "y": -0.02,
+    #         "horizontalalignment": "right",
+    #         "labelpad": -34.5,
+    #         "fontsize": 9
+    #     },
+    # )
 
-    print(f"Made {plot_var}.gif.")
+    # print(f"Made {plot_var}.gif.")
 
-    # T500 anomalies (regional)
-    titles = [f"{model_name.upper()}: $T_{{500}}$ Anomalies from {season} Climatology at t={t*6} hours" for t in range(0, n_timesteps+1)]
-    data = ds["t500"].squeeze() - (mean_ds["t500"]).squeeze()
-    plot_var = f"t500_anom_regional_{model_name}"
-    vis.create_and_plot_variable_gif(
-        data=data,
-        plot_var=plot_var,
-        iter_var="lead_time",
-        iter_vals=np.arange(0, n_timesteps+1),
-        plot_dir=plot_dir,
-        units="K",
-        cmap="bwr",
-        titles=titles,
-        keep_images=False,
-        dpi=300,
-        fps=2, 
-        vlims=(-15, 15),  # Set vlims for better visualization
-        central_longitude=180.0,
-        extent=[120, 280, 0, 70],
-        fig_size = (7.5, 3.5),
-        adjust = {
-            "top": 0.97,
-            "bottom": 0.01,
-            "left": 0.09,
-            "right": 0.87,
-            "hspace": 0.0,
-            "wspace": 0.0,
-        },
-        cbar_kwargs = {
-            "rotation": "horizontal",
-            "y": -0.02,
-            "horizontalalignment": "right",
-            "labelpad": -26.5,
-            "fontsize": 9
-        },
-    )
+    # # T500 anomalies (regional)
+    # titles = [f"{model_name.upper()}: $T_{{500}}$ Anomalies from {season} Climatology at t={t*6} hours" for t in range(0, n_timesteps+1)]
+    # data = ds["t500"].squeeze() - (mean_ds["t500"]).squeeze()
+    # plot_var = f"t500_anom_regional_{model_name}"
+    # vis.create_and_plot_variable_gif(
+    #     data=data,
+    #     plot_var=plot_var,
+    #     iter_var="lead_time",
+    #     iter_vals=np.arange(0, n_timesteps+1),
+    #     plot_dir=plot_dir,
+    #     units="K",
+    #     cmap="bwr",
+    #     titles=titles,
+    #     keep_images=False,
+    #     dpi=300,
+    #     fps=2, 
+    #     vlims=(-15, 15),  # Set vlims for better visualization
+    #     central_longitude=180.0,
+    #     extent=[120, 280, 0, 70],
+    #     fig_size = (7.5, 3.5),
+    #     adjust = {
+    #         "top": 0.97,
+    #         "bottom": 0.01,
+    #         "left": 0.09,
+    #         "right": 0.87,
+    #         "hspace": 0.0,
+    #         "wspace": 0.0,
+    #     },
+    #     cbar_kwargs = {
+    #         "rotation": "horizontal",
+    #         "y": -0.02,
+    #         "horizontalalignment": "right",
+    #         "labelpad": -26.5,
+    #         "fontsize": 9
+    #     },
+    # )
 
-    print(f"Made {plot_var}.gif.")
+    # print(f"Made {plot_var}.gif.")
     
-    #
-    ### End Extratropical Cyclone Visualizations ###
-    #
+    # #
+    # ### End Extratropical Cyclone Visualizations ###
+    # #
     

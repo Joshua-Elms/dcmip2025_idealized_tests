@@ -1,7 +1,7 @@
 experiment_dir: data/
-experiment_name: test
-models: ["FuXiShort", "FCN", "SFNO", "FCN3", "Pangu6x"]
-n_timesteps: 20
+experiment_name: TR_failure_test
+models: ["FuXiShort", "FuXiMedium", "FuXiLong", "FCN", "SFNO", "FCN3", "Pangu6x", "Pangu6"]
+n_timesteps: 120
 debug_run: False
 overwrite: True
 tendency_reversion: True
@@ -18,7 +18,7 @@ initial_condition_params:
   zu0: 40
   fort_executable_path: /N/slate/jmelms/projects/dcmip2025_idealized_tests/initial_conditions/Bouvier/generate_csv_initial_conditions.out
 perturbation_params:
-  enabled: true
+  enabled: false
   u_wind_pert_base: 20
   localization_radius: 637100
   center_latitude: 40

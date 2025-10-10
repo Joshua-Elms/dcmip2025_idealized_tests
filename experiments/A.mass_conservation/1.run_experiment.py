@@ -50,7 +50,7 @@ def run_experiment(model_name: str, config_path: str) -> str:
         io = NetCDF4Backend(tmp_output_files[i])
 
         # get ERA5 data from the ECMWF CDS
-        data_source = CDS()
+        data_source = CDS(verbose=False)
 
         # run the model for all initial conditions at once
         ds = run.deterministic(
@@ -62,12 +62,14 @@ def run_experiment(model_name: str, config_path: str) -> str:
             device=config["device"],
         )
 
-    # read relevant data from temporary output file, then delete
-    breakpoint() # this will need testing; check combine_dim for open_mfdataset
-
-    ds = xr.open_mfdataset(tmp_output_files)[list(set(keep_vars + req_vars) - {"ssp"})].load()
+    # combine all temporary files into one dataset, not using openmf because it's slow
+    extract_vars = list(set(keep_vars + req_vars) - {"ssp"})
+    ds_list = [xr.open_dataset(file)[extract_vars] for file in tmp_output_files]
+    ds = xr.concat(ds_list, dim="time")
     for tmp_file in tmp_output_files:
         tmp_file.unlink()  # delete temporary file
+        
+    print(f"Combined dataset has dimensions: {ds.dims}")
 
     # add synthetic SP variable if requested
     if "ssp" in config["keep_vars"]:
