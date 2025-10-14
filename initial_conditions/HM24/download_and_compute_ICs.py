@@ -221,7 +221,7 @@ def compute_time_mean_from_files(
             print(f"File {savepath} already exists, skipping.")
             continue
         # Open the dataset and compute the time mean
-        var_ds = xr.open_mfdataset(fpaths, combine="by_coords", parallel=True)
+        var_ds = xr.open_mfdataset(fpaths, combine="by_coords", parallel=True, engine="netcdf4")
         time_mean_var_ds = var_ds.mean(dim="valid_time").compute()
         time_mean_var_ds = time_mean_var_ds.drop_vars(
             ["number", "expver"]
@@ -244,7 +244,7 @@ def aggregate_tp_files(tp_dates: list[str], download_dir: Path):
         fpaths = [
             download_dir / sl_raw_fname("total_precipitation", date) for date in chunk
         ]
-        ds = xr.open_mfdataset(fpaths, combine="nested", parallel=True)
+        ds = xr.open_mfdataset(fpaths, combine="nested", parallel=True, engine="netcdf4")
         t = chunk[0]
         # add chunk[0] as valid_time coord
         ds = ds.sum(dim="valid_time")
