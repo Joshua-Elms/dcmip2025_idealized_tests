@@ -666,3 +666,50 @@ def sort_latitudes(ds: xr.Dataset, model_name: str, input: bool):
             ds = ds.sortby("lat", ascending=False)
 
     return ds
+
+if __name__ == "__main__":
+    # test of latitude_weighted_mean function
+    
+    ### test 1: uniform random 0-1 data, should get ~0.5 back
+    lat = np.linspace(-90, 90, 181)
+    data = np.random.rand(181, 3600)
+    da = xr.DataArray(
+        data,
+        coords={
+            "lat": lat,
+            "lon": np.arange(3600),
+        },
+        dims=["lat", "lon"],
+    )
+    lw_mean = latitude_weighted_mean(da, latitudes=lat)
+    print(f"Test 1: mean should be ~0.5, got {lw_mean.values}")
+    
+    ### test 2: set latitude bands to known values, should get weighted average back
+    # area ~ cos(lat), so for lat = [-90, 0, 90], weights are [0, 1, 0], so mean should be equator value
+    lat = np.array([-90, 0, 90])
+    data = np.array([[0], [1], [0]])
+    da = xr.DataArray(
+        data,
+        coords={
+            "lat": lat,
+            "lon": np.arange(1),
+        },
+        dims=["lat", "lon"],
+    )
+    lw_mean = latitude_weighted_mean(da, latitudes=lat)
+    print(f"Test 2: mean should be 1.0, got {lw_mean.values}")
+    
+    ### test 3: set latitude bands to known values, should get weighted average back
+    # area ~ cos(lat), so for lat = [-60, 0, 60], weights are [0.5, 1, 0.5]
+    lat = np.array([-60, 0, 60])
+    data = np.array([[10], [5], [10]])
+    da = xr.DataArray(
+        data,
+        coords={
+            "lat": lat,
+            "lon": np.arange(1),
+        },
+        dims=["lat", "lon"],
+    )
+    lw_mean = latitude_weighted_mean(da, latitudes=lat)
+    print(f"Test 3: mean should be 7.5, got {lw_mean.values}")
