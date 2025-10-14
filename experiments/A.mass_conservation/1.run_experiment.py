@@ -75,14 +75,12 @@ def run_experiment(model_name: str, config_path: str) -> str:
             g = 9.80665  # m/s^2
             zs = Zs / g  # convert to height in m
             zs = zs.rename({"longitude": "lon", "latitude": "lat"})
-            z1000 = tmp_ds["z1000"] / g # convert to height in m
             Rd = 287.05  # J/(kg*K)
             T2M = tmp_ds["t2m"] # K
-            T0 = tmp_ds["t1000"] # and we don't have t1013 so must use t1000 for T at MSLP level
             p0 = tmp_ds["msl"]  # in Pa
             lapse_rate = 0.0065 # K/m
             exponent = g / (Rd * lapse_rate)
-            ssp = p0 * (T2M / T0) ** exponent
+            ssp = p0 * (T2M / (T2M + lapse_rate*zs)) ** exponent
             tmp_ds["ssp"] = ssp
             
         tmp_ds = tmp_ds[keep_vars]

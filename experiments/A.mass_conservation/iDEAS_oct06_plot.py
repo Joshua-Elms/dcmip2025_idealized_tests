@@ -29,7 +29,7 @@ plot_dir = exp_dir / "plots" # where to save plots
 if not plot_dir.exists():
     plot_dir.mkdir(parents=False, exist_ok=True)
 
-ic_dates = [dt.datetime.strptime(str_date, "%Y-%m-%dT%H:%M") for str_date in config["ic_dates"]][0:1]
+ic_dates = [dt.datetime.strptime(str_date, "%Y-%m-%dT%Hz") for str_date in config["ic_dates"]][0:1]
 lead_times = np.arange(0, config["n_timesteps"] + 1) * 6  # in hours
 n_ics = len(ic_dates)
 n_timesteps = config["n_timesteps"]

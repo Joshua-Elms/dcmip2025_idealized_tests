@@ -16,11 +16,11 @@ config = general.read_config(config_path)
 
 # get models and parameters from config
 models = config["models"] 
-plot_var = "msl" # choose either "msl" or "sp", can only use "sp" if models = ["sfno"] (other models don't output SP)
-plot_type = 5 * 4 # either "raw" for pure data from the line or int for rolling mean window of that many previous timesteps
+plot_var = "ssp" # choose either "msl" or "sp", can only use "sp" if models = ["sfno"] (other models don't output SP)
+plot_type = "raw" # either "raw" for pure data from the line or int for rolling mean window of that many previous timesteps
 # vis options
 cmap_str = "Dark2" # options here: matplotlib.org/stable/tutorials/colors/colormaps.html
-day_interval_x_ticks = 7 # how many days between x-ticks on the plot
+day_interval_x_ticks = 2 # how many days between x-ticks on the plot
 spec_int = 5e-4
 standardized_ylims = None # y-limits for the plot, set to None to use the model output min/max, normally (1010, 1014)
 
@@ -28,7 +28,7 @@ standardized_ylims = None # y-limits for the plot, set to None to use the model 
 exp_dir = Path(config["experiment_dir"]) / config["experiment_name"]
 plot_dir = exp_dir / "plots" # where to save plots
 
-ic_dates = [dt.datetime.strptime(str_date, "%Y-%m-%dT%H:%M") for str_date in config["ic_dates"]]
+ic_dates = [dt.datetime.strptime(str_date, "%Y-%m-%dT%Hz") for str_date in config["ic_dates"]]
 lead_times = np.arange(0, config["n_timesteps"] + 1) * 6  # in hours
 n_ics = len(ic_dates)
 n_timesteps = config["n_timesteps"]

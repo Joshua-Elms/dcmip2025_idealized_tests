@@ -1,14 +1,27 @@
 experiment_dir: data/
-experiment_name: mini_test
+experiment_name: results_batch_3_all_but_GCO
 ic_dates: [
   '2010-01-01T00z', '2010-01-01T12z', 
+  '2010-04-01T00z', '2010-04-01T12z', 
+  '2010-07-01T00z', '2010-07-01T12z', 
+  '2010-10-01T00z', '2010-10-01T12z', 
+  '2015-01-01T00z', '2015-01-01T12z', 
+  '2015-04-01T00z', '2015-04-01T12z', 
+  '2015-07-01T00z', '2015-07-01T12z', 
+  '2015-10-01T00z', '2015-10-01T12z', 
+  '2020-01-01T00z', '2020-01-01T12z', 
+  '2020-04-01T00z', '2020-04-01T12z', 
+  '2020-07-01T00z', '2020-07-01T12z', 
+  '2020-10-01T00z', '2020-10-01T12z'
   ]
 models: ["FuXi", "FuXiShort", "FCN", "SFNO", "FCN3", "Pangu6", "Pangu6x"]
-n_timesteps: 2
+n_timesteps: 240
 device: cuda:0
-debug_run: false
-overwrite: True # change to false!
-keep_vars: ["sp", "msl"]
+debug_run: False
+overwrite: False # change to false!
+keep_vars: ["sp", "msl", "ssp"]
+surface_geopotential_path: "/N/slate/jmelms/projects/dcmip2025_idealized_tests/experiments/A.mass_conservation/surface_geopotential.nc"
 keep_base_fields: False
 experiment_subdirectories: 
   - "plots"
+ 
