@@ -91,7 +91,6 @@ def run_experiment(model_name: str, config_path: str) -> str:
         # postprocess data
         for var in keep_vars:
             tmp_ds[f"MEAN_{var}"] = general.latitude_weighted_mean(tmp_ds[var], tmp_ds.lat)
-            tmp_ds[f"IC_MEAN_{var}"] = tmp_ds[f"MEAN_{var}"].mean(dim="time")
             
         # if storage is tight, drop the full 3D fields
         if config.get("keep_base_fields", True) is False:
