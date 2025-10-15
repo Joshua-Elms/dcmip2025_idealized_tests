@@ -129,7 +129,7 @@ def download_chunk(
         return f"invalid_level_{level}", "failed"
 
     if (download_dir / fname).exists():
-        print(f"File {fname} already exists, skipping download.")
+        # print(f"File {fname} already exists, skipping download.")
         return fname, "skipped"
 
     # Download the data
@@ -187,11 +187,11 @@ def run_parallel_download(dates, var_names, var_types, ncpus):
         "\n\tfname - ".join(failed_downloads) if failed_downloads else "None"
     )
     print(f"Download stats:")
-    print(f"\tFailed: {failed_downloads_str}")
-    print(f"\tSkipped: {skipped_downloads}")
-    print(f"\tSucceeded: {succeeded_downloads}")
-    if failed_downloads:
-        print(f"\tFailed downloads were: {failed_downloads}")
+    # print(f"\tFailed: {failed_downloads_str}")
+    # print(f"\tSkipped: {skipped_downloads}")
+    # print(f"\tSucceeded: {succeeded_downloads}")
+    # if failed_downloads:
+    #     print(f"\tFailed downloads were: {failed_downloads}")
 
     return results
 
@@ -218,7 +218,7 @@ def compute_time_mean_from_files(
             fpaths = [download_dir / sl_raw_fname(model_info.E2S_TO_CDS[var_name], date) for date in dates]
             savepath = save_dir / sl_time_mean_fname(var_name)
         if savepath.exists():
-            print(f"File {savepath} already exists, skipping.")
+            # print(f"File {savepath} already exists, skipping.")
             continue
         # Open the dataset and compute the time mean
         var_ds = xr.open_mfdataset(fpaths, combine="by_coords", parallel=True, engine="netcdf4")
@@ -239,7 +239,7 @@ def aggregate_tp_files(tp_dates: list[str], download_dir: Path):
     for chunk in tp_dates_6chunked:
         output_path = download_dir / sl_raw_fname("total_precipitation_06", chunk[0])
         if output_path.exists():
-            print(f"File {output_path} already exists, skipping.")
+            # print(f"File {output_path} already exists, skipping.")
             continue
         fpaths = [
             download_dir / sl_raw_fname("total_precipitation", date) for date in chunk
@@ -279,7 +279,11 @@ def create_ICs_from_time_means(
             file_path = time_mean_dir / sl_time_mean_fname(variable)
         elif var_type == model_info.IN:
             file_path = time_mean_dir / in_time_mean_fname(variable)
+        # try:
         ds[variable] = xr.open_dataarray(file_path).squeeze(drop=True)
+        # except ValueError as e:
+        #     print(e)
+        #     breakpoint()
     # make it match the E2S format
     ds = ds.rename(
         {
@@ -307,7 +311,7 @@ if __name__ == "__main__":
         start_end_years_inc[0], start_end_years_inc[1] + 1
     )  # inclusive range
     seasons = {"DJF": [12, 1, 2], "JAS": [7, 8, 9]}
-    models = ["SFNO", "Pangu6", "Pangu6x", "Pangu24", "GraphCastOperational", "FuXi", "FuXiShort", "FuXiMedium", "FuXiLong", "FCN", "FCN3"]
+    models = ["FCN", "SFNO", "FCN3", "Pangu6", "Pangu6x", "Pangu24", "FuXi", "FuXiShort", "FuXiMedium", "FuXiLong", "GraphCastOperational"]
     base_data_dir = Path("/N/slate/jmelms/projects/IC")
     raw_data_dir = base_data_dir / "raw"
     for season, months in seasons.items():
