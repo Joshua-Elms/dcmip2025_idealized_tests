@@ -20,6 +20,7 @@ device: cuda:0
 debug_run: False
 overwrite: False # change to false!
 keep_vars: ["sp", "msl", "ssp"]
+tmp_dir: /N/scratch/jmelms
 surface_geopotential_path: "/N/slate/jmelms/projects/dcmip2025_idealized_tests/experiments/A.mass_conservation/surface_geopotential.nc"
 keep_base_fields: False
 experiment_subdirectories: 

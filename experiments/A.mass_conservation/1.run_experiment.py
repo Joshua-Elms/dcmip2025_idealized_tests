@@ -33,9 +33,11 @@ def run_experiment(model_name: str, config_path: str) -> str:
         dt.datetime.strptime(str_date, "%Y-%m-%dT%Hz")
         for str_date in config["ic_dates"]
     ]
-    tmp_output_files = [output_dir / f"{model_name}_output_{ic_date.strftime('%Y%m%dT%H')}_tmp.nc" for ic_date in ic_dates]
-    
-    # figure out which variables to keep, given that this model may not output 
+    tmp_output_dir = Path(config.get("tmp_dir", output_dir)) # if tmp_dir not specified, use output_dir
+    tmp_output_dir.mkdir(parents=False, exist_ok=True)
+    tmp_output_files = [tmp_output_dir / f"{model_name}_output_{ic_date.strftime('%Y%m%dT%H')}_tmp_{np.random.randint(10000)}.nc" for ic_date in ic_dates]
+
+    # figure out which variables to keep, given that this model may not output
     # all variables requested in config
     model_vars = model_info.MODEL_VARIABLES[model_name]["names"]
     keep_vars = [var for var in config["keep_vars"] if var in model_vars + ["ssp"]]
