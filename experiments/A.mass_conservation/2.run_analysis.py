@@ -19,13 +19,13 @@ models = config["models"]
 if "FCN" in models:
     models.pop(models.index("FCN")) # FCN blows up in this test
 # models = ["SFNO"]
-plot_var = "ssp" # choose either "msl" or "ssp", can only use "ssp" if models = ["sfno"] (other models don't output SSP)
+plot_var = "msl" # choose either "msl" or "ssp", can only use "ssp" if models = ["sfno"] (other models don't output SSP)
 plot_type = "raw" # either "raw" for pure data from the line or int for rolling mean window of that many previous timesteps
 # vis options
 cmap_str = "Dark2" # options here: matplotlib.org/stable/tutorials/colors/colormaps.html, if "single:" is included, only one color will be used
 day_interval_x_ticks = 15 # how many days between x-ticks on the plot
 spec_int = 5e-4
-individual_standardized_ylims = (985.5 - 3, 985.5 + 3) # y-limits for the plot, set to None to use the model output min/max, normally (1010, 1014)
+individual_standardized_ylims = (1011 - 3, 1011 + 4) # y-limits for the plot, set to None to use the model output min/max, normally (1010, 1014)
 mae_standardized_ylims = (0, 3) # y-limits for the MAE plot, set to None to use the model output min/max, normally (0, 5)
 show_legend = False
 
@@ -108,7 +108,7 @@ for model in models:
     ax.set_xlabel("Simulation Time (days)", fontsize=fontsize)
     ax.set_ylabel(ylab, fontsize=fontsize)
     ax.set_xlim(xmin=-3, xmax=lead_times[-1]+3)
-    # ax.set_ylim(val_range[0]-0.1*val_diff, val_range[1]+0.1*val_diff)
+    ax.set_ylim(val_range[0]-0.1*val_diff, val_range[1]+0.1*val_diff)
     fig.suptitle(title, fontsize=28)
     ax.grid()
     ax.set_facecolor("#FFFFFF")
@@ -155,7 +155,7 @@ for m, model in enumerate(models):
     mae = abs_differences.mean(dim="init_time").squeeze()
     maxs.append(mae.max().values)
     color = qual_colors[m]
-    ax.plot(lead_times, mae, color=color, alpha=0.9, linewidth=3*linewidth, label=f"{model.upper()}", linestyle=fcst_linestyle)
+    ax.plot(lead_times, mae, color=color, alpha=0.9, linewidth=1.5*linewidth, label=f"{model.upper()}", linestyle=fcst_linestyle)
     
 ax.set_xticks(lead_times[::4*day_interval_x_ticks], (lead_times[::4*day_interval_x_ticks]//(24)), fontsize=smallsize)
 if mae_standardized_ylims:
@@ -184,7 +184,7 @@ ax.set_yticks(yticks, yticks, fontsize=smallsize)
 ax.set_xlabel("Simulation Time (days)", fontsize=fontsize)
 ax.set_ylabel(ylab, fontsize=fontsize)
 ax.set_xlim(xmin=-3, xmax=lead_times[-1]+3)
-# ax.set_ylim(val_range[0]-0.1*val_diff, val_range[1]+0.1*val_diff)
+ax.set_ylim(val_range[0]-0.1*val_diff, val_range[1]+0.1*val_diff)
 fig.suptitle(title, fontsize=28)
 ax.grid()
 ax.set_facecolor("#FFFFFF")

@@ -9,8 +9,8 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --gpus-per-node h100:1
-#SBATCH --time=24:00:00
-#SBATCH --mem=300GB
+#SBATCH --time=6:00:00
+#SBATCH --mem=32GB
 #SBATCH -A r00389
 
 source /N/slate/jmelms/projects/earth2studio-cu126/.venv2/bin/activate

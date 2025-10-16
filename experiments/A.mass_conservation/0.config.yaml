@@ -1,5 +1,5 @@
 experiment_dir: data/
-experiment_name: results_batch_3_all_but_GCO
+experiment_name: results_batch_3_GCO
 ic_dates: [
   '2010-01-01T00z', '2010-01-01T12z', 
   '2010-04-01T00z', '2010-04-01T12z', 
@@ -14,7 +14,7 @@ ic_dates: [
   '2020-07-01T00z', '2020-07-01T12z', 
   '2020-10-01T00z', '2020-10-01T12z'
   ]
-models: ["FuXi", "FuXiShort", "FCN", "SFNO", "FCN3", "Pangu6", "Pangu6x"]
+models: ["GraphCastOperational"]
 n_timesteps: 240
 device: cuda:0
 debug_run: False
