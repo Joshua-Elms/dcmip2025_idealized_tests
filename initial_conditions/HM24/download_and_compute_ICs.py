@@ -186,7 +186,7 @@ def run_parallel_download(dates, var_names, var_types, ncpus):
     failed_downloads_str = (
         "\n\tfname - ".join(failed_downloads) if failed_downloads else "None"
     )
-    print(f"Download stats:")
+    # print(f"Download stats:")
     # print(f"\tFailed: {failed_downloads_str}")
     # print(f"\tSkipped: {skipped_downloads}")
     # print(f"\tSucceeded: {succeeded_downloads}")
