@@ -1,28 +1,17 @@
 experiment_dir: data/
-experiment_name: results_batch_3_GCO
+experiment_name: GCO_CPU_test
 ic_dates: [
-  '2010-01-01T00z', '2010-01-01T12z', 
-  '2010-04-01T00z', '2010-04-01T12z', 
-  '2010-07-01T00z', '2010-07-01T12z', 
-  '2010-10-01T00z', '2010-10-01T12z', 
-  '2015-01-01T00z', '2015-01-01T12z', 
-  '2015-04-01T00z', '2015-04-01T12z', 
-  '2015-07-01T00z', '2015-07-01T12z', 
-  '2015-10-01T00z', '2015-10-01T12z', 
-  '2020-01-01T00z', '2020-01-01T12z', 
-  '2020-04-01T00z', '2020-04-01T12z', 
-  '2020-07-01T00z', '2020-07-01T12z', 
-  '2020-10-01T00z', '2020-10-01T12z'
+  '2010-01-01T00z',
+  '2010-07-01T00z'
   ]
 models: ["GraphCastOperational"]
-n_timesteps: 240
-device: cuda:0
+n_timesteps: 12
+device: cpu
 debug_run: False
 overwrite: False # change to false!
 keep_vars: ["sp", "msl", "ssp"]
-tmp_dir: /N/scratch/jmelms
 surface_geopotential_path: "/N/slate/jmelms/projects/dcmip2025_idealized_tests/experiments/A.mass_conservation/surface_geopotential.nc"
-keep_base_fields: False
+keep_base_fields: True
 experiment_subdirectories: 
   - "plots"
  
