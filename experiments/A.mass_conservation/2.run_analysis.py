@@ -20,11 +20,11 @@ models = config["models"]
 plot_var = "msl" # choose either "msl" or "ssp", can only use "ssp" if models = ["sfno"] (other models don't output SSP)
 # vis options
 cmap_str = "Dark2" # options here: matplotlib.org/stable/tutorials/colors/colormaps.html, if "single:" is included, only one color will be used
-day_interval_x_ticks = 15 # how many days between x-ticks on the plot
+day_interval_x_ticks = 1 # how many days between x-ticks on the plot
 spec_int = 5e-4
-individual_standardized_ylims = (1011 - 3, 1011 + 3) # y-limits for the plot, set to None to use the model output min/max, normally (1010, 1014)
-mae_standardized_ylims = (0, 3) # y-limits for the MAE plot, set to None to use the model output min/max, normally (0, 5)
-show_legend = False
+individual_standardized_ylims = (1011.5 - 1.5, 1011.5 + 1.5) # y-limits for the plot, set to None to use the model output min/max, normally (1010, 1014)
+mae_standardized_ylims = (0, 2) # y-limits for the MAE plot, set to None to use the model output min/max, normally (0, 5)
+show_legend = True
 plot_base_fields = False # whether to plot the base fields (pointwise data) for each model
 drop_FCN = False
 if drop_FCN: # FCN blows up in this test
@@ -102,7 +102,7 @@ for model in models:
     ax.set_yticks(yticks, yticks, fontsize=smallsize)
     ax.set_xlabel("Simulation Time (days)", fontsize=fontsize)
     ax.set_ylabel(ylab, fontsize=fontsize)
-    ax.set_xlim(xmin=-3, xmax=lead_times[-1]+3)
+    ax.set_xlim(xmin=0, xmax=lead_times[-1])
     ax.set_ylim(val_range[0]-0.1*val_diff, val_range[1]+0.1*val_diff)
     fig.suptitle(title, fontsize=28)
     ax.grid()
@@ -179,7 +179,7 @@ yticks = np.arange(val_range[0], val_range[1]+ytick_interval, ytick_interval)
 ax.set_yticks(yticks, yticks, fontsize=smallsize)
 ax.set_xlabel("Simulation Time (days)", fontsize=fontsize)
 ax.set_ylabel(ylab, fontsize=fontsize)
-ax.set_xlim(xmin=-3, xmax=lead_times[-1]+3)
+ax.set_xlim(xmin=0, xmax=lead_times[-1])
 ax.set_ylim(0, val_range[1]+0.1*val_diff)
 fig.suptitle(title, fontsize=28)
 ax.grid()

@@ -1,11 +1,11 @@
 experiment_dir: data/
-experiment_name: FuXi_comparison
+experiment_name: results_batch_4
 ic_dates: [
-  '2010-01-01T00z', '2010-01-01T12z', 
-  '2010-07-01T00z', '2010-07-01T12z', 
+  '2010-01-01T00z',
+  '2010-07-01T00z'
   ]
-models: ["FuXi", "FuXiShort"]
-n_timesteps: 60
+models: ["FuXi", "FuXiShort", "FCN", "SFNO", "FCN3", "Pangu6", "Pangu6x", "GraphCastOperational"]
+n_timesteps: 720
 device: cuda:0
 debug_run: False
 overwrite: False # change to false!
