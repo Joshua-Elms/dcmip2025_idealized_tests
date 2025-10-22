@@ -1,17 +1,17 @@
 experiment_dir: data/
-experiment_name: FuXi_comparison
+experiment_name: variable_pressure
 ic_dates: [
-  '2010-01-01T00z', '2010-01-01T12z', 
-  '2010-07-01T00z', '2010-07-01T12z', 
+  '2010-01-01T00z',
   ]
-models: ["FuXi", "FuXiShort"]
+models: ["FuXi", "FuXiShort", "FCN", "SFNO", "Pangu24", "Pangu6x", "FCN3"]
 n_timesteps: 60
 device: cuda:0
 debug_run: False
-overwrite: False # change to false!
+overwrite: True # change to false!
 keep_vars: ["sp", "msl", "ssp"]
 surface_geopotential_path: "/N/slate/jmelms/projects/dcmip2025_idealized_tests/experiments/A.mass_conservation/surface_geopotential.nc"
-keep_base_fields: False
+keep_base_fields: True
+pressure_multiplier: 1.1
 experiment_subdirectories: 
   - "plots"
  

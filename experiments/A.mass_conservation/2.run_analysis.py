@@ -22,10 +22,11 @@ plot_var = "msl" # choose either "msl" or "ssp", can only use "ssp" if models = 
 cmap_str = "Dark2" # options here: matplotlib.org/stable/tutorials/colors/colormaps.html, if "single:" is included, only one color will be used
 day_interval_x_ticks = 1 # how many days between x-ticks on the plot
 spec_int = 5e-4
-individual_standardized_ylims = (1011.5 - 1.5, 1011.5 + 1.5) # y-limits for the plot, set to None to use the model output min/max, normally (1010, 1014)
-mae_standardized_ylims = (0, 2) # y-limits for the MAE plot, set to None to use the model output min/max, normally (0, 5)
+individual_standardized_ylims = (1000, 1120) # (1011.5 - 1.5, 1011.5 + 1.5) # y-limits for the plot, set to None to use the model output min/max, normally (1010, 1014)
+mae_standardized_ylims = (0, 120) # y-limits for the MAE plot, set to None to use the model output min/max, normally (0, 5)
+mae_ground_truth = 1011.5 # set None to use IC as ground truth for comparison or a number to use as a constant ground truth value
 show_legend = True
-plot_base_fields = False # whether to plot the base fields (pointwise data) for each model
+plot_base_fields = True # whether to plot the base fields (pointwise data) for each model
 drop_FCN = False
 if drop_FCN: # FCN blows up in this test
     if "FCN" in models:
@@ -53,7 +54,9 @@ for model in models:
     ##############################################
 
     ### Plot the results ######################
-    if relabel_Pangu6 and model == "Pangu6":
+    if model == "Pangu24":
+        lead_times = all_lead_times[::4]
+    elif relabel_Pangu6 and model == "Pangu6":
         model = "Pangu24"
         lead_times = all_lead_times[::4]
     else:
@@ -96,8 +99,10 @@ for model in models:
     val_diff = val_range[1] - val_range[0]
     if val_diff < 2.0:
         ytick_interval = 0.5
-    else:
+    elif val_diff <= 15.0:
         ytick_interval = 2.0
+    else:
+        ytick_interval = 10.0
     yticks = np.arange(val_range[0], val_range[1]+ytick_interval, ytick_interval)
     ax.set_yticks(yticks, yticks, fontsize=smallsize)
     ax.set_xlabel("Simulation Time (days)", fontsize=fontsize)
@@ -142,13 +147,17 @@ for m, model in enumerate(models):
     ds = ds.assign_attrs({"time units": "hours since start"})
     ds = ds.sortby("lat", ascending=True)
     ##############################################
-    
-    if relabel_Pangu6 and model == "Pangu6":
+    if model == "Pangu24":
+        lead_times = all_lead_times[::4]
+    elif relabel_Pangu6 and model == "Pangu6":
         model = "Pangu24"
         lead_times = all_lead_times[::4]
     else:
         lead_times = all_lead_times.copy()  # in hours
-    initial_value = ds[f"MEAN_{plot_var}"].isel(lead_time=0)
+    if mae_ground_truth is not None:
+        initial_value = mae_ground_truth
+    else:
+        initial_value = ds[f"MEAN_{plot_var}"].isel(lead_time=0)
     differences = ds[f"MEAN_{plot_var}"] - initial_value
     abs_differences = np.abs(differences)
     mae = abs_differences.mean(dim="init_time").sel(lead_time=lead_times).squeeze()
@@ -173,8 +182,10 @@ if val_diff <= 2.0:
     ytick_interval = 0.5
 elif val_diff <= 3.0:
     ytick_interval = 1.0
-else:
+elif val_diff <= 15.0:
     ytick_interval = 2
+else:
+    ytick_interval = 10.0
 yticks = np.arange(val_range[0], val_range[1]+ytick_interval, ytick_interval)
 ax.set_yticks(yticks, yticks, fontsize=smallsize)
 ax.set_xlabel("Simulation Time (days)", fontsize=fontsize)
@@ -209,7 +220,8 @@ if plot_base_fields:
         dpi=300,
         fps=1,
         fig_size=(8, 4),
-        vlims=(950, 1076),  # Set vlims for better visualization
+        vlims=(950, 1050),  # Set vlims for better visualization
+        vmid=1011.5, 
         central_longitude=180.0,
         adjust = {
         "top": 0.93,

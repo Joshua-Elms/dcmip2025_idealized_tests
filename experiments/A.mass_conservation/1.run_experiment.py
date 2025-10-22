@@ -57,6 +57,30 @@ def run_experiment(model_name: str, config_path: str) -> str:
         # get ERA5 data from the ECMWF CDS
         data_source = CDS(verbose=False)
 
+        # allows hook func to know whether it's the first call
+        global initial
+        initial = True
+        
+        # allows hook func to find index of pressure fields
+        model_vars = model_info.MODEL_VARIABLES[model_name]["names"]
+        global pressure_indices
+        pressure_indices = [idx for idx, var in enumerate(model_vars) if var in ["sp", "msl"]]
+
+        # set front hook to pressure multiplier
+        def pressure_multiplier(x, coords):
+            global initial
+            global pressure_indices
+            if initial:
+                initial = False
+                print(f"\n\n Shape of x: {x.shape}\n")
+                print(f"Applying pressure multiplier of {config['pressure_multiplier']} to indices {pressure_indices}\n\n")
+                x[..., pressure_indices, :, :] *= config["pressure_multiplier"]
+                return x, coords
+            else:
+                return x, coords
+            
+        model.front_hook = pressure_multiplier
+
         # run the model for all initial conditions at once
         run.deterministic(
             time=np.atleast_1d(ic_date),
@@ -92,6 +116,13 @@ def run_experiment(model_name: str, config_path: str) -> str:
     
         # postprocess data
         for var in keep_vars:
+            if var in ["msl", "ssp", "sp"]:
+                print(f"Model: {model_name}")
+                print(f"Mean before: {var} at lead_time=0: {tmp_ds[var].isel(lead_time=0).values.mean()}")
+                # multi-step inference models show the perturbation in IC by default (I predict, unverified for GraphCastOperational)
+                if model_name not in ["FuXi", "FuXiShort", "GraphCastOperational"]:
+                    tmp_ds[var][dict(lead_time=0)] = tmp_ds[var].isel(lead_time=0) * config["pressure_multiplier"]
+                print(f"Mean after: {var} at lead_time=0: {tmp_ds[var].isel(lead_time=0).values.mean()}")
             tmp_ds[f"MEAN_{var}"] = general.latitude_weighted_mean(tmp_ds[var], tmp_ds.lat)
             
         # if storage is tight, drop the full 3D fields
