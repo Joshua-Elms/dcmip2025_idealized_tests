@@ -1,5 +1,5 @@
 experiment_dir: data/
-experiment_name: variable_pressure
+experiment_name: variable_pressure_1.1x
 ic_dates: [
   '2010-01-01T00z',
   ]
