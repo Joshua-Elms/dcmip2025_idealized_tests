@@ -93,8 +93,11 @@ def run_experiment(model_name: str, config_path: str) -> str:
         # sort by latitude
         tmp_ds = general.sort_latitudes(tmp_ds, model_name, input=False)
         
-        ### calculate energetics
+        if model_name not in ["FuXi", "FuXiShort", "GraphCastOperational"]:
+            for var in pert_vars:
+                tmp_ds[var][dict(lead_time=0)] = tmp_ds[var].isel(lead_time=0) + config["temp_perturbation_degC"]
         
+        ### calculate energetics
         # preprocess the data to put T, U, V, Z, Q into blocks
         model_levels = model_info.STANDARD_13_LEVELS
         level_blocks = {}
