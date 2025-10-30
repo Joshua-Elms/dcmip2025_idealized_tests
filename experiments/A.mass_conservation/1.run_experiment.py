@@ -13,6 +13,9 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 
 def run_experiment(model_name: str, config_path: str) -> str:
+    # read dotenv
+    general.load_dotenv()
+    
     # read config file
     config = general.read_config(config_path)
 
