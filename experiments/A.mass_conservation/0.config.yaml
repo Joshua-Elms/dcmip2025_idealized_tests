@@ -4,8 +4,8 @@ ic_dates: [
   '2010-01-01T00z',
   '2010-07-01T00z'
   ]
-models: ["SFNO"] # and FCNv2_SM
-n_timesteps: 1460
+models: ["FCNv2_SM", "SFNO"] # and FCNv2_SM
+n_timesteps: 360
 device: cuda:0
 debug_run: False
 overwrite: False # change to false!
