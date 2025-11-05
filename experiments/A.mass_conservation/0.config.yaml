@@ -1,5 +1,5 @@
 experiment_dir: data/
-experiment_name: SFNO_intercompare
+experiment_name: SFNO_intercompare_dry
 ic_dates: [
   '2010-01-01T00z',
   '2010-07-01T00z'

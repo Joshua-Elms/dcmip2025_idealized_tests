@@ -17,11 +17,13 @@ config = general.read_config(config_path)
 # get models and parameters from config
 models = config["models"] 
 plot_var = "sp" # choose either "msl" or "sp", can only use "sp" if models = ["sfno"] (other models don't output SP)
+dry = True # whether to plot dry mass conservation (i.e., exclude moisture contribution to surface pressure)
+display_var = r"$p_s^{dry}$" if dry and plot_var=="sp" else "p_s" if plot_var=="sp" else "MSLP"
 # vis options
 cmap_str = "nipy_spectral" # options here: matplotlib.org/stable/tutorials/colors/colormaps.html
 weird_color_const = 3 # unsure how this works, but it spaces out colors better when there are many models and inits
 day_interval_x_ticks = 15 # how many days between x-ticks on the plot
-standardized_ylims = (978, 988) # y-limits for the plot, set to None to use the model output min/max, normally (1010, 1014)
+standardized_ylims = (975, 986) # y-limits for the plot, set to None to use the model output min/max, normally (1010, 1014)
 conservation_half_range = 3 # hPa
 show_legend = True
 legend_ncols = 3
@@ -41,8 +43,8 @@ n_timesteps = config["n_timesteps"]
 ds = xr.open_mfdataset(str(exp_dir / "*_output.nc"), combine="nested", concat_dim="model", preprocess=lambda x:general.sort_latitudes(x, "BLOOG", input=False)) / 100 # convert to hPa
 # change model names
 rename_dict = {
-    "FCNv2_SM": "A ckpt", # from https://catalog.ngc.nvidia.com/orgs/nvidia/teams/modulus/models/modulus_fcnv2_sm/version?version=v0.2
-    "SFNO": "B ckpt", # from https://catalog.ngc.nvidia.com/orgs/nvidia/teams/modulus/models/sfno_73ch_small/version?version=0.1.0
+    "FCNv2_SM": "A_ckpt", # from https://catalog.ngc.nvidia.com/orgs/nvidia/teams/modulus/models/modulus_fcnv2_sm/version?version=v0.2
+    "SFNO": "B_ckpt", # from https://catalog.ngc.nvidia.com/orgs/nvidia/teams/modulus/models/sfno_73ch_small/version?version=0.1.0
 }
 models = [rename_dict.get(m, m) for m in models]
 ds = ds.assign_coords(model=[rename_dict.get(m, m) for m in ds.model.values])
@@ -51,9 +53,9 @@ ds = ds.assign_coords(model=[rename_dict.get(m, m) for m in ds.model.values])
 ##############################################
 
 fig, ax = plt.subplots(figsize=(12.5, 6.5))
-title = "Mass Conservation in Two SFNO Checkpoints\nA (2023/09/07) vs. B (2024/04/08)" # generic is "Mass Conservation in Various ML Models"
-save_title = f"{plot_var.lower()}_trends.png"
-ylab = "Global SP (hPa)" if plot_var == "sp" else "Global MSLP (hPa)"
+title = f"{'Dry ' if dry else ''}Mass Conservation in Two SFNO Checkpoints\nA (2023/09/07) vs. B (2024/04/08)" # generic is "Mass Conservation in Various ML Models"
+save_title = f"{plot_var.lower()}_trends_dry={'T' if dry else 'F'}.png"
+ylab = fr"Global {display_var} (hPa)" if plot_var == "sp" else "Global MSLP (hPa)"
 n_ics = len(ic_dates)
 n_models = len(models)
 dx = 1/(n_models-1) if n_models > 1 else 1
@@ -66,6 +68,9 @@ smallsize = 20
 fcst_linestyle = "solid" # see https://matplotlib.org/stable/gallery/lines_bars_and_markers/linestyles.html
 bound_linestyle = "dashed"
 e5_linestyle = (0, (3, 1, 1, 1)) # densely dotted line
+
+if dry:
+    ds[f"MEAN_{plot_var}"] = ds[f"MEAN_{plot_var}"] - ds["MEAN_sp_moist"]
 
 # plot initial condition and approximate conservation bounds
 initial_value = np.full_like(lead_times, ds[f"MEAN_{plot_var}"].isel(lead_time=0).values.mean().round(1), dtype="float64")
