@@ -17,14 +17,14 @@ config = general.read_config(config_path)
 # get models and parameters from config
 models = config["models"] 
 # models = ["SFNO"]
-plot_var = "sp" # choose either "msl" or "ssp", can only use "ssp" if models = ["sfno"] (other models don't output SSP)
+plot_var = "msl" # choose either "msl" or "ssp", can only use "ssp" if models = ["sfno"] (other models don't output SSP)
 # vis options
 cmap_str = "Dark2" # options here: matplotlib.org/stable/tutorials/colors/colormaps.html, if "single:" is included, only one color will be used
 day_interval_x_ticks = 15 # how many days between x-ticks on the plot
 spec_int = 5e-4
-individual_standardized_ylims = (976, 986) # (1011.5 - 1.5, 1011.5 + 1.5) # y-limits for the plot, set to None to use the model output min/max, normally (1010, 1014)
-mae_standardized_ylims = (0, 10) # y-limits for the MAE plot, set to None to use the model output min/max, normally (0, 5)
-mae_ground_truth = None # set None to use IC as ground truth for comparison or a number to use as a constant ground truth value
+individual_standardized_ylims = (1011, 1011*1.11) # (1011.5 - 1.5, 1011.5 + 1.5) # y-limits for the plot, set to None to use the model output min/max, normally (1010, 1014)
+mae_standardized_ylims = (0, 125) # y-limits for the MAE plot, set to None to use the model output min/max, normally (0, 5)
+mae_ground_truth = 1011.5 # set None to use IC as ground truth for comparison or a number to use as a constant ground truth value
 show_legend = False
 plot_base_fields = False # whether to plot the base fields (pointwise data) for each model
 drop_FCN = False
@@ -43,83 +43,83 @@ n_ics = len(ic_dates)
 n_timesteps = config["n_timesteps"]
 ##############################################
 
-### Loop through each model and plot the individual values ###
-for model in models:
-    ### Load model output data ###
-    data_path = exp_dir / f"{model}_output.nc" # where output data is stored
-    print(f"Loading data from {data_path}")
-    ds = xr.open_dataset(data_path) / 100 # convert to hPa
-    ds = ds.assign_attrs({"time units": "hours since start"})
-    ds = ds.sortby("lat", ascending=True)
-    ##############################################
+# ### Loop through each model and plot the individual values ###
+# for model in models:
+#     ### Load model output data ###
+#     data_path = exp_dir / f"{model}_output.nc" # where output data is stored
+#     print(f"Loading data from {data_path}")
+#     ds = xr.open_dataset(data_path) / 100 # convert to hPa
+#     ds = ds.assign_attrs({"time units": "hours since start"})
+#     ds = ds.sortby("lat", ascending=True)
+#     ##############################################
 
-    ### Plot the results ######################
-    if model == "Pangu24":
-        lead_times = all_lead_times[::4]
-    elif relabel_Pangu6 and model == "Pangu6":
-        model = "Pangu24"
-        lead_times = all_lead_times[::4]
-    else:
-        lead_times = all_lead_times.copy()  # in hours
-    title = f"Simulated Pressure Trends\n{model}"
-    save_title = f"{plot_var.lower()}_trends_{model}.png"
-    ylab = "Lat-weighted SP (hPa)" if plot_var == "sp" else  "Lat-weighted SSP (hPa)" if plot_var == "ssp" else "Lat-weighted MSLP (hPa)"
-    linewidth = 2
-    fontsize = 24
-    smallsize = 20
-    fcst_linestyle = "solid" # see https://matplotlib.org/stable/gallery/lines_bars_and_markers/linestyles.html
-    e5_linestyle = (0, (3, 1, 1, 1)) # densely dotted line
-    cmap = colormaps.get_cmap(cmap_str) if "single:" not in cmap_str else None
-    qual_colors = cmap(np.linspace(0, 1, n_ics)) if cmap is not None else [cmap_str.split(":")[1]] * n_ics
+#     ### Plot the results ######################
+#     if model == "Pangu24":
+#         lead_times = all_lead_times[::4]
+#     elif relabel_Pangu6 and model == "Pangu6":
+#         model = "Pangu24"
+#         lead_times = all_lead_times[::4]
+#     else:
+#         lead_times = all_lead_times.copy()  # in hours
+#     title = f"Simulated Pressure Trends\n{model}"
+#     save_title = f"{plot_var.lower()}_trends_{model}.png"
+#     ylab = "Lat-weighted SP (hPa)" if plot_var == "sp" else  "Lat-weighted SSP (hPa)" if plot_var == "ssp" else "Lat-weighted MSLP (hPa)"
+#     linewidth = 2
+#     fontsize = 24
+#     smallsize = 20
+#     fcst_linestyle = "solid" # see https://matplotlib.org/stable/gallery/lines_bars_and_markers/linestyles.html
+#     e5_linestyle = (0, (3, 1, 1, 1)) # densely dotted line
+#     cmap = colormaps.get_cmap(cmap_str) if "single:" not in cmap_str else None
+#     qual_colors = cmap(np.linspace(0, 1, n_ics)) if cmap is not None else [cmap_str.split(":")[1]] * n_ics
 
-    fig, ax = plt.subplots(figsize=(12.5, 6.5))
-    for i, ic in enumerate(ic_dates):
-        model_linedat = ds[f"MEAN_{plot_var}"].isel(init_time=i).sel(lead_time=lead_times).squeeze()
-        color = qual_colors[i]
-        ax.plot(lead_times, model_linedat, color=color, alpha=0.8, linewidth=linewidth, label=f"Forecast init   {ic.strftime('%Y-%m-%d %Hz')}", linestyle=fcst_linestyle)
+#     fig, ax = plt.subplots(figsize=(12.5, 6.5))
+#     for i, ic in enumerate(ic_dates):
+#         model_linedat = ds[f"MEAN_{plot_var}"].isel(init_time=i).sel(lead_time=lead_times).squeeze()
+#         color = qual_colors[i]
+#         ax.plot(lead_times, model_linedat, color=color, alpha=0.8, linewidth=linewidth, label=f"Forecast init   {ic.strftime('%Y-%m-%d %Hz')}", linestyle=fcst_linestyle)
         
-    ens_mean = ds[f"MEAN_{plot_var}"].mean(dim="init_time").squeeze()
-    # ax.plot(lead_times, ens_mean, color="red", linewidth=2*linewidth, label="Mean of forecast lines", linestyle=fcst_linestyle)
+#     ens_mean = ds[f"MEAN_{plot_var}"].mean(dim="init_time").squeeze()
+#     # ax.plot(lead_times, ens_mean, color="red", linewidth=2*linewidth, label="Mean of forecast lines", linestyle=fcst_linestyle)
        
-    if model == "Pangu24": # only 24 hour timestep
-        ax.set_xticks(lead_times[::day_interval_x_ticks], (lead_times[::day_interval_x_ticks]//(24)), fontsize=smallsize)
-    else:
-        ax.set_xticks(lead_times[::4*day_interval_x_ticks], (lead_times[::4*day_interval_x_ticks]//(24)), fontsize=smallsize)
-    if individual_standardized_ylims:
-        val_range = individual_standardized_ylims
-        print(f"Using standardized y-limits: {val_range}")
-    else:
-        try: 
-            val_range = (math.floor(ens_mean.min()), math.ceil(ens_mean.max()))
-            if max(abs(val_range[0]), val_range[1]) > 1100:
-                raise OverflowError
-        except OverflowError: # in case of NaNs
-            val_range = (980, 1040) # wide range to cover non-conservative models that would cause a blowup here
-        print(f"Using model output min/max for y-limits ({model}): {val_range}")
-    val_diff = val_range[1] - val_range[0]
-    if val_diff < 2.0:
-        ytick_interval = 0.5
-    elif val_diff <= 15.0:
-        ytick_interval = 2.0
-    elif val_diff <= 150.0:
-        ytick_interval = 10.0
-    else:
-        ytick_interval = 20.0
-    yticks = np.arange(val_range[0], val_range[1]+ytick_interval, ytick_interval)
-    ax.set_yticks(yticks, yticks, fontsize=smallsize)
-    ax.set_xlabel("Simulation Time (days)", fontsize=fontsize)
-    ax.set_ylabel(ylab, fontsize=fontsize)
-    ax.set_xlim(xmin=0, xmax=lead_times[-1])
-    ax.set_ylim(val_range[0]-0.1*val_diff, val_range[1]+0.1*val_diff)
-    fig.suptitle(title, fontsize=28)
-    ax.grid()
-    ax.set_facecolor("#FFFFFF")
-    fig.tight_layout()
-    if show_legend:
-        plt.legend(fontsize=12, loc="upper left", ncols=2)
-    plt.savefig(plot_dir / save_title, dpi=300, bbox_inches="tight")
-    print(f"Saved figure to {plot_dir / save_title}")
-    ###########################################
+#     if model == "Pangu24": # only 24 hour timestep
+#         ax.set_xticks(lead_times[::day_interval_x_ticks], (lead_times[::day_interval_x_ticks]//(24)), fontsize=smallsize)
+#     else:
+#         ax.set_xticks(lead_times[::4*day_interval_x_ticks], (lead_times[::4*day_interval_x_ticks]//(24)), fontsize=smallsize)
+#     if individual_standardized_ylims:
+#         val_range = individual_standardized_ylims
+#         print(f"Using standardized y-limits: {val_range}")
+#     else:
+#         try: 
+#             val_range = (math.floor(ens_mean.min()), math.ceil(ens_mean.max()))
+#             if max(abs(val_range[0]), val_range[1]) > 1100:
+#                 raise OverflowError
+#         except OverflowError: # in case of NaNs
+#             val_range = (980, 1040) # wide range to cover non-conservative models that would cause a blowup here
+#         print(f"Using model output min/max for y-limits ({model}): {val_range}")
+#     val_diff = val_range[1] - val_range[0]
+#     if val_diff < 2.0:
+#         ytick_interval = 0.5
+#     elif val_diff <= 15.0:
+#         ytick_interval = 2.0
+#     elif val_diff <= 150.0:
+#         ytick_interval = 10.0
+#     else:
+#         ytick_interval = 20.0
+#     yticks = np.arange(val_range[0], val_range[1]+ytick_interval, ytick_interval)
+#     ax.set_yticks(yticks, yticks, fontsize=smallsize)
+#     ax.set_xlabel("Simulation Time (days)", fontsize=fontsize)
+#     ax.set_ylabel(ylab, fontsize=fontsize)
+#     ax.set_xlim(xmin=0, xmax=lead_times[-1])
+#     ax.set_ylim(val_range[0]-0.1*val_diff, val_range[1]+0.1*val_diff)
+#     fig.suptitle(title, fontsize=28)
+#     ax.grid()
+#     ax.set_facecolor("#FFFFFF")
+#     fig.tight_layout()
+#     if show_legend:
+#         plt.legend(fontsize=12, loc="upper left", ncols=2)
+#     plt.savefig(plot_dir / save_title, dpi=300, bbox_inches="tight")
+#     print(f"Saved figure to {plot_dir / save_title}")
+#     ###########################################
     
 
 
@@ -145,7 +145,7 @@ maxs = []
 for m, model in enumerate(models):
     ### Load model output data ###
     data_path = exp_dir / f"{model}_output.nc" # where output data is stored
-    ds = xr.open_dataset(data_path) / 100 # convert to hPa
+    ds = xr.open_dataset(data_path)[[f"MEAN_{plot_var}", "lat"]] / 100 # convert to hPa
     ds = ds.assign_attrs({"time units": "hours since start"})
     ds = ds.sortby("lat", ascending=True)
     ##############################################

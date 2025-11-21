@@ -1,18 +1,18 @@
 experiment_dir: data/
-experiment_name: SFNO_intercompare_dry
+experiment_name: variable_pressure_1.1x
 ic_dates: [
-  '2010-01-01T00z',
-  '2010-07-01T00z'
+  '2020-01-01T00z',
   ]
-models: ["FCNv2_SM", "SFNO"] # and FCNv2_SM
-n_timesteps: 360
+models: ["FuXi", "FuXiShort", "FCN", "SFNO", "Pangu24", "Pangu6x", "FCN3"]
+n_timesteps: 80
 device: cuda:0
 debug_run: False
-overwrite: False # change to false!
+overwrite: True # change to false!
 keep_vars: ["sp", "msl", "ssp"]
 surface_geopotential_path: "/N/slate/jmelms/projects/dcmip2025_idealized_tests/experiments/A.mass_conservation/surface_geopotential.nc"
-pressure_multiplier: 1.0
-keep_base_fields: False
+keep_base_fields: True
+pressure_multiplier: 1.1
+compute_sp_moist: False
 experiment_subdirectories: 
   - "plots"
  
