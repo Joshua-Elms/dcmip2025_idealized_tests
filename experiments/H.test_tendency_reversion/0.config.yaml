@@ -1,10 +1,10 @@
-experiment_dir: data/
-experiment_name: test_g1
+experiment_dir: /N/scratch/jmelms/dcmip2025_idealized_tests/experiments/H.test_tendency_reversion
+experiment_name: test1
 tendency_reversion: True
 device: cuda:0
 n_timesteps: 4
 debug_run: False
-models: ["GraphCastOperational"]
+models: ["SFNO", "FuXiShort", "FuXiMedium", "FuXiLong", "Pangu24", "Pangu6x", "FCN"]
 overwrite: True
 initial_condition_params:
   ic: "xr:/N/slate/jmelms/projects/IC/DJF_2015-2019/IC_files" # "dt:2018-01-01T00:00" or "xr:/N/slate/jmelms/projects/IC/DJF_2015-2019/IC_files"
