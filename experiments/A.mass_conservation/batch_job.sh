@@ -1,16 +1,17 @@
 #!/bin/bash
 
 #SBATCH -J A.mass_conservation
-#SBATCH -p gpu
+#SBATCH -p hopper
+#SBATCH -q hopper
 #SBATCH -o output.out
 #SBATCH -e log.err
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=jmelms@iu.edu
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --gpus-per-node v100:1
-#SBATCH --time=3:00:00
-#SBATCH --mem=100GB
+#SBATCH --gpus-per-node h100:1
+#SBATCH --time=6:00:00
+#SBATCH --mem=400GB
 #SBATCH -A r00389
 
 source /N/slate/jmelms/projects/earth2studio-cu126/.venv2/bin/activate

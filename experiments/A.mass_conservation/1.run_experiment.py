@@ -240,7 +240,7 @@ def run_experiment(model_name: str, config_path: str) -> str:
     ds = ds.rename({"time": "init_time"})
 
     # save data
-    ds.to_netcdf(nc_output_file)
+    ds.to_netcdf(nc_output_file, engine="h5netcdf")
 
 
 if __name__ == "__main__":
