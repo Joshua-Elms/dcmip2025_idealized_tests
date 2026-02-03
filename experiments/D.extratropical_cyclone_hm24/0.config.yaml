@@ -1,8 +1,8 @@
 experiment_dir: data/
-experiment_name: test_rh_to_q_calc
+experiment_name: e2s_vs_hm24_comparison
 tendency_reversion: True
 device: cuda:0
-n_timesteps: 20
+n_timesteps: 16
 debug_run: False
 models: ["FCN", "FuXiShort", "SFNO"]
 overwrite: True
