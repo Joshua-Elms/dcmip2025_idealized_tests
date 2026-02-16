@@ -11,3 +11,4 @@ plots/
 initial_conditions/make_HM24_ICs/outputs/*.png
 fort_output.csv
 data/
+initial_conditions/HM24/data_for_compare

@@ -166,9 +166,25 @@ def run_parallel_download(dates, var_names, var_types, ncpus):
         for var_name, var_type in zip(var_names, var_types):
             if var_type == model_info.PL:
                 p_level = int(var_name[1:])  # extract level from var name
-                args_list.append((model_info.E2S_TO_CDS[var_name[0]], date, p_level, pl_dataset, raw_data_dir))
+                args_list.append(
+                    (
+                        model_info.E2S_TO_CDS[var_name[0]],
+                        date,
+                        p_level,
+                        pl_dataset,
+                        raw_data_dir,
+                    )
+                )
             elif var_type == model_info.SL:
-                args_list.append((model_info.E2S_TO_CDS[var_name], date, "single", sfc_dataset, raw_data_dir))
+                args_list.append(
+                    (
+                        model_info.E2S_TO_CDS[var_name],
+                        date,
+                        "single",
+                        sfc_dataset,
+                        raw_data_dir,
+                    )
+                )
             else:
                 continue  # invariant variable, skip download
 
@@ -210,23 +226,30 @@ def compute_time_mean_from_files(
         if var_type == model_info.PL:
             pressure_level = int(var_name[1:])  # extract level from var name
             fpaths = [
-                download_dir / pl_raw_fname(model_info.E2S_TO_CDS[var_name[0]], pressure_level, date)
+                download_dir
+                / pl_raw_fname(model_info.E2S_TO_CDS[var_name[0]], pressure_level, date)
                 for date in dates
             ]
             savepath = save_dir / pl_time_mean_fname(var_name, pressure_level)
         elif var_type == model_info.SL:
-            fpaths = [download_dir / sl_raw_fname(model_info.E2S_TO_CDS[var_name], date) for date in dates]
+            fpaths = [
+                download_dir / sl_raw_fname(model_info.E2S_TO_CDS[var_name], date)
+                for date in dates
+            ]
             savepath = save_dir / sl_time_mean_fname(var_name)
         if savepath.exists():
             # print(f"File {savepath} already exists, skipping.")
             continue
         # Open the dataset and compute the time mean
-        var_ds = xr.open_mfdataset(fpaths, combine="by_coords", parallel=True, engine="netcdf4")
+        var_ds = xr.open_mfdataset(
+            fpaths, combine="by_coords", parallel=True, engine="netcdf4"
+        ).astype("float64")
         time_mean_var_ds = var_ds.mean(dim="valid_time").compute()
         time_mean_var_ds = time_mean_var_ds.drop_vars(
             ["number", "expver"]
         )  # extra coord from ecmwf, unneeded
         time_mean_var_ds.to_netcdf(savepath)
+        print(f"Saved {var_name}")
 
 
 def aggregate_tp_files(tp_dates: list[str], download_dir: Path):
@@ -244,7 +267,9 @@ def aggregate_tp_files(tp_dates: list[str], download_dir: Path):
         fpaths = [
             download_dir / sl_raw_fname("total_precipitation", date) for date in chunk
         ]
-        ds = xr.open_mfdataset(fpaths, combine="nested", parallel=True, engine="netcdf4")
+        ds = xr.open_mfdataset(
+            fpaths, combine="nested", parallel=True, engine="netcdf4"
+        )
         t = chunk[0]
         # add chunk[0] as valid_time coord
         ds = ds.sum(dim="valid_time")
@@ -311,14 +336,32 @@ if __name__ == "__main__":
         start_end_years_inc[0], start_end_years_inc[1] + 1
     )  # inclusive range
     seasons = {"DJF": [12, 1, 2], "JAS": [7, 8, 9]}
-    models = ["FCN", "SFNO", "FCN3", "Pangu6", "Pangu6x", "Pangu24", "FuXi", "FuXiShort", "FuXiMedium", "FuXiLong", "GraphCastOperational"]
+    models = [
+        "FCN",
+        "SFNO",
+        "FCN3",
+        "Pangu6",
+        "Pangu6x",
+        "Pangu24",
+        "FuXi",
+        "FuXiShort",
+        "FuXiMedium",
+        "FuXiLong",
+        "GraphCastOperational",
+    ]
     base_data_dir = Path("/N/slate/jmelms/projects/IC")
     raw_data_dir = base_data_dir / "raw"
     for season, months in seasons.items():
         print(f"Processing season {season}")
         dates = generate_dates(year_range, months)
         all_vars = [var for var in model_info.MASTER_VARIABLES_NAMES if var != "tp06"]
-        all_types = [vtype for var, vtype in zip(model_info.MASTER_VARIABLES_NAMES, model_info.MASTER_VARIABLES_TYPES) if var != "tp06"]
+        all_types = [
+            vtype
+            for var, vtype in zip(
+                model_info.MASTER_VARIABLES_NAMES, model_info.MASTER_VARIABLES_TYPES
+            )
+            if var != "tp06"
+        ]
         run_parallel_download(
             dates,
             all_vars,
@@ -341,7 +384,9 @@ if __name__ == "__main__":
             model_var_names = model_info.MODEL_VARIABLES[model]["names"]
             model_var_types = model_info.MODEL_VARIABLES[model]["types"]
             static_vars = [
-                var for var, var_type in zip(model_var_names, model_var_types) if var_type == model_info.IN
+                var
+                for var, var_type in zip(model_var_names, model_var_types)
+                if var_type == model_info.IN
             ]
             # if no model uses tp06, then we won't download it
             # if at least one does, the raw tp fields are downloaded

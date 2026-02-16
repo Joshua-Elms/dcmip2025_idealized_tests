@@ -19,7 +19,9 @@ def run_experiment(model_name: str, config_path: str) -> str:
     )
 
     # unpack config & set paths
-    IC_path = Path(config["initial_condition_params"]["HM24_IC_dir"]) / f"{model_name}.nc"
+    IC_path = (
+        Path(config["initial_condition_params"]["HM24_IC_dir"]) / f"{model_name}.nc"
+    )
     output_dir = Path(config["experiment_dir"]) / config["experiment_name"]
     nc_output_file = output_dir / f"output_{model_name}.nc"
     tendency_file = output_dir / "auxiliary" / f"tendency_{model_name}.nc"
@@ -27,7 +29,7 @@ def run_experiment(model_name: str, config_path: str) -> str:
 
     # load the model
     model = general.load_model(model_name)
-    
+
     # some models (SFNO, FCN3, ...) need to be told to hold the solar zenith angle constant
     model.const_sza = True
 
@@ -59,7 +61,11 @@ def run_experiment(model_name: str, config_path: str) -> str:
     model_coords["time"] = np.atleast_1d(
         np.datetime64("2000-01-01")
     )  # add time coordinate
-    tvars = [var for var in model.input_variables() if var.startswith("t") and var[1:].isdigit()]
+    tvars = [
+        var
+        for var in model.input_variables()
+        if var.startswith("t") and var[1:].isdigit()
+    ]
     tvar_levs = [int(var[1:]) for var in tvars]
     perturb_variables = tvars[(tvar_levs <= 1000) & (tvar_levs >= 200)]
     for var in perturb_variables:
@@ -104,5 +110,5 @@ if __name__ == "__main__":
     general.run_experiment_controller(
         calling_directory=Path(__file__).parent,
         run_experiment=run_experiment,
-        config_path=Path(__file__).parent / "0.config.yaml"
+        config_path=Path(__file__).parent / "0.config.yaml",
     )

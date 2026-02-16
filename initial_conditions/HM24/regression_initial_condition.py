@@ -1,7 +1,7 @@
 """
 compute the regression initial conditions for the extratropical and tropical cyclone cases.
 
-you must download ERA5 sample data to compute the regression. specifically, to repeat results in the Hakim & Masanam (2023) paper, ERA5 data are sampled every 10 days at 00UTC from 1979 to 2020.
+you must download ERA5 sample data to compute the regression. specifically, to repeat results in the Hakim & Masanam (2024) paper, ERA5 data are sampled every 10 days at 00UTC from 1979 to 2020.
 
 Modified from the original by Joshua Elms
 ----------------------
@@ -55,7 +55,7 @@ def compute_regression(
     else:
         var_names = model_info.MODEL_VARIABLES.get(model)["names"]
         var_types = model_info.MODEL_VARIABLES.get(model)["types"]
-        
+
     nvars = len(var_names)
 
     # figure out which variables are in this model
@@ -192,7 +192,9 @@ def compute_regression(
     start = perf_counter()
     regf = np.zeros([nvars_rel, latwin, lonwin])
     for var in range(nvars_rel):
-        print(f"regressing variable {var+1:02}/{nvars_rel}: {relevant_vars[var]:<5}") # {var:<5} ({i+1:02}/{nvars_rel})
+        print(
+            f"regressing variable {var+1:02}/{nvars_rel}: {relevant_vars[var]:<5}"
+        )  # {var:<5} ({i+1:02}/{nvars_rel})
         for j in range(latwin):
             for i in range(lonwin):
                 slope, intercept, r_value, p_value, std_err = linregress(
@@ -242,7 +244,7 @@ def compute_regression(
     output_ds.to_netcdf(rgfile, mode="w", format="NETCDF4")
 
     print(f"Regression fields saved to {rgfile}")
-    
+
     return output_ds
 
 
@@ -282,24 +284,38 @@ locrad = 2000.0
 # scaling amplitude for initial condition (1=climo variance at the base point)
 amp = -1.0
 
-if (opath/f"{ic_str}_{int(ylat)}N_{int(xlon)}E_z-regression_super.nc").exists():
+if (opath / f"{ic_str}_{int(ylat)}N_{int(xlon)}E_z-regression_super.nc").exists():
     print(f"Regression file already exists for {ylat}N, {xlon}E. Skipping computation.")
-    super_ds = xr.open_dataset(opath/f"{ic_str}_{int(ylat)}N_{int(xlon)}E_z-regression_super.nc")
+    super_ds = xr.open_dataset(
+        opath / f"{ic_str}_{int(ylat)}N_{int(xlon)}E_z-regression_super.nc"
+    ).astype("float64")
 else:
     super_ds = compute_regression(
-            year_range,
-            ic_months,
-            ic_str,
-            ylat,
-            xlon,
-            locrad,
-            amp,
-            rpath,
-            opath,
-            model="super",
-        )
-    
-models = ["SFNO", "Pangu6", "Pangu6x", "Pangu24", "FuXi", "FuXiShort", "FuXiMedium", "FuXiLong", "FCN3", "GraphCastOperational", "FCN"]
+        year_range,
+        ic_months,
+        ic_str,
+        ylat,
+        xlon,
+        locrad,
+        amp,
+        rpath,
+        opath,
+        model="super",
+    ).astype("float64")
+
+models = [
+    "SFNO",
+    "Pangu6",
+    "Pangu6x",
+    "Pangu24",
+    "FuXi",
+    "FuXiShort",
+    "FuXiMedium",
+    "FuXiLong",
+    "FCN3",
+    "GraphCastOperational",
+    "FCN",
+]
 for model in models:
     model_var_names = model_info.MODEL_VARIABLES.get(model)["names"]
     model_ds = super_ds[model_var_names]
@@ -330,24 +346,38 @@ opath = (
 )
 opath.mkdir(parents=False, exist_ok=True)
 
-if (opath/f"{ic_str}_{int(ylat)}N_{int(xlon)}E_z-regression_super.nc").exists():
+if (opath / f"{ic_str}_{int(ylat)}N_{int(xlon)}E_z-regression_super.nc").exists():
     print(f"Regression file already exists for {ylat}N, {xlon}E. Skipping computation.")
-    super_ds = xr.open_dataset(opath/f"{ic_str}_{int(ylat)}N_{int(xlon)}E_z-regression_super.nc")
+    super_ds = xr.open_dataset(
+        opath / f"{ic_str}_{int(ylat)}N_{int(xlon)}E_z-regression_super.nc"
+    ).astype("float64")
 else:
     super_ds = compute_regression(
-            year_range,
-            ic_months,
-            ic_str,
-            ylat,
-            xlon,
-            locrad,
-            amp,
-            rpath,
-            opath,
-            model="super",
-        )
+        year_range,
+        ic_months,
+        ic_str,
+        ylat,
+        xlon,
+        locrad,
+        amp,
+        rpath,
+        opath,
+        model="super",
+    ).astype("float64")
 
-models = ["SFNO", "Pangu6", "Pangu6x", "Pangu24", "FuXi", "FuXiShort", "FuXiMedium", "FuXiLong", "FCN3", "GraphCastOperational", "FCN"]
+models = [
+    "SFNO",
+    "Pangu6",
+    "Pangu6x",
+    "Pangu24",
+    "FuXi",
+    "FuXiShort",
+    "FuXiMedium",
+    "FuXiLong",
+    "FCN3",
+    "GraphCastOperational",
+    "FCN",
+]
 for model in models:
     model_var_names = model_info.MODEL_VARIABLES.get(model)["names"]
     model_ds = super_ds[model_var_names]
