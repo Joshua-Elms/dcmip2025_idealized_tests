@@ -19,62 +19,62 @@ for model in config["models"]:
     heating_path = exp_dir / "auxiliary" / f"heating_{model}.nc"
     heating_ds = xr.open_dataset(heating_path)
 
-    # z1000
-    nt = config["n_timesteps"]
-    titles = [f"{model}: $Z_{{1000}}$ at t={t*6} hours" for t in range(0, nt + 1)]
-    data = ds["z1000"] / (9.8 * 10)
-    plot_var = f"z1000_{model}"
-    vis.create_and_plot_variable_gif(
-        data=data,
-        plot_var=plot_var,
-        iter_var="lead_time",
-        iter_vals=np.arange(0, nt + 1),
-        plot_dir=plot_dir,
-        units="dam",
-        cmap="PRGn",
-        titles=titles,
-        keep_images=False,
-        dpi=300,
-        fps=1,
-        vlims=(-50, 50),  # Set vlims for better visualization
-        central_longitude=180.0,
-    )
-    print(f"Made {plot_var}.gif.")
+    # # z1000
+    # nt = config["n_timesteps"]
+    # titles = [f"{model}: $Z_{{1000}}$ at t={t*6} hours" for t in range(0, nt + 1)]
+    # data = ds["z1000"] / (9.8 * 10)
+    # plot_var = f"z1000_{model}"
+    # vis.create_and_plot_variable_gif(
+    #     data=data,
+    #     plot_var=plot_var,
+    #     iter_var="lead_time",
+    #     iter_vals=np.arange(0, nt + 1),
+    #     plot_dir=plot_dir,
+    #     units="dam",
+    #     cmap="PRGn",
+    #     titles=titles,
+    #     keep_images=False,
+    #     dpi=300,
+    #     fps=1,
+    #     vlims=(-50, 50),  # Set vlims for better visualization
+    #     central_longitude=180.0,
+    # )
+    # print(f"Made {plot_var}.gif.")
 
-    # z1000_anom
-    nt = config["n_timesteps"]
-    plot_var = f"z1000_anom_{model}"
-    titles = [f"{model}: {plot_var} at t={t*6} hours" for t in range(0, nt + 1)]
-    data = (ds["z1000"] - ds["z1000"].isel(lead_time=0)) / (9.8 * 10)
-    vis.create_and_plot_variable_gif(
-        data=data,
-        plot_var=plot_var,
-        iter_var="lead_time",
-        iter_vals=np.arange(0, nt + 1),
-        plot_dir=plot_dir,
-        units="dam",
-        cmap="PRGn",
-        titles=titles,
-        keep_images=False,
-        dpi=300,
-        fps=1,
-        vlims=(-5, 5),  # Set vlims for better visualization
-        central_longitude=180.0,
-    )
-    print(f"Made {plot_var}.gif.")
+    # # z1000_anom
+    # nt = config["n_timesteps"]
+    # plot_var = f"z1000_anom_{model}"
+    # titles = [f"{model}: {plot_var} at t={t*6} hours" for t in range(0, nt + 1)]
+    # data = (ds["z1000"] - ds["z1000"].isel(lead_time=0)) / (9.8 * 10)
+    # vis.create_and_plot_variable_gif(
+    #     data=data,
+    #     plot_var=plot_var,
+    #     iter_var="lead_time",
+    #     iter_vals=np.arange(0, nt + 1),
+    #     plot_dir=plot_dir,
+    #     units="dam",
+    #     cmap="PRGn",
+    #     titles=titles,
+    #     keep_images=False,
+    #     dpi=300,
+    #     fps=1,
+    #     vlims=(-5, 5),  # Set vlims for better visualization
+    #     central_longitude=180.0,
+    # )
+    # print(f"Made {plot_var}.gif.")
 
-    # heating w/ cartopy borders
-    fig, ax = plt.subplots(
-        figsize=(10, 5), subplot_kw={"projection": ccrs.PlateCarree()}
-    )
-    heating_ds["t1000"].isel(time=0).plot(
-        ax=ax, cmap="RdBu", cbar_kwargs={"label": "Heating (K/day)"}
-    )
-    ax.coastlines()
-    ax.set_title(f"{model}: Heating")
-    plt.savefig(plot_dir / f"heating_{model}.png", dpi=200)
-    plt.close(fig)
-    print(f"Made heating_{model}.png")
+    # # heating w/ cartopy borders
+    # fig, ax = plt.subplots(
+    #     figsize=(10, 5), subplot_kw={"projection": ccrs.PlateCarree()}
+    # )
+    # heating_ds["t1000"].isel(time=0).plot(
+    #     ax=ax, cmap="RdBu", cbar_kwargs={"label": "Heating (K/day)"}
+    # )
+    # ax.coastlines()
+    # ax.set_title(f"{model}: Heating")
+    # plt.savefig(plot_dir / f"heating_{model}.png", dpi=200)
+    # plt.close(fig)
+    # print(f"Made heating_{model}.png")
 
     # plot from paper
     ### begin HM24 fig. 1
@@ -91,41 +91,42 @@ for model in config["models"]:
     panel_label = ["(A)", "(B)", "(C)"]
     plot_vec = False
     axi = -1
+    g = 9.81
     lat, lon = ds["lat"].values, ds["lon"].values
-    for it in [120, 240, 360]:
+    for it in [120, 240, 480]:
         axi += 1
 
         # h&m24 plot replication
         # _mean indicates the mean state
         # _pert indicates the perturbed run
-        # _anom indicates the anomaly (perturbated run - mean state)
+        # _anom indicates the anomaly (perturbed run - mean state)
         ds500 = ds.sel(lead_time=it).squeeze()
-        z1000_mean = ds["z1000"].isel(lead_time=0).squeeze().values
-        z1000_pert = ds500["z1000"].values
+        z500_mean = ds["z500"].isel(lead_time=0).squeeze().values
+        z500_pert = ds500["z500"].values
         u500_pert = ds500["u500"].values
         v500_pert = ds500["v500"].values
         u500_mean = ds["u500"].isel(lead_time=0).squeeze().values
         v500_mean = ds["v500"].isel(lead_time=0).squeeze().values
-        pzdat = z1000_pert - z1000_mean
+        pzdat = (z500_pert - z500_mean) / g
         udat = u500_pert - u500_mean
         vdat = v500_pert - v500_mean
-        basefield = z1000_mean
+        basefield = z500_mean / g
 
         heating = heating_ds["t500"].isel(time=0).squeeze().values
         if it == 0:
             dcint = 0.000001
-            ncint = 1
+            ncint = 5
         elif it == 120:
-            dcint = 1
-            ncint = 1
+            dcint = 0.3
+            ncint = 5
             vscale = 50  # vector scaling (counterintuitive:smaller=larger arrows)
         elif it == 240:
             dcint = 2
-            ncint = 1
+            ncint = 5
             vscale = 100  # vector scaling (counterintuitive:smaller=larger arrows)
         else:
             dcint = 20
-            ncint = 1
+            ncint = 5
             vscale = 250  # vector scaling (counterintuitive:smaller=larger arrows)
 
         if plot_vec:
@@ -175,9 +176,9 @@ for model in config["models"]:
         cints_neg = list(np.arange(-ncint * dcint, -dcint + 0.001, dcint))
         cints_pos = list(np.arange(dcint, ncint * dcint + 0.001, dcint))
         lw = 2.0
-        print(f"Time: {it} hours")
-        print(f"Negative intervals: {cints_neg}")
-        print(f"Positive intervals: {cints_pos}")
+        # print(f"Time: {it} hours")
+        # print(f"Negative intervals: {cints_neg}")
+        # print(f"Positive intervals: {cints_pos}")
         cs = ax[axi].contour(
             lon,
             lat,
@@ -234,6 +235,6 @@ for model in config["models"]:
 
     fig.tight_layout()
     fname = f"heating_500z_{model}.pdf"
-    plt.savefig(plot_dir / fname, dpi=100, bbox_inches="tight")
+    plt.savefig(plot_dir / fname, dpi=300, bbox_inches="tight")
     print(f"Saved {fname} to {plot_dir}.")
     ### end HM24 fig. 1

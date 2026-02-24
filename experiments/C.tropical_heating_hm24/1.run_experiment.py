@@ -1,4 +1,4 @@
-from utils import general
+from utils import general, model_info
 from torch.cuda import mem_get_info
 from earth2studio.io import XarrayBackend
 import xarray as xr
@@ -63,11 +63,14 @@ def run_experiment(model_name: str, config_path: str) -> str:
     )  # add time coordinate
     tvars = [
         var
-        for var in model.input_variables()
+        for var in model_info.MODEL_VARIABLES[model_name]["names"]
         if var.startswith("t") and var[1:].isdigit()
     ]
-    tvar_levs = [int(var[1:]) for var in tvars]
-    perturb_variables = tvars[(tvar_levs <= 1000) & (tvar_levs >= 200)]
+    tvar_levs = np.array([int(var[1:]) for var in tvars])
+    # perturb_variables = tvars[(tvar_levs <= 1000) & (tvar_levs >= 200)]
+    perturb_variables = [
+        tvar for tvar, lev in zip(tvars, tvar_levs) if (lev >= 200) and (lev <= 1000)
+    ]
     for var in perturb_variables:
         heating_ds[var] = xr.DataArray(
             heating, model_coords, dims=["time", "lat", "lon"]
@@ -84,7 +87,6 @@ def run_experiment(model_name: str, config_path: str) -> str:
         "io": xr_io,
         "device": config["device"],
     }
-
     ds = general.run_deterministic_w_perturbations(
         run_kwargs,
         config["tendency_reversion"],
