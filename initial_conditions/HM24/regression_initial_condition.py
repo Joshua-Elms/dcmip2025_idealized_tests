@@ -264,67 +264,67 @@ year_range = range(
 # collect individual netcdf files here:
 rpath = base_dir / "raw"
 
-### DJF ###
+# ### DJF ###
 
-ic_months = [12, 1, 2]
-ic_str = "DJF"
+# ic_months = [12, 1, 2]
+# ic_str = "DJF"
 
-# write regression results here:
-opath = (
-    base_dir
-    / f"{ic_str}_{start_end_years_inc[0]}-{start_end_years_inc[1]}/reg_pert_files"
-)
-opath.mkdir(parents=False, exist_ok=True)
+# # set lat/lon of perturbation in degrees N, E
+# ylat = 40
+# xlon = 150
+# # localization radius in km for the scale of the initial perturbation
+# locrad = 2000.0
+# # scaling amplitude for initial condition (1=climo variance at the base point)
+# amp = -1.0
 
-# set lat/lon of perturbation in degrees N, E
-ylat = 40
-xlon = 150
-# localization radius in km for the scale of the initial perturbation
-locrad = 2000.0
-# scaling amplitude for initial condition (1=climo variance at the base point)
-amp = -1.0
+# # write regression results here:
+# opath = (
+#     base_dir
+#     / f"{ic_str}_{start_end_years_inc[0]}-{start_end_years_inc[1]}/reg_pert_files_ylat={ylat}_xlon={xlon}"
+# )
+# opath.mkdir(parents=False, exist_ok=True)
 
-if (opath / f"{ic_str}_{int(ylat)}N_{int(xlon)}E_z-regression_super.nc").exists():
-    print(f"Regression file already exists for {ylat}N, {xlon}E. Skipping computation.")
-    super_ds = xr.open_dataset(
-        opath / f"{ic_str}_{int(ylat)}N_{int(xlon)}E_z-regression_super.nc"
-    ).astype("float64")
-else:
-    super_ds = compute_regression(
-        year_range,
-        ic_months,
-        ic_str,
-        ylat,
-        xlon,
-        locrad,
-        amp,
-        rpath,
-        opath,
-        model="super",
-    ).astype("float64")
+# if (opath / f"{ic_str}_{int(ylat)}N_{int(xlon)}E_z-regression_super.nc").exists():
+#     print(f"Regression file already exists for {ylat}N, {xlon}E. Skipping computation.")
+#     super_ds = xr.open_dataset(
+#         opath / f"{ic_str}_{int(ylat)}N_{int(xlon)}E_z-regression_super.nc"
+#     ).astype("float64")
+# else:
+#     super_ds = compute_regression(
+#         year_range,
+#         ic_months,
+#         ic_str,
+#         ylat,
+#         xlon,
+#         locrad,
+#         amp,
+#         rpath,
+#         opath,
+#         model="super",
+#     ).astype("float64")
 
-models = [
-    "SFNO",
-    "Pangu6",
-    "Pangu6x",
-    "Pangu24",
-    "FuXi",
-    "FuXiShort",
-    "FuXiMedium",
-    "FuXiLong",
-    "FCN3",
-    "GraphCastOperational",
-    "FCN",
-]
-for model in models:
-    model_var_names = model_info.MODEL_VARIABLES.get(model)["names"]
-    model_ds = super_ds[model_var_names]
-    save_file = opath / f"{ic_str}_{int(ylat)}N_{int(xlon)}E_z-regression_{model}.nc"
-    if save_file.exists():
-        print(f"Warning: {save_file} already exists. Overwriting.")
-        save_file.unlink()  # remove the existing file
-    model_ds.to_netcdf(save_file, mode="w", format="NETCDF4")
-    print(f"Saved {model} regression fields to {save_file}")
+# models = [
+#     "SFNO",
+#     "Pangu6",
+#     "Pangu6x",
+#     "Pangu24",
+#     "FuXi",
+#     "FuXiShort",
+#     "FuXiMedium",
+#     "FuXiLong",
+#     "FCN3",
+#     "GraphCastOperational",
+#     "FCN",
+# ]
+# for model in models:
+#     model_var_names = model_info.MODEL_VARIABLES.get(model)["names"]
+#     model_ds = super_ds[model_var_names]
+#     save_file = opath / f"{ic_str}_{int(ylat)}N_{int(xlon)}E_z-regression_{model}.nc"
+#     if save_file.exists():
+#         print(f"Warning: {save_file} already exists. Overwriting.")
+#         save_file.unlink()  # remove the existing file
+#     model_ds.to_netcdf(save_file, mode="w", format="NETCDF4")
+#     print(f"Saved {model} regression fields to {save_file}")
 
 
 ### JAS ###
@@ -342,7 +342,7 @@ amp = -1.0
 # write regression results here:
 opath = (
     base_dir
-    / f"{ic_str}_{start_end_years_inc[0]}-{start_end_years_inc[1]}/reg_pert_files"
+    / f"{ic_str}_{start_end_years_inc[0]}-{start_end_years_inc[1]}/reg_pert_files_ylat={ylat}_xlon={xlon}"
 )
 opath.mkdir(parents=False, exist_ok=True)
 

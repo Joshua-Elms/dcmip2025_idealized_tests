@@ -53,7 +53,6 @@ def run_experiment(model_name: str, config_path: str) -> str:
     
     ds_list = []
     for i, amp in enumerate(amp_vec):
-        breakpoint()
         # run experiment in loop, applying diff pert amplitude each iteration
         run_kwargs = {
             "time": np.atleast_1d(np.datetime64("2000-01-01")),

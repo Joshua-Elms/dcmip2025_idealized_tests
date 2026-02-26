@@ -1,5 +1,5 @@
 experiment_dir: data/
-experiment_name: E2S
+experiment_name: E2S_0amp
 models: ["Pangu24"]
 n_timesteps: 20
 device: cuda:0
@@ -9,7 +9,7 @@ overwrite: True
 initial_condition_params:
   HM24_IC_dir: /N/slate/jmelms/projects/IC/DJF_1979-2019/IC_files
 perturbation_params:
-  amp: 0.1
+  amp: 0.
   k: 6
   ylat: 0
   xlon: 120

@@ -1,4 +1,4 @@
-from utils import general, vis
+from utils import general, vis, model_info
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
@@ -41,27 +41,30 @@ for model in config["models"]:
     # )
     # print(f"Made {plot_var}.gif.")
 
-    # # z1000_anom
-    # nt = config["n_timesteps"]
-    # plot_var = f"z1000_anom_{model}"
-    # titles = [f"{model}: {plot_var} at t={t*6} hours" for t in range(0, nt + 1)]
-    # data = (ds["z1000"] - ds["z1000"].isel(lead_time=0)) / (9.8 * 10)
-    # vis.create_and_plot_variable_gif(
-    #     data=data,
-    #     plot_var=plot_var,
-    #     iter_var="lead_time",
-    #     iter_vals=np.arange(0, nt + 1),
-    #     plot_dir=plot_dir,
-    #     units="dam",
-    #     cmap="PRGn",
-    #     titles=titles,
-    #     keep_images=False,
-    #     dpi=300,
-    #     fps=1,
-    #     vlims=(-5, 5),  # Set vlims for better visualization
-    #     central_longitude=180.0,
-    # )
-    # print(f"Made {plot_var}.gif.")
+    # z500_anom
+    nt = config["n_timesteps"]
+    plot_var = f"z500_anom_{model}"
+    titles = [
+        f"{plot_var} at t={t*model_info.MODEL_TIME_STEP_HOURS[model]} hours"
+        for t in range(15, nt + 1)
+    ]
+    data = np.abs(ds["z500"] - ds["z500"].isel(lead_time=0))[15:]
+    vis.create_and_plot_variable_gif(
+        data=data,
+        plot_var=plot_var,
+        iter_var="lead_time",
+        iter_vals=np.arange(6),
+        plot_dir=plot_dir,
+        units="J/kg",
+        cmap="Reds",
+        titles=titles,
+        keep_images=False,
+        dpi=300,
+        fps=1 / 4,
+        vlims=(0, 60),  # Set vlims for better visualization
+        central_longitude=180.0,
+    )
+    print(f"Made {plot_var}.gif.")
 
     # # heating w/ cartopy borders
     # fig, ax = plt.subplots(
@@ -238,3 +241,6 @@ for model in config["models"]:
     plt.savefig(plot_dir / fname, dpi=300, bbox_inches="tight")
     print(f"Saved {fname} to {plot_dir}.")
     ### end HM24 fig. 1
+    z500 = ds["z500"].values
+    print(f"Mean of z500 (for scale): {z500.mean()}")
+    print(f"Max diffs between t=0 and t=-1: {(z500[-1] - z500[0]).max()}")

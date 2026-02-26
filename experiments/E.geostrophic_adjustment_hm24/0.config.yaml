@@ -1,18 +1,20 @@
 experiment_dir: data/
-experiment_name: test
-models: ["Pangu6x", "FCN"]
-n_timesteps: 4
+experiment_name: E2S
+models: ["Pangu6x"]
+n_timesteps: 1
 device: cuda:0
 tendency_reversion: True
 debug_run: False
 overwrite: True
 initial_condition_params:
-  HM24_IC_dir: /N/slate/jmelms/projects/HM24_ICs/DJF_2019-2019/IC_files
+  HM24_IC_dir: /N/slate/jmelms/projects/IC/DJF_1979-2019/IC_files
   season: DJF
 perturbation_params:
-  perturbation_dir: /N/slate/jmelms/projects/IC/DJF_2019-2019/reg_pert_files
+  perturbation_dir: /N/slate/jmelms/projects/IC/DJF_1979-2019/reg_pert_files_ylat=40_xlon=150
   amp: 1
   pert_var: z500
+  lat_shift: 0
+  lon_shift: 0
 experiment_subdirectories: 
   - "plots"
   - "auxiliary"

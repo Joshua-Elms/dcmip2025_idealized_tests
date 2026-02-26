@@ -10,7 +10,7 @@ initial_condition_params:
   HM24_IC_dir: /N/slate/jmelms/projects/IC/DJF_1979-2019/IC_files
   season: DJF
 perturbation_params:
-  perturbation_dir: /N/slate/jmelms/projects/IC/DJF_1979-2019/reg_pert_files
+  perturbation_dir: /N/slate/jmelms/projects/IC/DJF_1979-2019/reg_pert_files_ylat=40_xlon=150
   amp: 1
 experiment_subdirectories: 
   - "plots"
