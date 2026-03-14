@@ -13,13 +13,15 @@ from pathlib import Path
 import numpy as np
 import xarray as xr
 
-e2s_IC_path = "/N/slate/jmelms/projects/IC/DJF_1979-2019/IC_files/Pangu24.nc"
-hm24_IC_path = "/N/slate/jmelms/projects/IC/DJF_HM24/IC_files/mean_DJF.h5"
-output_IC_path = "/N/slate/jmelms/projects/IC/DJF_HM24/IC_files/Pangu24.nc"
+exper = "TC"  # ["ETC", "TC"] are options
 
-e2s_pert_path = "/N/slate/jmelms/projects/IC/DJF_1979-2019/reg_pert_files/DJF_40N_150E_z-regression_Pangu24.nc"
-hm24_pert_path = "/N/slate/jmelms/projects/IC/DJF_HM24/reg_pert_files/cyclone_DJF_40N_150E_regression.h5"
-output_pert_path = "/N/slate/jmelms/projects/IC/DJF_HM24/reg_pert_files/DJF_40N_150E_z-regression_Pangu24.nc"
+e2s_IC_path = "/N/slate/jmelms/projects/IC/JAS_2016-2020/IC_files/Pangu24.nc"
+hm24_IC_path = "/N/slate/jmelms/projects/IC/JAS_HM24/IC_files/mean_JAS.h5"
+output_IC_path = "/N/slate/jmelms/projects/IC/JAS_HM24/IC_files/Pangu24.nc"
+
+e2s_pert_path = "/N/slate/jmelms/projects/IC/JAS_2016-2020/reg_pert_files_ylat=15.0_xlon=320.0/JAS_15N_320E_z-regression_Pangu24.nc"
+hm24_pert_path = "/N/slate/jmelms/projects/IC/JAS_HM24/reg_pert_files/hurricane_JAS_15N_40W_regression.h5"
+output_pert_path = "/N/slate/jmelms/projects/IC/JAS_HM24/reg_pert_files/JAS_15N_320E_z-regression_Pangu24.nc"
 
 e2s_IC = xr.open_dataset(e2s_IC_path).astype("float64")
 hm24_IC = xr.open_dataset(hm24_IC_path).astype("float64")
@@ -38,14 +40,26 @@ hm24_sl_vars = ["msl", "u10m", "v10m", "t2m"]
 ic = xr.zeros_like(e2s_IC)
 pert = xr.zeros_like(e2s_pert)
 output_dat = [ic, pert]
-hm24_pl_dat = [
-    hm24_IC["mean_pl"].to_numpy(),
-    np.roll(hm24_pert["regf_pl"].to_numpy(), shift=(129, 505), axis=(-2, -1)),
-]
-hm24_sl_dat = [
-    hm24_IC["mean_sfc"].to_numpy(),
-    np.roll(hm24_pert["regf_sfc"].to_numpy(), shift=(129, 505), axis=(-2, -1)),
-]
+if exper == "ETC":
+    hm24_pl_dat = [
+        hm24_IC["mean_pl"].to_numpy(),
+        np.roll(hm24_pert["regf_pl"].to_numpy(), shift=(129, 505), axis=(-2, -1)),
+    ]
+    hm24_sl_dat = [
+        hm24_IC["mean_sfc"].to_numpy(),
+        np.roll(hm24_pert["regf_sfc"].to_numpy(), shift=(129, 505), axis=(-2, -1)),
+    ]
+elif exper == "TC":
+    # current lowest val in reg pert is loc at index (34,37), should be moved to roughly 
+    # (300,1280)
+    hm24_pl_dat = [
+        hm24_IC["mean_pl"].to_numpy(),
+        np.roll(hm24_pert["regf_pl"].to_numpy(), shift=(265, 1243), axis=(-2, -1)),
+    ]
+    hm24_sl_dat = [
+        hm24_IC["mean_sfc"].to_numpy(),
+        np.roll(hm24_pert["regf_sfc"].to_numpy(), shift=(265, 1243), axis=(-2, -1)),
+    ]
 writepaths = [output_IC_path, output_pert_path]
 
 for ds, pl_dat, sl_dat, writepath in zip(
@@ -68,8 +82,8 @@ for ds, pl_dat, sl_dat, writepath in zip(
     ds.to_netcdf(writepath)
     print(f"Wrote to {writepath}")
 
-means_E2S = {k: v.item() for k, v in dict(e2s_IC.mean()).items()}
-means_HM24 = {k: v.item() for k, v in dict(ic.mean()).items()}
+means_E2S = {k: v.item() for k, v in dict(e2s_pert.mean()).items()}
+means_HM24 = {k: v.item() for k, v in dict(pert.mean()).items()}
 print("Mean differences in E2S and HM24:")
 for k in means_E2S:
     v1 = means_E2S[k]

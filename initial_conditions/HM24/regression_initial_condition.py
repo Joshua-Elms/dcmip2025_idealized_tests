@@ -276,6 +276,7 @@ rpath = base_dir / "raw"
 # locrad = 2000.0
 # # scaling amplitude for initial condition (1=climo variance at the base point)
 # amp = -1.0
+# regress_against_var = "z500"
 
 # # write regression results here:
 # opath = (
@@ -300,6 +301,7 @@ rpath = base_dir / "raw"
 #         amp,
 #         rpath,
 #         opath,
+#         independent_var = regress_against_var,
 #         model="super",
 #     ).astype("float64")
 
@@ -338,6 +340,7 @@ xlon = 360.0 - 40.0
 locrad = 1000.0
 # scaling amplitude for initial condition (1=climo variance at the base point)
 amp = -1.0
+regress_against_var = "msl"
 
 # write regression results here:
 opath = (
@@ -362,6 +365,7 @@ else:
         amp,
         rpath,
         opath,
+        independent_var=regress_against_var,
         model="super",
     ).astype("float64")
 

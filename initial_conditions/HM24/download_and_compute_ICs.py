@@ -330,12 +330,13 @@ def create_ICs_from_time_means(
 
 if __name__ == "__main__":
     ncpus = 4  # number of CPUs to use for parallelization, don't exceed available ncpus
-    start_end_years_inc = [1979, 2019]
+    start_end_years_inc = [2016, 2020]
     year_range_name = f"{start_end_years_inc[0]}-{start_end_years_inc[1]}"
     year_range = range(
         start_end_years_inc[0], start_end_years_inc[1] + 1
     )  # inclusive range
-    seasons = {"DJF": [12, 1, 2], "JAS": [7, 8, 9]}
+    # seasons = {"DJF": [12, 1, 2], "JAS": [7, 8, 9]}
+    seasons = {"JAS": [7, 8, 9]}
     models = [
         "FCN",
         "SFNO",
@@ -354,6 +355,8 @@ if __name__ == "__main__":
     for season, months in seasons.items():
         print(f"Processing season {season}")
         dates = generate_dates(year_range, months)
+        print(f"n_dates: {len(dates)}")
+        print(f"Dates: {dates}")
         all_vars = [var for var in model_info.MASTER_VARIABLES_NAMES if var != "tp06"]
         all_types = [
             vtype
