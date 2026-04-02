@@ -1,10 +1,10 @@
 experiment_dir: data/
-experiment_name: e2s_ic
+experiment_name: full_run_0401
 tendency_reversion: True
 device: cuda:0
 n_timesteps: 16
 debug_run: False
-models: ["Pangu24", "Pangu6x"]
+models: ["Pangu24", "Pangu6x", "FCN", "SFNO", "FCN3", "FuXiShort", "FuXiMedium", "FuXiLong"]
 overwrite: True
 initial_condition_params:
   HM24_IC_dir: /N/slate/jmelms/projects/IC/DJF_1979-2019/IC_files

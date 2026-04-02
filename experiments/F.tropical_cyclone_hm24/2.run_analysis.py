@@ -126,11 +126,17 @@ for model_name in models:
     mean_msl = mean_ds["msl"].values
     lat, lon = mean_ds.lat.values, mean_ds.lon.values
     pmsave = []
+    col_inc = -1
     for i, amp in enumerate(amp_vec):
         tend_path = tendency_file = (
             output_dir / "auxiliary" / f"tendency_{model_name}_amp={amp}.nc"
         )
-        msl_time_series = ds["msl"].isel(amplitude=i).values.squeeze()
+        moist_run = pert_params["moist_run"][i]
+        if moist_run:
+            col_inc += 1
+        msl_time_series = (
+            ds["msl"].isel(amplitude=i, moist_run=moist_run).values.squeeze()
+        )
         latmin, lonmin, pmin = tc_vitals(msl_time_series - mean_msl, lat, lon)
         pmsave.append(pmin)
 
@@ -144,19 +150,22 @@ for model_name in models:
         # print(f"Amp = {amp}, i = {i}")
         # print(f"Latmin: {latmin}")
         # print(f"Lonmin: {lonmin}")
-        # print(f"Pmin: {pmin}\n")
 
         latmin = np.insert(latmin, 0, np.array(15))
         lonmin = np.insert(lonmin, 0, np.array(320))
-        ax.plot(
-            lonmin,
-            latmin,
-            marker="o",
-            label=rf"x {int(amp)}",
-            alpha=1,
-            color=cols[i],
-            transform=ccrs.PlateCarree(),
-        )
+        if moist_run:
+            ax.plot(
+                lonmin,
+                latmin,
+                marker="o",
+                label=rf"x {int(amp)}",
+                alpha=1,
+                color=cols[col_inc],
+                linestyle="-",
+                transform=ccrs.PlateCarree(),
+            )
+        else:
+            print(f'not plotting dry run w/ {amp = }')
 
     plt.legend()
     gl.top_labels = False
@@ -169,12 +178,21 @@ for model_name in models:
     days = np.arange(0, (n_timesteps * timestep_hours) / 24 + dstep, dstep)
     lw = 2
     fig, ax = plt.subplots()
+    col_inc = -1
     for h in range(len(amp_vec)):
+        moist_run = pert_params["moist_run"][h]
+        if moist_run:
+            col_inc += 1
+            linestyle = "-"
+        else:
+            linestyle = "--"
+        linecolor = cols[col_inc]
         ax.plot(
             days,
             pmsave[h],
             linewidth=lw,
-            color=cols[h],
+            color=linecolor,
+            linestyle=linestyle,
             label="x " + str(int(amp_vec[h])),
         )
         # if amp_vec[h] == 10:
@@ -196,24 +214,24 @@ for model_name in models:
 
     # # MSLP anomalies (global)
     # titles = [
-    #     f"{model_name.upper()}: MSLP Anomalies from JAS at t={t*model_info.MODEL_TIME_STEP_HOURS[model_name]} hours"
+    #     f"{model_name.upper()}: Q1000 Anomalies from JAS at t={t*model_info.MODEL_TIME_STEP_HOURS[model_name]} hours"
     #     for t in range(0, n_timesteps + 1)
     # ]
-    # data = ds["msl"].isel(amplitude=5).squeeze() - mean_ds["msl"].squeeze()
-    # plot_var = f"msl_global_{model_name}_10"
+    # data = ds["q1000"].sel(amplitude=10, moist_run=1).isel(amplitude=0).squeeze() - mean_ds["q1000"].squeeze()
+    # plot_var = f"q1000_global_{model_name}_10_q"
     # vis.create_and_plot_variable_gif(
     #     data=data,
     #     plot_var=plot_var,
     #     iter_var="lead_time",
     #     iter_vals=np.arange(0, n_timesteps + 1),
     #     plot_dir=plot_dir,
-    #     units="m",
-    #     cmap="bwr",
+    #     units="?",
+    #     cmap="Blues",
     #     titles=titles,
     #     keep_images=False,
     #     dpi=300,
     #     fps=2,
-    #     vlims=(-50, 50),  # Set vlims for better visualization
+    #     # vlims=(0, 50),  # Set vlims for better visualization
     #     # extent=[270, 330, 5, 55],
     #     central_longitude=180.0,
     #     fig_size=(7.5, 3.5),
@@ -234,7 +252,7 @@ for model_name in models:
     #     },
     # )
 
-    # print(f"Made {plot_var}.gif.")
-    # #
-    # ### End Tropical Cyclone Visualizations ###
-    # #
+    # # print(f"Made {plot_var}.gif.")
+    # # #
+    # # ### End Tropical Cyclone Visualizations ###
+    # # #

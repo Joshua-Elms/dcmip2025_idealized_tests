@@ -28,7 +28,7 @@ g = 9.81  # m/s^2
 
 for model_name in models:
     if model_name == "Pangu24":
-        exit()
+        continue
     print(f"Visualizing {model_name}")
     IC_path = (
         Path(config["initial_condition_params"]["HM24_IC_dir"]) / f"{model_name}.nc"
@@ -38,13 +38,18 @@ for model_name in models:
         / f"{season}_40N_150E_z-regression_{model_name}.nc"
     )
     nc_output_file = output_dir / f"output_{model_name}.nc"
-    ds = xr.open_dataset(nc_output_file).sortby("lat", ascending=False)
     mean_ds = xr.open_dataset(IC_path).sortby("lat", ascending=False)
+    ds = xr.open_dataset(nc_output_file).sortby("lat", ascending=False)
+    if len(ds.lat.values) == 720:
+        mean_ds = mean_ds.isel(lat=slice(0,720))
     print("Dividing geopotential Z [m^2/s^2] by 9.8 [m/s^2] to convert to height z [m]")
     for level in model_info.STANDARD_13_LEVELS:
-        levstr = f"z{level}"
-        ds[levstr] = ds[levstr] / (g)  # convert to geopot. height
-        mean_ds[levstr] = mean_ds[levstr] / (g)  # convert to geopot. height
+        try:
+            levstr = f"z{level}"
+            ds[levstr] = ds[levstr] / (g)  # convert to geopot. height
+            mean_ds[levstr] = mean_ds[levstr] / (g)  # convert to geopot. height
+        except KeyError:
+            print(f"Model {model_name} not have {levstr}")
 
     print(f"Loaded data from {model_name}, beginning visualization.")
 
@@ -69,7 +74,7 @@ for model_name in models:
     )
 
     panel_label = ["(A)", "(D)"]
-    figfile = plot_dir / "geo_adjust_500_40N.pdf"
+    figfile = plot_dir / f"geo_adjust_500_40N_{model_name}.pdf"
 
     axi = -1
     lat, lon = ds["lat"].values, ds["lon"].values
@@ -86,8 +91,6 @@ for model_name in models:
         udat = u500_pert - u500_mean
         vdat = v500_pert - v500_mean
         basefield = z500_pert
-        
-        breakpoint()
 
         dcint = 20
         ncint = 5
@@ -194,12 +197,13 @@ for model_name in models:
         ax[axi].set_extent([120, 200, 25, 55], crs=ccrs.PlateCarree())  # Pacific
         ax[axi].text(113, 25, panel_label[axi], transform=ccrs.PlateCarree())
 
-        print("zmin for t=", it, ":", np.min(pzdat), "m")
+    print("zmin for t=", it, ":", np.min(pzdat), "m")
 
-        fig.tight_layout()
-        plt.savefig(figfile, dpi=300, bbox_inches="tight")
-        ### end HM24 Fig. 3
+    fig.tight_layout()
+    plt.savefig(figfile, dpi=300, bbox_inches="tight")
 
-        #
-        ### End Extratropical Cyclone Visualizations ###
-        #
+    ### end HM24 Fig. 3
+
+    #
+    ### End Extratropical Cyclone Visualizations ###
+    #

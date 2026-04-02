@@ -1,10 +1,10 @@
 experiment_dir: data/
-experiment_name: E2S
+experiment_name: full_run_0402_small_IC
 tendency_reversion: True
 device: cuda:0
-n_timesteps: 12
+n_timesteps: 48
 debug_run: False
-models: ["Pangu24"]
+models: ["Pangu24", "Pangu6x", "FCN", "SFNO", "FCN3", "FuXiShort", "FuXiMedium", "FuXiLong"]
 overwrite: True
 keep_vars: ["msl", "sp", "t2m", "u10m", "v10m", "z500", "tcwv", "q1000", "r1000"]
 initial_condition_params:
@@ -12,7 +12,10 @@ initial_condition_params:
   season: JAS
 perturbation_params:
   perturbation_dir: /N/slate/jmelms/projects/IC/JAS_2016-2020/reg_pert_files_ylat=15.0_xlon=320.0
-  amp_vec: [1.,5.,7.,8.,10.,20.] 
+  amp_vec: [1.,5.,7.,8.,10.,10.,20.] 
+  # amp_vec: [10., 10.]
+  moist_run: [1,1,1,1,1,0,1]
+  # moist_run: [1, 0]
   bounding_box: [270, 330, 5, 55]
   cmap: "viridis"
 experiment_subdirectories: 

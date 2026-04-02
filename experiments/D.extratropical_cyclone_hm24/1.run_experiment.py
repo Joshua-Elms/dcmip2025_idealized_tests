@@ -1,4 +1,4 @@
-from utils import general
+from utils import general, model_info
 from torch.cuda import mem_get_info
 from earth2studio.io import XarrayBackend
 import xarray as xr
@@ -43,6 +43,14 @@ def run_experiment(model_name: str, config_path: str) -> str:
 
     # load the time-mean initial condition from HM24
     IC_ds = xr.open_dataset(IC_path)
+    n_history_steps = model_info.MODEL_HISTORY_STEPS[model_name]
+
+    if n_history_steps > 1:
+        # tile initial conditions n times along "time" dimension to create history
+        IC_ds = xr.concat([IC_ds] * n_history_steps, dim="time")
+        lead_times = np.arange(0, -n_history_steps, -1) * np.timedelta64(model_info.MODEL_TIME_STEP_HOURS[model_name], "h")
+        IC_ds["time"] = IC_ds["time"].values + lead_times
+    
     IC_ds = general.sort_latitudes(IC_ds, model_name, input=True)
     data_source = general.DataSet(IC_ds, model_name)
 

@@ -116,21 +116,38 @@ for model in config["models"]:
         basefield = z500_mean / g
 
         heating = heating_ds["t500"].isel(time=0).squeeze().values
+        custom_cints = True
         if it == 0:
             dcint = 0.000001
             ncint = 5
+            if custom_cints:
+                ccints_neg = np.array([-0.5])
+                ccints_pos = np.array([0.5])
+                ccints = np.concat([ccints_neg, ccints_pos])
         elif it == 120:
             dcint = 0.3
             ncint = 5
             vscale = 50  # vector scaling (counterintuitive:smaller=larger arrows)
+            if custom_cints:
+                ccints_neg = np.array([-0.7])
+                ccints_pos = np.array([0.4])
+                ccints = np.concat([ccints_neg, ccints_pos])
         elif it == 240:
             dcint = 2
             ncint = 5
             vscale = 100  # vector scaling (counterintuitive:smaller=larger arrows)
+            if custom_cints:
+                ccints_neg = np.array([-10.0, -7.5, -5, -2.5])
+                ccints_pos = np.array([2.5, 5.0, 7.5, 10.0])
+                ccints = np.concat([ccints_neg, ccints_pos])
         else:
             dcint = 20
             ncint = 5
             vscale = 250  # vector scaling (counterintuitive:smaller=larger arrows)
+            if custom_cints:
+                ccints_neg = np.array([-100.0, -75.0, -50.0, -23.0])
+                ccints_pos = np.array([25, 50, 70, 85, 100])
+                ccints = np.concat([ccints_neg, ccints_pos])
 
         if plot_vec:
             # Plot vectors on the map
@@ -173,11 +190,19 @@ for model in config["models"]:
         )
         # perturbations
         alpha = 1.0
-        cints = list(np.arange(-ncint * dcint, -dcint + 0.001, dcint)) + list(
-            np.arange(dcint, ncint * dcint + 0.001, dcint)
+        cints = np.array(
+            list(np.arange(-ncint * dcint, -dcint + 0.001, dcint))
+            + list(np.arange(dcint, ncint * dcint + 0.001, dcint))
         )
-        cints_neg = list(np.arange(-ncint * dcint, -dcint + 0.001, dcint))
-        cints_pos = list(np.arange(dcint, ncint * dcint + 0.001, dcint))
+        cints_neg = np.arange(-ncint * dcint, -dcint + 0.001, dcint)
+        cints_pos = np.arange(dcint, ncint * dcint + 0.001, dcint)
+        if custom_cints:
+            cints_neg = ccints_neg
+            cints_pos = ccints_pos
+            cints = ccints
+            print(f"Using custom cints: {cints}")
+        else:
+            print(f"Using published cints: {cints}")
         lw = 2.0
         # print(f"Time: {it} hours")
         # print(f"Negative intervals: {cints_neg}")

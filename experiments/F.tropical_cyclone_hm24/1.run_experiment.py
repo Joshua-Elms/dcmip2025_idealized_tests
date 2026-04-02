@@ -44,11 +44,20 @@ def run_experiment(model_name: str, config_path: str) -> str:
     # load the time-mean initial condition from HM24
     IC_ds = xr.open_dataset(IC_path)
     IC_ds = general.sort_latitudes(IC_ds, model_name, input=True)
+    
+    n_history_steps = model_info.MODEL_HISTORY_STEPS[model_name]
+
+    if n_history_steps > 1:
+        # tile initial conditions n times along "time" dimension to create history
+        IC_ds = xr.concat([IC_ds] * n_history_steps, dim="time")
+        lead_times = np.arange(0, -n_history_steps, -1) * np.timedelta64(model_info.MODEL_TIME_STEP_HOURS[model_name], "h")
+        IC_ds["time"] = IC_ds["time"].values + lead_times
 
     # read and preprocess initial perturbation
     pert = xr.open_dataset(perturbation_path)
     pert = general.sort_latitudes(pert, model_name, input=True)
     amp_vec = pert_params["amp_vec"]
+    moisture_binary = pert_params["moist_run"]
 
     ds_list = []
     for i, amp in enumerate(amp_vec):
@@ -64,8 +73,15 @@ def run_experiment(model_name: str, config_path: str) -> str:
             "device": config["device"],
         }
         print(f"Running with perturbation amplitude {amp} ({i+1} of {len(amp_vec)})")
-        pert_scaled = pert.copy() * amp  # temporary adding pert adjustment factor
-
+        pert_scaled = pert.copy() * amp 
+        moist_run = moisture_binary[i]
+        if not moist_run:
+            # remove all moisture-having parts of perturbation
+            for i, var_name in enumerate(pert_scaled.data_vars):
+                if model_info.MODEL_VARIABLES[model_name]["moist"][i]:
+                    pert_scaled[var_name] = 0
+                    print(f"Set {var_name} = 0")
+                    
         ds = general.run_deterministic_w_perturbations(
             run_kwargs,
             config["tendency_reversion"],
@@ -75,7 +91,7 @@ def run_experiment(model_name: str, config_path: str) -> str:
         )[keep_vars]
 
         # add amplitude dimension
-        ds = ds.expand_dims({"amplitude": [amp]})
+        ds = ds.expand_dims({"amplitude": [amp], "moist_run": [moist_run]})
 
         ds_list.append(ds)
 

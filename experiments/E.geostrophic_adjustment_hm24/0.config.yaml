@@ -1,6 +1,6 @@
 experiment_dir: data/
-experiment_name: E2S
-models: ["Pangu6x"]
+experiment_name: full_run_0401
+models: ["Pangu24", "Pangu6x", "FCN", "SFNO", "FCN3", "FuXiShort", "FuXiMedium", "FuXiLong"]
 n_timesteps: 1
 device: cuda:0
 tendency_reversion: True
