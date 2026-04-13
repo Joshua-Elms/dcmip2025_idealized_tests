@@ -1,7 +1,7 @@
-experiment_dir: data/
-experiment_name: E2S
-models: ["Pangu24"]
-n_timesteps: 20
+experiment_dir: /N/scratch/jmelms/dcmip2025_idealized_tests/experiments/C.tropical_heating_hm24/
+experiment_name: full_run_0409
+models: ["Pangu24", "Pangu6x", "FCN", "SFNO", "FCN3", "FuXiShort", "FuXiMedium", "FuXiLong"]
+n_timesteps: 80
 device: cuda:0
 tendency_reversion: True
 debug_run: False

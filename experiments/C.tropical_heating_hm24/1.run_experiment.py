@@ -39,6 +39,13 @@ def run_experiment(model_name: str, config_path: str) -> str:
     # load the time-mean initial condition from HM24
     IC_ds = xr.open_dataset(IC_path)
     IC_ds = general.sort_latitudes(IC_ds, model_name, input=True)
+    n_history_steps = model_info.MODEL_HISTORY_STEPS[model_name]
+
+    if n_history_steps > 1:
+        # tile initial conditions n times along "time" dimension to create history
+        IC_ds = xr.concat([IC_ds] * n_history_steps, dim="time")
+        lead_times = np.arange(0, -n_history_steps, -1) * np.timedelta64(model_info.MODEL_TIME_STEP_HOURS[model_name], "h")
+        IC_ds["time"] = IC_ds["time"].values + lead_times
     data_source = general.DataSet(IC_ds, model_name)
 
     # create recurrent perturbation
@@ -51,7 +58,10 @@ def run_experiment(model_name: str, config_path: str) -> str:
     heating = amp * general.gen_elliptical_perturbation(
         IC_ds.lat, IC_ds.lon, k, ylat, xlon, locRad
     )
-    heating = heating[np.newaxis, :]  # init_time
+    if model_name == "FCN":
+        heating = heating[np.newaxis, ..., :720, :]  # init_time
+    else: 
+        heating = heating[np.newaxis, :]  # init_time
     # for any model with multiple input timesteps
     # we should only perturb the final one in the output
     heating_ds = general.create_initial_condition(model)

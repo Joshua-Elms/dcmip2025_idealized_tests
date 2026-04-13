@@ -1,6 +1,6 @@
-experiment_dir: data/
-experiment_name: full_run_0401
-models: ["Pangu24", "Pangu6x", "FCN", "SFNO", "FCN3", "FuXiShort", "FuXiMedium", "FuXiLong"]
+experiment_dir: /N/scratch/jmelms/dcmip2025_idealized_tests/experiments/E.geostrophic_adjustment_hm24/
+experiment_name: full_run_0409
+models: ["FuXiShort", "SFNO"] # "FCN3"
 n_timesteps: 1
 device: cuda:0
 tendency_reversion: True

@@ -330,7 +330,7 @@ def create_ICs_from_time_means(
 
 if __name__ == "__main__":
     ncpus = 4  # number of CPUs to use for parallelization, don't exceed available ncpus
-    start_end_years_inc = [2016, 2020]
+    start_end_years_inc = [2000, 2004]
     year_range_name = f"{start_end_years_inc[0]}-{start_end_years_inc[1]}"
     year_range = range(
         start_end_years_inc[0], start_end_years_inc[1] + 1

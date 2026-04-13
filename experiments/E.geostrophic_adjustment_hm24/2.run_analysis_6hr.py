@@ -202,6 +202,8 @@ for model_name in models:
     fig.tight_layout()
     plt.savefig(figfile, dpi=300, bbox_inches="tight")
 
+    breakpoint()
+    # print(f"{model_name} timesteps 0 and 1 are equal: {}")
     ### end HM24 Fig. 3
 
     #

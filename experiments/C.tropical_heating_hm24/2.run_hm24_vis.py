@@ -41,30 +41,30 @@ for model in config["models"]:
     # )
     # print(f"Made {plot_var}.gif.")
 
-    # z500_anom
-    nt = config["n_timesteps"]
-    plot_var = f"z500_anom_{model}"
-    titles = [
-        f"{plot_var} at t={t*model_info.MODEL_TIME_STEP_HOURS[model]} hours"
-        for t in range(15, nt + 1)
-    ]
-    data = np.abs(ds["z500"] - ds["z500"].isel(lead_time=0))[15:]
-    vis.create_and_plot_variable_gif(
-        data=data,
-        plot_var=plot_var,
-        iter_var="lead_time",
-        iter_vals=np.arange(6),
-        plot_dir=plot_dir,
-        units="J/kg",
-        cmap="Reds",
-        titles=titles,
-        keep_images=False,
-        dpi=300,
-        fps=1 / 4,
-        vlims=(0, 60),  # Set vlims for better visualization
-        central_longitude=180.0,
-    )
-    print(f"Made {plot_var}.gif.")
+    # # z500_anom
+    # nt = config["n_timesteps"]
+    # plot_var = f"z500_anom_{model}"
+    # titles = [
+    #     f"{plot_var} at t={t*model_info.MODEL_TIME_STEP_HOURS[model]} hours"
+    #     for t in range(15, nt + 1)
+    # ]
+    # data = np.abs(ds["z500"] - ds["z500"].isel(lead_time=0))[15:]
+    # vis.create_and_plot_variable_gif(
+    #     data=data,
+    #     plot_var=plot_var,
+    #     iter_var="lead_time",
+    #     iter_vals=np.arange(6),
+    #     plot_dir=plot_dir,
+    #     units="J/kg",
+    #     cmap="Reds",
+    #     titles=titles,
+    #     keep_images=False,
+    #     dpi=300,
+    #     fps=1 / 4,
+    #     vlims=(0, 60),  # Set vlims for better visualization
+    #     central_longitude=180.0,
+    # )
+    # print(f"Made {plot_var}.gif.")
 
     # # heating w/ cartopy borders
     # fig, ax = plt.subplots(
@@ -116,7 +116,7 @@ for model in config["models"]:
         basefield = z500_mean / g
 
         heating = heating_ds["t500"].isel(time=0).squeeze().values
-        custom_cints = True
+        custom_cints = False
         if it == 0:
             dcint = 0.000001
             ncint = 5
@@ -133,16 +133,16 @@ for model in config["models"]:
                 ccints_pos = np.array([0.4])
                 ccints = np.concat([ccints_neg, ccints_pos])
         elif it == 240:
-            dcint = 2
-            ncint = 5
+            dcint = 2.5
+            ncint = 4
             vscale = 100  # vector scaling (counterintuitive:smaller=larger arrows)
             if custom_cints:
                 ccints_neg = np.array([-10.0, -7.5, -5, -2.5])
                 ccints_pos = np.array([2.5, 5.0, 7.5, 10.0])
                 ccints = np.concat([ccints_neg, ccints_pos])
         else:
-            dcint = 20
-            ncint = 5
+            dcint = 25
+            ncint = 4
             vscale = 250  # vector scaling (counterintuitive:smaller=larger arrows)
             if custom_cints:
                 ccints_neg = np.array([-100.0, -75.0, -50.0, -23.0])
@@ -188,6 +188,7 @@ for model in config["models"]:
             transform=ccrs.PlateCarree(),
             alpha=alpha,
         )
+        ax[axi].clabel(cs)
         # perturbations
         alpha = 1.0
         cints = np.array(
@@ -262,7 +263,8 @@ for model in config["models"]:
         ax[axi].text(-0.02, 0.02, panel_label[axi], transform=ax[axi].transAxes)
 
     fig.tight_layout()
-    fname = f"heating_500z_{model}.pdf"
+    # fname = f"heating_500z_{model}_defaultcint={not custom_cints}.pdf"
+    fname = f"heating_500z_{model}_defaults.png"
     plt.savefig(plot_dir / fname, dpi=300, bbox_inches="tight")
     print(f"Saved {fname} to {plot_dir}.")
     ### end HM24 fig. 1

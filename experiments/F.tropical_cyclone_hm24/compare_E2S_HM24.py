@@ -7,7 +7,7 @@ ETC_pert = xr.open_dataset(
     "/N/slate/jmelms/projects/IC/DJF_1979-2019/reg_pert_files_ylat=40_xlon=150/DJF_40N_150E_z-regression_Pangu24.nc"
 )
 e2s_pert = xr.open_dataset(
-    "/N/slate/jmelms/projects/IC/JAS_2016-2020/reg_pert_files_ylat=15.0_xlon=320.0/JAS_15N_320E_z-regression_Pangu24.nc"
+    "/N/slate/jmelms/projects/IC/JAS_1979-2019/reg_pert_files_ylat=15.0_xlon=320.0/JAS_15N_320E_z-regression_Pangu24.nc"
 )
 hm24_pert = xr.open_dataset(
     "/N/slate/jmelms/projects/IC/JAS_HM24/reg_pert_files/JAS_15N_320E_z-regression_Pangu24.nc",

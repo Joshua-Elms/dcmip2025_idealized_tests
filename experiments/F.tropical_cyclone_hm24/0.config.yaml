@@ -1,14 +1,14 @@
-experiment_dir: data/
-experiment_name: full_run_0402_small_IC
+experiment_dir: /N/scratch/jmelms/dcmip2025_idealized_tests/experiments/F.tropical_cyclone_hm24/
+experiment_name: full_run_0410_small_pert
 tendency_reversion: True
 device: cuda:0
 n_timesteps: 48
 debug_run: False
-models: ["Pangu24", "Pangu6x", "FCN", "SFNO", "FCN3", "FuXiShort", "FuXiMedium", "FuXiLong"]
+models: ["Pangu24", "Pangu6x", "FCN", "SFNO", "FuXiShort", "FuXiMedium", "FuXiLong"]
 overwrite: True
 keep_vars: ["msl", "sp", "t2m", "u10m", "v10m", "z500", "tcwv", "q1000", "r1000"]
 initial_condition_params:
-  HM24_IC_dir: /N/slate/jmelms/projects/IC/JAS_2016-2020/IC_files
+  HM24_IC_dir: /N/slate/jmelms/projects/IC/JAS_1979-2019/IC_files
   season: JAS
 perturbation_params:
   perturbation_dir: /N/slate/jmelms/projects/IC/JAS_2016-2020/reg_pert_files_ylat=15.0_xlon=320.0

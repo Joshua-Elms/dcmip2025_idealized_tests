@@ -256,7 +256,7 @@ def compute_regression(
 base_dir = Path("/N/slate/jmelms/projects/IC")
 
 # set dates
-start_end_years_inc = [1979, 2019]
+start_end_years_inc = [2000, 2004]
 year_range = range(
     start_end_years_inc[0], start_end_years_inc[1] + 1
 )  # inclusive range
