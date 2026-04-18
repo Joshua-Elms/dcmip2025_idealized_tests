@@ -1,3 +1,11 @@
+"""
+These plots are intended to characterize the overall behavior of
+the examined models in this experiment, rather than the very narrow
+question of "How closely do these models match the magnitude of
+Pangu24's response to tropical heating?", as the 2.run_hm24_vis.py
+figures effectively answer.
+"""
+
 from utils import general, vis, model_info
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
@@ -22,11 +30,13 @@ for model in config["models"]:
     lat, lon = ds["lat"].values, ds["lon"].values
     g = 9.81
 
-    it = 30
-    
-    if model == "Pangu24":
+    it = 480
+    centerlon = 180
+
+    if model == "Pangu24" and (it % 24) != 0:
+        print(f"{it} not present in Pangu24, skipping")
         continue
-    
+
     ds500 = ds.sel(lead_time=it).squeeze()
     z500_mean = ds["z500"].isel(lead_time=0).squeeze().values
     z500_pert = ds500["z500"].values
@@ -38,7 +48,6 @@ for model in config["models"]:
     udat = u500_pert - u500_mean
     vdat = v500_pert - v500_mean
     basefield = z500_mean / g
-
 
     #     heating = heating_ds["t500"].isel(time=0).squeeze().values
 
@@ -54,7 +63,7 @@ for model in config["models"]:
         vmin=-anom_mag,
         vmax=anom_mag,
         origin="lower",
-        transform=ccrs.PlateCarree(central_longitude=180),
+        transform=ccrs.PlateCarree(central_longitude=centerlon),
     )
     fig.colorbar(im)
     # plot heating
@@ -70,102 +79,34 @@ for model in config["models"]:
         alpha=0.75,
     )
 
+    fig.suptitle(f"{model} | Z500 anomalies | {it} hours")
+
     fig.savefig(plot_dir / f"z500_{model}_{it}_hours.png", dpi=200)
 
-    # # z1000
-    # nt = config["n_timesteps"]
-    # titles = [f"{model}: $Z_{{1000}}$ at t={t*6} hours" for t in range(0, nt + 1)]
-    # data = ds["z1000"] / (9.8 * 10)
-    # plot_var = f"z1000_{model}"
-    # vis.create_and_plot_variable_gif(
-    #     data=data,
-    #     plot_var=plot_var,
-    #     iter_var="lead_time",
-    #     iter_vals=np.arange(0, nt + 1),
-    #     plot_dir=plot_dir,
-    #     units="dam",
-    #     cmap="PRGn",
-    #     titles=titles,
-    #     keep_images=False,
-    #     dpi=300,
-    #     fps=1,
-    #     vlims=(-50, 50),  # Set vlims for better visualization
-    #     central_longitude=180.0,
-    # )
-    # print(f"Made {plot_var}.gif.")
+    ### Use this part of the code to start the plot!
 
-    # # z500_anom
-    # nt = config["n_timesteps"]
-    # plot_var = f"z500_anom_{model}"
-    # titles = [
-    #     f"{plot_var} at t={t*model_info.MODEL_TIME_STEP_HOURS[model]} hours"
-    #     for t in range(15, nt + 1)
-    # ]
-    # data = np.abs(ds["z500"] - ds["z500"].isel(lead_time=0))[15:]
-    # vis.create_and_plot_variable_gif(
-    #     data=data,
-    #     plot_var=plot_var,
-    #     iter_var="lead_time",
-    #     iter_vals=np.arange(6),
-    #     plot_dir=plot_dir,
-    #     units="J/kg",
-    #     cmap="Reds",
-    #     titles=titles,
-    #     keep_images=False,
-    #     dpi=300,
-    #     fps=1 / 4,
-    #     vlims=(0, 60),  # Set vlims for better visualization
-    #     central_longitude=180.0,
-    # )
-    # print(f"Made {plot_var}.gif.")
+    panel_label = ["(A)", "(B)", "(C)"]
+    plot_vec = False
+    axi = -1
+    g = 9.81
+    lat, lon = ds["lat"].values, ds["lon"].values
+    for it in [120, 240, 480]:
+        axi += 1
 
-    # # heating w/ cartopy borders
-    # fig, ax = plt.subplots(
-    #     figsize=(10, 5), subplot_kw={"projection": ccrs.PlateCarree()}
-    # )
-    # heating_ds["t1000"].isel(time=0).plot(
-    #     ax=ax, cmap="RdBu", cbar_kwargs={"label": "Heating (K/day)"}
-    # )
-    # ax.coastlines()
-    # ax.set_title(f"{model}: Heating")
-    # plt.savefig(plot_dir / f"heating_{model}.png", dpi=200)
-    # plt.close(fig)
-    # print(f"Made heating_{model}.png")
+        # h&m24 plot replication
+        # _mean indicates the mean state
+        # _pert indicates the perturbed run
+        # _anom indicates the anomaly (perturbed run - mean state)
+        ds500 = ds.sel(lead_time=it).squeeze()
+        z500_mean = ds["z500"].isel(lead_time=0).squeeze().values
+        z500_pert = ds500["z500"].values
+        u500_pert = ds500["u500"].values
+        v500_pert = ds500["v500"].values
+        u500_mean = ds["u500"].isel(lead_time=0).squeeze().values
+        v500_mean = ds["v500"].isel(lead_time=0).squeeze().values
+        pzdat = (z500_pert - z500_mean) / g
+        udat = u500_pert - u500_mean
+        vdat = v500_pert - v500_mean
+        basefield = z500_mean / g
 
-    # plot from paper
-    ### begin HM24 fig. 1
-
-    # projection = ccrs.Robinson(central_longitude=120.0)
-    # fig, ax = plt.subplots(
-    #     nrows=3,
-    #     ncols=1,
-    #     figsize=(11 * 2, 8.5 * 2),
-    #     subplot_kw={"projection": projection},
-    #     layout="constrained",
-    # )
-
-    # panel_label = ["(A)", "(B)", "(C)"]
-    # plot_vec = False
-    # axi = -1
-    # g = 9.81
-    # lat, lon = ds["lat"].values, ds["lon"].values
-    # for it in [120, 240, 480]:
-    #     axi += 1
-
-    #     # h&m24 plot replication
-    #     # _mean indicates the mean state
-    #     # _pert indicates the perturbed run
-    #     # _anom indicates the anomaly (perturbed run - mean state)
-    #     ds500 = ds.sel(lead_time=it).squeeze()
-    #     z500_mean = ds["z500"].isel(lead_time=0).squeeze().values
-    #     z500_pert = ds500["z500"].values
-    #     u500_pert = ds500["u500"].values
-    #     v500_pert = ds500["v500"].values
-    #     u500_mean = ds["u500"].isel(lead_time=0).squeeze().values
-    #     v500_mean = ds["v500"].isel(lead_time=0).squeeze().values
-    #     pzdat = (z500_pert - z500_mean) / g
-    #     udat = u500_pert - u500_mean
-    #     vdat = v500_pert - v500_mean
-    #     basefield = z500_mean / g
-
-    #     heating = heating_ds["t500"].isel(time=0).squeeze().values
+        heating = heating_ds["t500"].isel(time=0).squeeze().values

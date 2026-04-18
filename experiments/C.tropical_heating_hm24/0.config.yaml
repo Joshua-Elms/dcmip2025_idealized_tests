@@ -5,7 +5,7 @@ n_timesteps: 80
 device: cuda:0
 tendency_reversion: True
 debug_run: False
-overwrite: True
+overwrite: False
 initial_condition_params:
   HM24_IC_dir: /N/slate/jmelms/projects/IC/DJF_1979-2019/IC_files
 perturbation_params:

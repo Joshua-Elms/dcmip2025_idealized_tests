@@ -267,11 +267,12 @@ def run_deterministic_w_perturbations(
             ),
             coords,
         )
+        
+    model = run_kwargs["prognostic"]
 
     if tendency_reversion:
         print("Running deterministic forecast with tendency reversion.")
         dummy_io = XarrayBackend()
-        model = run_kwargs["prognostic"]
 
         # set up a hook function that appends the model state to a list
         states = []
