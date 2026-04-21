@@ -146,7 +146,7 @@ for model in config["models"]:
         ax.text(
             0.01,
             0.04,
-            f"t = {it} h",
+            f"t = {it}h",
             transform=ax.transAxes,
             fontsize=20,
             fontweight="bold",
